@@ -197,9 +197,14 @@ class _QueryBuilderWindowScreenState extends State<QueryBuilderWindowScreen> {
       // Colunas do resultado
       final cols = dados['colunas'];
       if (cols is List) {
-        _colunasResultado = cols
-            .map((c) => c is Map<String, dynamic> ? c : {'nome': c.toString()})
-            .toList();
+        _colunasResultado = cols.map((c) {
+          final base = c is Map<String, dynamic>
+              ? Map<String, dynamic>.from(c)
+              : {'nome': c.toString()};
+          base['nome'] ??= base['column_name']?.toString();
+          base['tipo'] ??= base['data_type']?.toString();
+          return base;
+        }).toList();
       } else {
         _colunasResultado = [];
       }

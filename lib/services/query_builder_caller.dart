@@ -167,20 +167,54 @@ class QueryBuilderCaller {
   }
 
   static String nomeSchema(dynamic schema) {
+    if (schema == null) return '';
     if (schema is Map) {
-      return schema['schema_name']?.toString() ?? '';
+      return (schema['schema_name'] ??
+              schema['nome'] ??
+              schema['name'] ??
+              schema['schema'] ??
+              '')
+          .toString()
+          .trim();
     }
-    return schema?.toString() ?? '';
+    final str = schema.toString().trim();
+    final match = RegExp(r'schema(?:_name)?:\s*([a-zA-Z0-9_]+)',
+            caseSensitive: false)
+        .firstMatch(str);
+    if (match != null) return match.group(1)!;
+    return str;
   }
 
   static String nomeTabela(dynamic tabela) {
+    if (tabela == null) return '';
     if (tabela is Map) {
-      return tabela['table_name']?.toString() ?? '';
+      return (tabela['table_name'] ??
+              tabela['tableName'] ??
+              tabela['nome'] ??
+              tabela['name'] ??
+              tabela['tabela'] ??
+              '')
+          .toString()
+          .trim();
     }
-    return tabela?.toString() ?? '';
+    final str = tabela.toString().trim();
+    final match = RegExp(r'table(?:_name)?:\s*([a-zA-Z0-9_]+)',
+            caseSensitive: false)
+        .firstMatch(str);
+    if (match != null) return match.group(1)!;
+    return str;
   }
 
   static bool tabelaPertenceAoSchema(dynamic tabela, String schema) {
-    return tabela is! Map || tabela['table_schema']?.toString() == schema;
+    if (tabela is! Map) {
+      final str = tabela.toString();
+      final match = RegExp(r'table_schema:\s*([a-zA-Z0-9_]+)',
+              caseSensitive: false)
+          .firstMatch(str);
+      if (match != null) return match.group(1) == schema;
+      return true;
+    }
+    final sch = (tabela['table_schema'] ?? tabela['schema'])?.toString();
+    return sch == null || sch.isEmpty || sch == schema;
   }
 }
