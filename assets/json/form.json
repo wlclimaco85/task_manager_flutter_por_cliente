@@ -1,0 +1,116 @@
+[
+    {
+        "title": "Cadastro Pessoal",
+        "fields": [
+            {
+                "label": "Nome",
+                "fieldType": "TextInput",
+                "validationField": "EmailValidator",
+                "jsonName" : "nome" ,
+                "type" : "string"
+
+            },
+            {
+                "label": "Email",
+                "fieldType": "TextInput",
+                "jsonName" : "email" ,
+                "type" : "email"
+            },
+            {
+                "label": "CPF",
+                "fieldType": "TextInput",
+                "jsonName" : "cpf" ,
+                "type" : "string"
+            },
+            {
+                "label": "Objetivo",
+                "jsonName" : "objetivo",
+                "fieldType": "SelectList",
+                "options": [
+                    {
+                        "color": "#FFFFFF",
+                        "is_faulty": false,
+                        "optionLabel": "Emagrecimento",
+                        "optionValue": "Emagrecimento"
+                    },
+                    {
+                        "color": "#FFFFFF",
+                        "is_faulty": false,
+                        "optionLabel": "Hipertrofia",
+                        "optionValue": "Hipertrofia"
+                    },
+                    {
+                        "color": "#FFFFFF",
+                        "is_faulty": false,
+                        "optionLabel": "Condicionamento Fisico",
+                        "optionValue": "Condicionamento Fisico"
+                    }
+                ]
+            },
+            {
+                "label": "Peso Atual",
+                "jsonName" : "pesos",
+                "fieldType": "TextInput",
+                "type" : "number"
+            },
+            {
+                "label": "Telefone",
+                "jsonName" : "telefone1",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            {
+                "label": "Endereço",
+                "jsonName" : "logradouro",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            {
+                "label": "Numero",
+                "jsonName" : "numero",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            {
+                "label": "Bairro",
+                "jsonName" : "bairro",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            {
+                "label": "Cidade",
+                "jsonName" : "cidade",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            {
+                "label": "Data Nascimento",
+                "jsonName" : "dtNascimento",
+                "fieldType": "DatetimePicker"
+            },
+            {
+                "label": "Mulher ?",
+                "jsonName" : "sexo",
+                "fieldType": "SwitchInput"
+            },
+            {
+                "label": "foto",
+                "jsonName" : "foto",
+                "fieldType": "foto",
+                "type" : "string"
+            },
+            {
+                "label": "Senha",
+                "jsonName" : "Senha",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            {
+                "label": "Confirmar Senha",
+                "jsonName" : "senha1",
+                "fieldType": "TextInput",
+                "type" : "string"
+            }
+        ]
+    }
+]

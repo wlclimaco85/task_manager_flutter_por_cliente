@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="220" viewBox="0 0 720 220" role="img" aria-label="PortalCont - Seu escritório contábil conectado">
+  <defs>
+    <linearGradient id="markGradient" x1="32" y1="188" x2="184" y2="36" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#18B86A"/>
+      <stop offset="0.48" stop-color="#16A3C7"/>
+      <stop offset="1" stop-color="#0F4C81"/>
+    </linearGradient>
+    <linearGradient id="barGradient" x1="252" y1="163" x2="621" y2="163" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#18B86A"/>
+      <stop offset="0.58" stop-color="#16A3C7"/>
+      <stop offset="1" stop-color="#0F4C81"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0F4C81" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect width="720" height="220" rx="34" fill="#FFFFFF"/>
+
+  <g filter="url(#softShadow)">
+    <circle cx="104" cy="110" r="72" fill="#EEF9FC"/>
+    <path d="M78 64h48c30 0 52 20 52 49s-22 49-52 49h-20v28H78V64Zm45 70c17 0 27-8 27-21s-10-21-27-21h-17v42h17Z" fill="url(#markGradient)"/>
+    <circle cx="52" cy="166" r="13" fill="#18B86A"/>
+    <circle cx="156" cy="55" r="11" fill="#16A3C7"/>
+    <path d="M52 166c32-2 57-17 74-45 9-14 18-27 30-37" fill="none" stroke="#16A3C7" stroke-width="7" stroke-linecap="round" opacity="0.72"/>
+  </g>
+
+  <text x="218" y="103" font-family="Segoe UI, Arial, sans-serif" font-size="54" font-weight="800" letter-spacing="-1.8">
+    <tspan fill="#0F4C81">Portal</tspan><tspan fill="#18B86A">Cont</tspan>
+  </text>
+  <text x="222" y="145" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="500" fill="#4B6478">Seu escritório contábil conectado.</text>
+  <rect x="222" y="162" width="400" height="8" rx="4" fill="url(#barGradient)"/>
+</svg>

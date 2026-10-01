@@ -1,0 +1,82 @@
+[
+    {
+        "title": "Cadastro Pessoal",
+        "fields": [
+            {
+                "label": "Nomes",
+                "fieldType": "TextInput",
+                "validationField": "EmailValidator",
+                "jsonName" : "nome" ,
+                "type" : "string"
+
+            },
+            { 
+                "label": "Email",
+                "fieldType": "TextInput",
+                "jsonName" : "email" ,
+                "type" : "email"
+            },
+            {
+                "label": "CNPJ",
+                "fieldType": "TextInput",
+                "jsonName" : "cpf" ,
+                "type" : "string"
+            },
+            {
+                "label": "Telefone",
+                "jsonName" : "telefone",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            {
+                "label": "Horarios",
+                "jsonName" : "horarios",
+                "fieldType": "Agenda",
+                "type" : "string"
+            },
+            {
+                "label": "Endereço",
+                "jsonName" : "logradouro",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            {
+                "label": "Numero",
+                "jsonName" : "numero",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            {
+                "label": "Bairro",
+                "jsonName" : "bairro",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            {
+                "label": "Cidade",
+                "jsonName" : "cidade",
+                "fieldType": "TextInput",
+                "type" : "string"
+            },
+            { 
+                "label": "Modalidade",
+                "fieldType": "SelectDB",
+                "jsonName" : "modalidade" ,
+                "type" : "string"
+            },
+            {
+                "label": "Foto",
+                "jsonName" : "foto",
+                "fieldType": "foto",
+                "type" : "string"
+            },
+            {
+                "label": "Planos",
+                "jsonName" : "planos",
+                "fieldType": "Plano",
+                "type" : "string"
+            }
+            
+        ]
+    }
+]

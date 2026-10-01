@@ -1,0 +1,25 @@
+import 'package:flutter/material.dart';
+import '../../../../web/screens/nfce/nfce_finalizacao_screen.dart' as web;
+import '../../../../widgets/user_banners.dart';
+
+class MobileNfceFinalizacaoScreen extends StatelessWidget {
+  final dynamic args;
+
+  const MobileNfceFinalizacaoScreen({super.key, this.args});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const UserBannerAppBar(
+        screenTitle: 'Finalização NFC-e',
+        showFilterButton: false,
+        showBackButton: true,
+      ),
+      body: const SafeArea(
+        child: Center(
+          child: Text('Finalização NFC-e Mobile'),
+        ),
+      ),
+    );
+  }
+}
