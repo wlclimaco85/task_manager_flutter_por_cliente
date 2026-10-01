@@ -55,6 +55,7 @@ void main() {
     final telasNfe = nfe.entries.map((tela) => tela.label).toSet();
     expect(telasNfe, contains('NF-e Entrada'));
     expect(telasNfe, contains('NF-e Saída'));
+    expect(telasNfe, contains('NF-e Série'));
     expect(telasNfe, contains('Consulta DF-e'));
     expect(telasNfe, contains('Manifestação Destinatário'));
     expect(telasNfe, contains('Cancelamento e CC-e'));
@@ -63,6 +64,7 @@ void main() {
     final nfse = grupos.firstWhere((grupo) => grupo.label == 'NFS-e');
     final telasNfse = nfse.entries.map((tela) => tela.label).toSet();
     expect(telasNfse, contains('NFSe'));
+    expect(telasNfse, contains('Séries NFS-e'));
     expect(telasNfse, contains('Importar XML NFS-e'));
 
     final nfce = grupos.firstWhere((grupo) => grupo.label == 'NFC-e');
@@ -76,6 +78,22 @@ void main() {
     expect(telasComercial, contains('NF-e Série'));
     expect(telasComercial, contains('Séries NFS-e'));
     expect(telasComercial, contains('Dashboard Fiscal'));
+  });
+
+  test('busca no MenuConfig localiza telas de série com ou sem acento e sinônimos',
+      () {
+    final idsSemAcento = MenuConfig.search('serie').map((m) => m.id).toSet();
+    expect(idsSemAcento, contains('nfe_serie'));
+    expect(idsSemAcento, contains('nfse_serie'));
+
+    final idsComAcento = MenuConfig.search('série').map((m) => m.id).toSet();
+    expect(idsComAcento, contains('nfe_serie'));
+    expect(idsComAcento, contains('nfse_serie'));
+
+    final idsCadastro =
+        MenuConfig.search('cadastro de serie').map((m) => m.id).toSet();
+    expect(idsCadastro, contains('nfe_serie'));
+    expect(idsCadastro, contains('nfse_serie'));
   });
 
   // Bug de producao (2026-09-16, ver bugs.md): "NFC-e (Cupons)" e "Envio EDI

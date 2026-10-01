@@ -1,5 +1,6 @@
 import '../services/permission_service.dart';
 import 'menu_config.dart';
+import 'string_utils.dart';
 
 class RolePermissionMenuEntry {
   final String groupId;
@@ -17,12 +18,23 @@ class RolePermissionMenuEntry {
   });
 
   bool matches(String query) {
-    final normalized = query.trim().toLowerCase();
+    final normalized = StringUtils.normalizeForSearch(query);
     if (normalized.isEmpty) return true;
-    return label.toLowerCase().contains(normalized) ||
-        groupLabel.toLowerCase().contains(normalized) ||
-        menuItemId.toLowerCase().contains(normalized) ||
-        telaNome.toLowerCase().contains(normalized);
+    final l = StringUtils.normalizeForSearch(label);
+    final g = StringUtils.normalizeForSearch(groupLabel);
+    final m = StringUtils.normalizeForSearch(menuItemId.replaceAll('_', ' '));
+    final t = StringUtils.normalizeForSearch(telaNome);
+    if (l.contains(normalized) ||
+        g.contains(normalized) ||
+        m.contains(normalized) ||
+        t.contains(normalized)) {
+      return true;
+    }
+    if ((menuItemId == 'nfe_serie' || menuItemId == 'nfse_serie') &&
+        (normalized.contains('serie') || normalized.contains('cadastro'))) {
+      return true;
+    }
+    return false;
   }
 }
 

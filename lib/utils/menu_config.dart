@@ -1,4 +1,5 @@
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'string_utils.dart';
 
 /// Definição de um item de menu
 class MenuItem {
@@ -13,7 +14,16 @@ class MenuItem {
     required this.icon,
     required this.screenIndex,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MenuItem && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
+
 
 /// Grupo de menu (submenu expansível)
 class MenuGroup {
@@ -195,6 +205,11 @@ class MenuConfig {
             icon: FontAwesomeIcons.fileExport,
             screenIndex: 48),
         MenuItem(
+            id: 'nfe_serie',
+            label: 'NF-e Série',
+            icon: FontAwesomeIcons.hashtag,
+            screenIndex: 55),
+        MenuItem(
             id: 'nfe_finalidade',
             label: 'NF-e Finalidade',
             icon: FontAwesomeIcons.fileCircleCheck,
@@ -246,6 +261,11 @@ class MenuConfig {
             label: 'NFSe',
             icon: FontAwesomeIcons.fileInvoice,
             screenIndex: 99),
+        MenuItem(
+            id: 'nfse_serie',
+            label: 'Séries NFS-e',
+            icon: FontAwesomeIcons.hashtag,
+            screenIndex: 203),
         MenuItem(
             id: 'nfse_import_xml',
             label: 'Importar XML NFS-e',
@@ -1008,9 +1028,24 @@ class MenuConfig {
 
   static List<MenuItem> search(String query) {
     if (query.trim().isEmpty) return [];
-    final q = query.toLowerCase().trim();
-    return allItems.where((m) => m.label.toLowerCase().contains(q)).toList()
-      ..sort((a, b) => a.label.compareTo(b.label));
+    final q = StringUtils.normalizeForSearch(query);
+    final seen = <String>{};
+    final results = <MenuItem>[];
+
+    for (final m in allItems) {
+      if (seen.contains(m.id)) continue;
+      final labelNorm = StringUtils.normalizeForSearch(m.label);
+      final idNorm = StringUtils.normalizeForSearch(m.id.replaceAll('_', ' '));
+      final match = labelNorm.contains(q) ||
+          idNorm.contains(q) ||
+          ((m.id == 'nfe_serie' || m.id == 'nfse_serie') &&
+              (q.contains('serie') || q.contains('cadastro')));
+      if (match) {
+        seen.add(m.id);
+        results.add(m);
+      }
+    }
+    return results..sort((a, b) => a.label.compareTo(b.label));
   }
 
   static MenuGroup? groupOf(String itemId) {
