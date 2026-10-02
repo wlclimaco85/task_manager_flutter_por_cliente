@@ -22,7 +22,7 @@ class WebProdutoDetailScreen extends StatelessWidget {
       item: item,
       telaNome: 'produto',
       hasPermission: hasPermission,
-      relatedTabs: buildProdutoRelatedTabs(produtoId),
+      relatedTabs: buildProdutoRelatedTabs(produtoId, temIss: item['temIss'] == true),
     );
   }
 }

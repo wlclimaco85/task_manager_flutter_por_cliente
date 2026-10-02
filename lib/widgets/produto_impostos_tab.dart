@@ -201,8 +201,9 @@ const List<Map<String, String>> kOpcoesCstIbsCbs = [
 /// destino, consumindo o CRUD `GET/POST/PUT/DELETE /api/produto-imposto-uf`.
 class ProdutoImpostosTab extends StatefulWidget {
   final int produtoId;
+  final bool temIss;
 
-  const ProdutoImpostosTab({super.key, required this.produtoId});
+  const ProdutoImpostosTab({super.key, required this.produtoId, this.temIss = false});
 
   @override
   State<ProdutoImpostosTab> createState() => _ProdutoImpostosTabState();
@@ -265,6 +266,7 @@ class _ProdutoImpostosTabState extends State<ProdutoImpostosTab> {
         existente: existente,
         // Regra padrao ja cadastrada nao pode ser reaberta em "novo" pra virar duplicata.
         regraPadraoJaExiste: _regraPadrao != null,
+        temIss: widget.temIss,
       ),
     );
     if (salvo == true) {
@@ -608,15 +610,18 @@ class _CopiarProdutoImpostosDialogState
 /// por UF). `existente` nulo = criação; UF nula = regra padrão.
 class _ProdutoImpostoUfFormDialog extends StatefulWidget {
   final int produtoId;
+  final bool temIss;
   final List<Map<String, dynamic>> estados;
   final Map<String, dynamic>? existente;
   final bool regraPadraoJaExiste;
+  final bool temIss;
 
   const _ProdutoImpostoUfFormDialog({
     required this.produtoId,
     required this.estados,
     required this.existente,
     required this.regraPadraoJaExiste,
+    this.temIss = false,
   });
 
   @override
@@ -863,8 +868,25 @@ class _ProdutoImpostoUfFormDialogState
                 _secaoTitulo('ISS'),
                 // Codigo de tributacao do ISS varia por MUNICIPIO (nao ha
                 // tabela nacional unica) -- mantido texto livre.
-                _campoTexto('Código tributação ISS', _codTribIssCtrl),
-                _campoNumero('Alíquota ISS (%)', _aliqIssCtrl),
+                _campoTexto(
+                  'Código tributação ISS',
+                  _codTribIssCtrl,
+                  validator: (v) => widget.temIss && (v == null || v.trim().isEmpty)
+                      ? 'Obrigatório para produto com ISS'
+                      : null,
+                ),
+                _campoNumero(
+                  'Alíquota ISS (%)',
+                  _aliqIssCtrl,
+                  validator: (v) {
+                    final erro = _validarNumero(v);
+                    if (erro != null) return erro;
+                    if (widget.temIss && (v == null || v.trim().isEmpty)) {
+                      return 'Obrigatório para produto com ISS';
+                    }
+                    return null;
+                  },
+                ),
                 _secaoTitulo('PIS'),
                 // CST PIS: dropdown fechado (Tabela 4.3.4 do MOC NF-e).
                 _campoDropdown(
@@ -958,7 +980,7 @@ class _ProdutoImpostoUfFormDialogState
         ),
       );
 
-  Widget _campoTexto(String label, TextEditingController controller) => Padding(
+  Widget _campoTexto(String label, TextEditingController controller, {FormFieldValidator<String>? validator}) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: TextFormField(
           controller: controller,
@@ -966,13 +988,13 @@ class _ProdutoImpostoUfFormDialogState
         ),
       );
 
-  Widget _campoNumero(String label, TextEditingController controller) => Padding(
+  Widget _campoNumero(String label, TextEditingController controller, {FormFieldValidator<String>? validator}) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: TextFormField(
           controller: controller,
           decoration: InputDecoration(labelText: label),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          validator: _validarNumero,
+          validator: validator ?? _validarNumero,
         ),
       );
 }

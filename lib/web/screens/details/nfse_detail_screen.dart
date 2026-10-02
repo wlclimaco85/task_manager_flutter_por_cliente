@@ -1009,7 +1009,24 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
             selected['codigo_tributacao_municipal']?.toString() ??
             item['codigoTributacaoMunicipal'] ??
             '';
-    _recalcularServicoItem(item);
+            
+    final temIss = selected['temIss'] == true || selected['tem_iss'] == true;
+    
+    if (temIss) {
+      if (id != null) {
+        _carregarImpostosServico(item, id);
+      } else {
+        _recalcularServicoItem(item);
+      }
+    } else {
+      item['aliquotaIss'] = '0.00';
+      item['aliquota_iss'] = '0.00';
+      item['valorIss'] = '0.00';
+      item['valor_iss'] = '0.00';
+      item['codigoTributacaoMunicipal'] = '';
+      item['codigo_tributacao_municipal'] = '';
+      _recalcularServicoItem(item);
+    }
   }
 
   Future<void> _carregarImpostosServico(
@@ -1560,13 +1577,9 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
               },
               onItemSelected: (selected) {
                 if (selected == null) return;
-                final id = selected['id']?.toString();
                 setState(() {
                   _aplicarProdutoServicoSelecionado(item, selected);
                 });
-                if (id != null && id.isNotEmpty) {
-                  _carregarImpostosServico(item, id);
-                }
               },
             );
           }),

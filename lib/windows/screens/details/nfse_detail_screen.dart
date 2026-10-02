@@ -1439,10 +1439,25 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
                   '';
               item['codigoTributacaoMunicipal'] =
                   prod['codigoTributacaoMunicipal']?.toString() ?? '';
-            }
-            _recalcularServicoItem(item);
-            if (v != null && v.isNotEmpty) {
-              _carregarImpostosServico(item, v);
+                  
+              final temIss = prod['temIss'] == true || prod['tem_iss'] == true;
+              if (temIss) {
+                if (v != null && v.isNotEmpty) {
+                  _carregarImpostosServico(item, v);
+                } else {
+                  _recalcularServicoItem(item);
+                }
+              } else {
+                item['aliquotaIss'] = '0.00';
+                item['aliquota_iss'] = '0.00';
+                item['valorIss'] = '0.00';
+                item['valor_iss'] = '0.00';
+                item['codigoTributacaoMunicipal'] = '';
+                item['codigo_tributacao_municipal'] = '';
+                _recalcularServicoItem(item);
+              }
+            } else {
+              _recalcularServicoItem(item);
             }
           });
         }),

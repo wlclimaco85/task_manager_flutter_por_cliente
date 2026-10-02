@@ -4,7 +4,7 @@ import 'generic_detail_form_screen.dart';
 import 'produto_impostos_tab.dart';
 import 'produto_notas_tab.dart';
 
-List<RelatedGridTab> buildProdutoRelatedTabs(int produtoId) {
+List<RelatedGridTab> buildProdutoRelatedTabs(int produtoId, {bool temIss = false}) {
   final idIndisponivel =
       const Center(child: Text('ID do produto nao disponivel'));
 
@@ -13,7 +13,7 @@ List<RelatedGridTab> buildProdutoRelatedTabs(int produtoId) {
       title: 'Tributos',
       icon: Icons.receipt_long,
       customWidget: produtoId > 0
-          ? ProdutoImpostosTab(produtoId: produtoId)
+          ? ProdutoImpostosTab(produtoId: produtoId, temIss: temIss)
           : idIndisponivel,
     ),
     RelatedGridTab(
