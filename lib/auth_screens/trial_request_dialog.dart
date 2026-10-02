@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -28,20 +29,11 @@ class _TrialRequestDialogState extends State<TrialRequestDialog> {
     'Outro'
   ];
 
-  final List<String> _modulosDisponiveis = [
-    'Pacote completo',
-    'Fiscal e NF-e',
-    'GME',
-    'NFS-e',
-    'NFC-e',
-    'Precificação de contratos',
-    'Service Desk',
-    'Projetos',
-    'Precificação',
-    'Financeiro avançado',
-    'DRE gerencial',
-    'Estoque e giro',
-  ];
+  List<Map<String, dynamic>> _modulosDisponiveis = [];
+  String _termoContrato = '';
+  bool _isLoadingData = true;
+
+
   
   final Set<String> _modulosSelecionados = {};
   bool _aceitouTermo = false;
@@ -51,7 +43,41 @@ class _TrialRequestDialogState extends State<TrialRequestDialog> {
   void initState() {
     super.initState();
     _fetchLocation();
+    _fetchInitialData();
   }
+
+  Future<void> _fetchInitialData() async {
+    try {
+      final modulosRes = await http.get(Uri.parse('${ApiLinks.baseUrl}/api/public/modulos'));
+      if (modulosRes.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(utf8.decode(modulosRes.bodyBytes));
+        if (mounted) {
+          setState(() {
+            _modulosDisponiveis = data.map((e) => e as Map<String, dynamic>).toList();
+          });
+        }
+      }
+
+      final termoRes = await http.get(Uri.parse('${ApiLinks.baseUrl}/api/public/termo-contrato/ativo'));
+      if (termoRes.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(termoRes.bodyBytes));
+        if (mounted) {
+          setState(() {
+            _termoContrato = data['conteudo'] ?? '';
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar dados iniciais: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingData = false;
+        });
+      }
+    }
+  }
+
 
   Future<void> _fetchLocation() async {
     try {
@@ -72,14 +98,14 @@ class _TrialRequestDialogState extends State<TrialRequestDialog> {
   }
 
   double get _valorTotal {
-    if (_modulosSelecionados.contains('Pacote completo')) {
-      return 199.90;
+    double total = 0.0;
+    for (var nome in _modulosSelecionados) {
+      final mod = _modulosDisponiveis.firstWhere((m) => m['nome'] == nome, orElse: () => {});
+      if (mod.isNotEmpty && mod['valorMensal'] != null) {
+        total += (mod['valorMensal'] as num).toDouble();
+      }
     }
-    int quantidadeCobrada = _modulosSelecionados.length;
-    if (quantidadeCobrada > 3) {
-      quantidadeCobrada = 3; // Cobra no máximo 3 módulos
-    }
-    return quantidadeCobrada * 99.90;
+    return total;
   }
 
   Future<void> _submit() async {
@@ -123,7 +149,7 @@ class _TrialRequestDialogState extends State<TrialRequestDialog> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Solicitação enviada com sucesso! Em breve entraremos em contato.'),
+            content: Text('Sua solicitação foi enviada e está aguardando aprovação.'),
             backgroundColor: Colors.green,
           ),
         );
@@ -152,6 +178,16 @@ class _TrialRequestDialogState extends State<TrialRequestDialog> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingData) {
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: const SizedBox(
+          width: 600,
+          height: 300,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
@@ -248,27 +284,18 @@ class _TrialRequestDialogState extends State<TrialRequestDialog> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: _modulosDisponiveis.map((m) {
+                        children: _modulosDisponiveis.map((mapItem) {
+                          final m = mapItem['nome'] as String;
                           final isSelected = _modulosSelecionados.contains(m);
                           return FilterChip(
                             label: Text(m),
                             selected: isSelected,
                             onSelected: (selected) {
                               setState(() {
-                                if (m == 'Pacote completo') {
-                                  if (selected) {
-                                    _modulosSelecionados.clear();
-                                    _modulosSelecionados.add(m);
-                                  } else {
-                                    _modulosSelecionados.remove(m);
-                                  }
+                                if (selected) {
+                                  _modulosSelecionados.add(m);
                                 } else {
-                                  _modulosSelecionados.remove('Pacote completo');
-                                  if (selected) {
-                                    _modulosSelecionados.add(m);
-                                  } else {
-                                    _modulosSelecionados.remove(m);
-                                  }
+                                  _modulosSelecionados.remove(m);
                                 }
                               });
                             },
@@ -295,8 +322,8 @@ class _TrialRequestDialogState extends State<TrialRequestDialog> {
                         height: 150,
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(4)),
-                        child: const SingleChildScrollView(
-                          child: Text(_termoContrato, style: TextStyle(fontSize: 12)),
+                        child: SingleChildScrollView(
+                          child: Text(_termoContrato, style: const TextStyle(fontSize: 12)),
                         ),
                       ),
                       CheckboxListTile(
@@ -358,22 +385,4 @@ class _TrialRequestDialogState extends State<TrialRequestDialog> {
   }
 }
 
-const String _termoContrato = '''CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE SOFTWARE (SaaS)
 
-Pelo presente instrumento particular, as partes firmam o presente Contrato de Licenciamento e Prestação de Serviços de Software, mediante as cláusulas e condições a seguir:
-
-1. DO OBJETO
-O presente contrato tem por objeto o licenciamento de uso do Software AppAcademia (SaaS), bem como a prestação de serviços de suporte e manutenção referentes aos módulos selecionados por liberalidade do CLIENTE.
-
-2. DO PERÍODO DE TESTE GRATUITO (TRIAL)
-O CLIENTE fará jus a um período de teste gratuito de 30 (trinta) dias ininterruptos, contados a partir da presente data de aceitação. Durante este período, não haverá qualquer cobrança pelo uso dos módulos.
-
-3. DA COBRANÇA E CANCELAMENTO
-3.1. A cobrança do valor correspondente aos módulos selecionados será iniciada automaticamente no 31º (trigésimo primeiro) dia.
-3.2. O CLIENTE poderá cancelar a assinatura a qualquer momento, sem multa, desde que o faça antes da geração da fatura do mês subsequente, cessando imediatamente o acesso ao sistema.
-
-4. DA PRIVACIDADE E PROTEÇÃO DE DADOS
-Os dados informados (CPF, CNPJ, Localização, Nome e E-mail) serão utilizados exclusivamente para fins de faturamento, cadastro e suporte, em conformidade com a Lei Geral de Proteção de Dados (LGPD).
-
-Ao marcar a caixa de seleção e prosseguir, o CLIENTE declara ter lido, compreendido e aceitado todos os termos deste contrato.
-''';
