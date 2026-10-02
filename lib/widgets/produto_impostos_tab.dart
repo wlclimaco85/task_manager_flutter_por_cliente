@@ -614,7 +614,6 @@ class _ProdutoImpostoUfFormDialog extends StatefulWidget {
   final List<Map<String, dynamic>> estados;
   final Map<String, dynamic>? existente;
   final bool regraPadraoJaExiste;
-  final bool temIss;
 
   const _ProdutoImpostoUfFormDialog({
     required this.produtoId,
@@ -985,6 +984,7 @@ class _ProdutoImpostoUfFormDialogState
         child: TextFormField(
           controller: controller,
           decoration: InputDecoration(labelText: label),
+          validator: validator,
         ),
       );
 
