@@ -146,11 +146,23 @@ class _TrialRequestDialogState extends State<TrialRequestDialog> {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         if (!mounted) return;
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sua solicitação foi enviada e está aguardando aprovação.'),
-            backgroundColor: Colors.green,
+        Navigator.of(context).pop(); // Close the form dialog
+        
+        // Show explicit alert that it is pending approval
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Solicitação Enviada'),
+            content: const Text(
+              'Sua solicitação foi enviada com sucesso e está aguardando aprovação.\n\n'
+              'Você receberá um retorno em breve.'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
           ),
         );
       } else {
