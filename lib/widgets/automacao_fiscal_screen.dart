@@ -1,11 +1,19 @@
+import 'dart:convert';
+import 'dart:io' as io;
+
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
+import '../models/auth_utility.dart';
 import '../services/network_caller.dart';
 import '../utils/api_links.dart';
 import '../utils/app_logger.dart';
 import '../utils/grid_colors.dart';
+import '../utils/tenant_context.dart';
 import '../windows/dialogs/fornecedor_form_dialog.dart';
 import 'nfce/nfce_notice_banner.dart';
 
@@ -96,7 +104,19 @@ String formatarEntidadeRastreabilidade({
 /// Monta o contrato de ParceiroDTO usado pelo cadastro vindo da ReceitaWS.
 Map<String, dynamic> montarPayloadParceiroAutomacaoFiscal(
     Map<String, dynamic> payload) {
-  return {...payload, 'tipoEstabelecimento': 'MATRIZ'}..remove('endereco');
+  final res = <String, dynamic>{...payload, 'tipoEstabelecimento': 'MATRIZ'}
+    ..remove('endereco');
+  if (payload['empresaId'] != null) {
+    res['empresa'] = {'id': payload['empresaId']};
+  } else if (payload['empresa'] != null && payload['empresa'] is Map) {
+    res['empresa'] = {'id': payload['empresa']['id']};
+  }
+  if (payload['parceiroId'] != null) {
+    res['parceiro'] = {'id': payload['parceiroId']};
+  } else if (payload['parceiro'] != null && payload['parceiro'] is Map) {
+    res['parceiro'] = {'id': payload['parceiro']['id']};
+  }
+  return res;
 }
 
 /// Gera texto formatado e consolidado contendo todas as exceptions e erros da automação fiscal
@@ -367,6 +387,7 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
   bool _carregando = true;
   bool _salvando = false;
   bool _executando = false;
+  bool _enviandoArquivos = false;
   String? _erroCarregamento;
 
   DateTime? _ultimaExecucao;
@@ -577,6 +598,81 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
       AppLogger.i.error('[AutomacaoFiscal] Erro ao executar agora: $e', st);
     } finally {
       if (mounted) setState(() => _executando = false);
+    }
+  }
+
+  Future<void> _enviarArquivosLocais() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: true,
+        withData: true,
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'xml', 'txt'],
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      setState(() => _enviandoArquivos = true);
+      _snack('Enviando ${result.files.length} arquivo(s) para o servidor e processando...');
+
+      final uri = Uri.parse('${ApiLinks.baseUrl}/api/automacao-fiscal/upload-lote');
+      final request = http.MultipartRequest('POST', uri);
+
+      final token = AuthUtility.userInfo?.token;
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+      final tenantHeaders = Map<String, String>.from(TenantContext.headers);
+      request.headers.addAll(tenantHeaders);
+
+      for (final arq in result.files) {
+        Uint8List bytes;
+        if (arq.bytes != null) {
+          bytes = arq.bytes!;
+        } else if (arq.path != null) {
+          bytes = await io.File(arq.path!).readAsBytes();
+        } else {
+          continue;
+        }
+        request.files.add(http.MultipartFile.fromBytes(
+          'files',
+          bytes,
+          filename: arq.name,
+        ));
+      }
+
+      final streamed = await request.send();
+      final bodyStr = await streamed.stream.bytesToString();
+      if (!mounted) return;
+
+      if (streamed.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(bodyStr);
+        String mensagem = 'Execução concluída com sucesso!';
+        if (body['ultimoResultado'] != null) {
+          final res = body['ultimoResultado'].toString().trim();
+          if (res.isNotEmpty) {
+            mensagem = 'Execução concluída ($res).';
+            _ultimoResultado = res;
+          }
+        }
+        if (body['ultimaExecucao'] != null) {
+          _ultimaExecucao = DateTime.tryParse(body['ultimaExecucao'].toString());
+        }
+        if (body['ultimosLogs'] != null && body['ultimosLogs'] is List) {
+          _logs = List<Map<String, dynamic>>.from(
+              (body['ultimosLogs'] as List)
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e)));
+        }
+        _snack(mensagem);
+        await _carregar();
+      } else {
+        _snack('Erro no envio (status ${streamed.statusCode}): $bodyStr', error: true);
+      }
+    } catch (e, st) {
+      if (mounted) _snack('Erro ao enviar arquivos: $e', error: true);
+      AppLogger.i.error('[AutomacaoFiscal] Erro no upload em lote: $e', st);
+    } finally {
+      if (mounted) setState(() => _enviandoArquivos = false);
     }
   }
 
@@ -816,7 +912,27 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
 
     if (!mounted) return;
 
+    final loginEmpresa = AuthUtility.userInfo?.login?.empresa;
+    final loginParceiro = AuthUtility.userInfo?.login?.parceiro;
+
+    int? sugestaoParceiroId = loginParceiro?.id;
+    String? sugestaoParceiroNome =
+        loginParceiro?.nome ?? loginParceiro?.razaoSocial;
+    if (sugestaoParceiroId == null) {
+      for (final l in _logs) {
+        if (l['parceiroId'] != null) {
+          sugestaoParceiroId = int.tryParse(l['parceiroId'].toString());
+          sugestaoParceiroNome = l['parceiroNome']?.toString();
+          break;
+        }
+      }
+    }
+
     final initialData = <String, dynamic>{
+      'empresaId': loginEmpresa?.id,
+      'empresaNome': loginEmpresa?.nome,
+      'parceiroId': sugestaoParceiroId,
+      'parceiroNome': sugestaoParceiroNome,
       'nome': (dadosReceita?['nomeFantasia'] ?? dadosReceita?['nome'] ?? '')
           .toString()
           .trim(),
@@ -1128,11 +1244,31 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
                         'será executada.'),
                 onChanged: (v) => setState(() => _ativo = v),
               ),
-              const SizedBox(height: 12),
+              _avisoServidorNuvem(),
               LayoutBuilder(builder: (context, constraints) {
                 final compacto = constraints.maxWidth < _kCompactoBreakpoint;
+                final enviarArquivos = ElevatedButton.icon(
+                  key: const Key('btn_enviar_arquivos_locais'),
+                  onPressed: (_enviandoArquivos || _executando || _salvando)
+                      ? null
+                      : _enviarArquivosLocais,
+                  icon: _enviandoArquivos
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.cloud_upload_outlined),
+                  label: Text(_enviandoArquivos
+                      ? 'Processando...'
+                      : 'Enviar arquivos da minha máquina'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                  ),
+                );
                 final salvar = ElevatedButton.icon(
-                  onPressed: _salvando ? null : _salvar,
+                  onPressed: (_salvando || _enviandoArquivos) ? null : _salvar,
                   icon: _salvando
                       ? const SizedBox(
                           width: 16,
@@ -1147,7 +1283,7 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
                   ),
                 );
                 final executar = OutlinedButton.icon(
-                  onPressed: _executando ? null : _executarAgora,
+                  onPressed: (_executando || _enviandoArquivos) ? null : _executarAgora,
                   icon: _executando
                       ? const SizedBox(
                           width: 16,
@@ -1160,15 +1296,48 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
                 );
                 return compacto
                     ? Column(children: [
+                        SizedBox(width: double.infinity, child: enviarArquivos),
+                        const SizedBox(height: 8),
                         SizedBox(width: double.infinity, child: salvar),
                         const SizedBox(height: 8),
                         SizedBox(width: double.infinity, child: executar),
                       ])
-                    : Wrap(spacing: 12, children: [salvar, executar]);
+                    : Wrap(spacing: 12, runSpacing: 8, children: [enviarArquivos, salvar, executar]);
               }),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _avisoServidorNuvem() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: GridColors.info.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: GridColors.info.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.cloud_outlined, color: GridColors.info, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Aviso de Nuvem / Servidor Remoto: Quando o sistema está no servidor web/nuvem, ele não tem acesso '
+              'ao disco rígido local (C:\\...) do seu computador. Use o botão "Enviar arquivos da minha máquina" '
+              'para carregar e processar imediatamente os boletos, XMLs e SPEDs salvos no seu PC.',
+              style: const TextStyle(
+                fontSize: 12,
+                color: GridColors.textSecondary,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1711,13 +1880,13 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
       child: DataTable(
         headingRowColor: WidgetStateProperty.all(GridColors.gridHeader),
         columns: const [
+          DataColumn(label: Text('Ações')),
           DataColumn(label: Text('Data/Hora')),
           DataColumn(label: Text('Origem')),
           DataColumn(label: Text('Arquivo')),
           DataColumn(label: Text('Tipo')),
           DataColumn(label: Text('Status')),
           DataColumn(label: Text('Mensagem / Exception')),
-          DataColumn(label: Text('Ações')),
         ],
         rows: _logs.map((log) {
           final ehJaImportado = _ehJaImportado(log);
@@ -1726,98 +1895,119 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
           final cnpj = extrairCnpj(log['mensagem']?.toString());
           final logIdStr = (log['id'] ?? log['arquivo'] ?? '').toString();
 
-          return DataRow(cells: [
-            DataCell(Text(
-              _formatarDataHora(log['dhCreatedAt']),
-              style: const TextStyle(
-                  fontSize: 11, color: GridColors.textSecondary),
-            )),
-            DataCell(Text(origemLabel(log['origem']?.toString()))),
-            DataCell(Text(log['arquivo']?.toString() ?? '')),
-            DataCell(_tipoChip(ehJaImportado
-                ? 'JA_IMPORTADO'
-                : log['tipoDocumento']?.toString())),
-            DataCell(_statusChip(sucesso: sucesso, jaImportado: ehJaImportado)),
-            DataCell(SizedBox(
-              width: 250,
-              child: Text(
-                log['mensagem']?.toString() ?? '',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: ehErroReal
-                        ? GridColors.error
-                        : GridColors.textSecondary,
-                    fontSize: 12),
-              ),
-            )),
-            DataCell(Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextButton.icon(
-                  key: Key('btn_rastreabilidade_$logIdStr'),
-                  icon: const Icon(Icons.manage_search_outlined,
-                      size: 18, color: GridColors.primary),
-                  label: const Text('Ver detalhes'),
-                  onPressed: () => _abrirDialogRastreabilidade(log),
-                ),
-                if (ehErroReal) ...[
-                  IconButton(
-                    icon: const Icon(Icons.copy,
-                        size: 16, color: GridColors.error),
-                    tooltip: 'Copiar mensagem/exception deste erro',
-                    onPressed: () => _copiarErroIndividual(log),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline,
-                        size: 16, color: GridColors.error),
-                    tooltip: 'Remover este erro do histórico',
-                    onPressed: () => _removerErroIndividual(log),
-                  ),
-                ],
-                if (ehErroReal && cnpj != null)
+          return DataRow(
+            onSelectChanged: (_) => _abrirDialogRastreabilidade(log),
+            cells: [
+              DataCell(Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   ElevatedButton.icon(
+                    key: Key('btn_rastreabilidade_$logIdStr'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: GridColors.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                          horizontal: 10, vertical: 6),
                       textStyle: const TextStyle(
                           fontSize: 11, fontWeight: FontWeight.bold),
+                      elevation: 0,
                     ),
-                    icon: const Icon(Icons.verified_user_outlined, size: 14),
-                    label: const Text('Aprovar (ReceitaWS)'),
-                    onPressed: () {
-                      final ehSac = (log['mensagem']
-                                  ?.toString()
-                                  .toLowerCase()
-                                  .contains('sacado') ==
-                              true ||
-                          log['mensagem']
-                                  ?.toString()
-                                  .toLowerCase()
-                                  .contains('parceiro') ==
-                              true ||
-                          log['mensagem']
-                                  ?.toString()
-                                  .toLowerCase()
-                                  .contains('destinatario') ==
-                              true);
-                      _abrirAprovacaoCadastro(PendenciaCadastro(
-                        cnpj: cnpj,
-                        papel: ehSac
-                            ? PapelCadastro.sacado
-                            : PapelCadastro.fornecedor,
-                        arquivo: log['arquivo']?.toString() ?? 'Arquivo',
-                        tipoDocumento: log['tipoDocumento']?.toString(),
-                        origem: log['origem']?.toString(),
-                        motivo: log['mensagem']?.toString(),
-                      ));
-                    },
+                    icon: const Icon(Icons.manage_search_outlined, size: 16),
+                    label: const Text('Ver detalhes'),
+                    onPressed: () => _abrirDialogRastreabilidade(log),
                   ),
-              ],
-            )),
-          ]);
+                  if (ehErroReal) ...[
+                    IconButton(
+                      icon: const Icon(Icons.copy,
+                          size: 16, color: GridColors.error),
+                      tooltip: 'Copiar mensagem/exception deste erro',
+                      onPressed: () => _copiarErroIndividual(log),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline,
+                          size: 16, color: GridColors.error),
+                      tooltip: 'Remover este erro do histórico',
+                      onPressed: () => _removerErroIndividual(log),
+                    ),
+                  ],
+                  if (ehErroReal && cnpj != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: GridColors.secondary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          textStyle: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        icon: const Icon(Icons.verified_user_outlined, size: 14),
+                        label: const Text('Aprovar (ReceitaWS)'),
+                        onPressed: () {
+                          final ehSac = (log['mensagem']
+                                      ?.toString()
+                                      .toLowerCase()
+                                      .contains('sacado') ==
+                                  true ||
+                              log['mensagem']
+                                      ?.toString()
+                                      .toLowerCase()
+                                      .contains('parceiro') ==
+                                  true ||
+                              log['mensagem']
+                                      ?.toString()
+                                      .toLowerCase()
+                                      .contains('destinatario') ==
+                                  true);
+                          _abrirAprovacaoCadastro(PendenciaCadastro(
+                            cnpj: cnpj,
+                            papel: ehSac
+                                ? PapelCadastro.sacado
+                                : PapelCadastro.fornecedor,
+                            arquivo: log['arquivo']?.toString() ?? 'Arquivo',
+                            tipoDocumento: log['tipoDocumento']?.toString(),
+                            origem: log['origem']?.toString(),
+                            motivo: log['mensagem']?.toString(),
+                          ));
+                        },
+                      ),
+                    ),
+                ],
+              )),
+              DataCell(Text(
+                _formatarDataHora(log['dhCreatedAt']),
+                style: const TextStyle(
+                    fontSize: 11, color: GridColors.textSecondary),
+              )),
+              DataCell(Text(origemLabel(log['origem']?.toString()))),
+              DataCell(SizedBox(
+                width: 220,
+                child: Text(
+                  log['arquivo']?.toString() ?? '',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              )),
+              DataCell(_tipoChip(ehJaImportado
+                  ? 'JA_IMPORTADO'
+                  : log['tipoDocumento']?.toString())),
+              DataCell(_statusChip(sucesso: sucesso, jaImportado: ehJaImportado)),
+              DataCell(SizedBox(
+                width: 250,
+                child: Text(
+                  log['mensagem']?.toString() ?? '',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: ehErroReal
+                          ? GridColors.error
+                          : GridColors.textSecondary,
+                      fontSize: 12),
+                ),
+              )),
+            ],
+          );
         }).toList(),
       ),
     );
@@ -1954,13 +2144,14 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              OutlinedButton.icon(
+              ElevatedButton.icon(
                 key: Key('btn_card_rastreabilidade_$logIdStr'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: GridColors.primary,
-                  side: const BorderSide(color: GridColors.primary),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: GridColors.primary,
+                  foregroundColor: Colors.white,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  elevation: 0,
                 ),
                 icon: const Icon(Icons.manage_search_outlined, size: 16),
                 label: const Text('Ver detalhes',
