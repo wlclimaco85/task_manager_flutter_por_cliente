@@ -640,7 +640,7 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
         ));
       }
 
-      final streamed = await request.send();
+      final streamed = await request.send().timeout(const Duration(minutes: 5));
       final bodyStr = await streamed.stream.bytesToString();
       if (!mounted) return;
 
