@@ -515,7 +515,7 @@ class _ProdutoImpostosTabState extends State<ProdutoImpostosTab> {
       if (_isPreenchido(config['aliquotaIcms']))
         'ICMS ${_fmt(config['aliquotaIcms'])}%',
       if (_isPreenchido(config['aliqIpi'])) 'IPI ${_fmt(config['aliqIpi'])}%',
-      if (_isPreenchido(config['aliqIss'])) 'ISS ${_fmt(config['aliqIss'])}%',
+      if (_isPreenchido(config['aliqIss'])) 'ISSQN ${_fmt(config['aliqIss'])}%',
       if (_isPreenchido(config['pPis'])) 'PIS ${_fmt(config['pPis'])}%',
       if (_isPreenchido(config['pCofins']))
         'COFINS ${_fmt(config['pCofins'])}%',
@@ -864,24 +864,24 @@ class _ProdutoImpostoUfFormDialogState
                 // centenas de entradas (TIPI/RFB), grande demais pra embutir
                 // aqui sem fonte oficial baixada -- mantido texto livre.
                 _campoTexto('Código enquadramento IPI', _codEnqIpiCtrl),
-                _secaoTitulo('ISS'),
-                // Codigo de tributacao do ISS varia por MUNICIPIO (nao ha
+                _secaoTitulo('ISSQN'),
+                // Codigo de tributacao do ISSQN varia por MUNICIPIO (nao ha
                 // tabela nacional unica) -- mantido texto livre.
                 _campoTexto(
-                  'Código tributação ISS',
+                  'Código tributação ISSQN',
                   _codTribIssCtrl,
                   validator: (v) => widget.temIss && (v == null || v.trim().isEmpty)
-                      ? 'Obrigatório para produto com ISS'
+                      ? 'Obrigatório para produto com ISSQN'
                       : null,
                 ),
                 _campoNumero(
-                  'Alíquota ISS (%)',
+                  'Alíquota ISSQN (%)',
                   _aliqIssCtrl,
                   validator: (v) {
                     final erro = _validarNumero(v);
                     if (erro != null) return erro;
                     if (widget.temIss && (v == null || v.trim().isEmpty)) {
-                      return 'Obrigatório para produto com ISS';
+                      return 'Obrigatório para produto com ISSQN';
                     }
                     return null;
                   },
