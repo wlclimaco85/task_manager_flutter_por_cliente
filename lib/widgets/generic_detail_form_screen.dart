@@ -508,6 +508,7 @@ class _GenericDetailFormScreenState extends State<GenericDetailFormScreen>
         final val = entry.value;
         final valStr = val.toString();
         final isScalar = key == 'ambiente' ||
+            key == 'origem' ||
             key == 'status' ||
             key == 'tipo' ||
             key == 'tipoConta' ||
