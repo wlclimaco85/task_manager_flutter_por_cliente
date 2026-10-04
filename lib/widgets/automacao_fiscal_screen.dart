@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io' as io;
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -743,27 +742,8 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
       if (mounted) setState(() => _enviandoArquivos = false);
     }
   }
-        if (body['ultimaExecucao'] != null) {
-          _ultimaExecucao = DateTime.tryParse(body['ultimaExecucao'].toString());
-        }
-        if (body['ultimosLogs'] != null && body['ultimosLogs'] is List) {
-          _logs = List<Map<String, dynamic>>.from(
-              (body['ultimosLogs'] as List)
-                  .whereType<Map>()
-                  .map((e) => Map<String, dynamic>.from(e)));
-        }
-        _snack(mensagem);
-        await _carregar();
-      } else {
-        _snack('Erro no envio (status ${streamed.statusCode}): $bodyStr', error: true);
-      }
-    } catch (e, st) {
-      if (mounted) _snack('Erro ao enviar arquivos: $e', error: true);
-      AppLogger.i.error('[AutomacaoFiscal] Erro no upload em lote: $e', st);
-    } finally {
-      if (mounted) setState(() => _enviandoArquivos = false);
-    }
-  }
+
+
 
   bool _ehJaImportado(Map<String, dynamic> log) {
     final status = (log['status'] ?? '').toString().toUpperCase();
