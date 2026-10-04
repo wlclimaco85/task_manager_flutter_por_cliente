@@ -107,21 +107,8 @@ class MenuConfig {
       icon: FontAwesomeIcons.briefcase,
       items: [
         // Série e Dashboard fiscal ficam aqui por serem conceitos COMUNS
-        // entre NF-e/NFS-e/NFC-e (cada documento tem sua propria numeracao/
-        // série, mas a gestao de série e o dashboard consolidado sao vistos
-        // como administrativos, nao exclusivos de um tipo de documento --
-        // pedido explicito do usuario pra desembaralhar o menu Comercial,
-        // que antes misturava NF-e/NFS-e/NFC-e junto com vendas/compras).
-        MenuItem(
-            id: 'nfe_serie',
-            label: 'NF-e Série',
-            icon: FontAwesomeIcons.hashtag,
-            screenIndex: 55),
-        MenuItem(
-            id: 'nfse_serie',
-            label: 'Séries NFS-e',
-            icon: FontAwesomeIcons.hashtag,
-            screenIndex: 203),
+        // Série e Dashboard fiscal ficam aqui por serem conceitos COMUNS
+        // entre NF-e/NFS-e/NFC-e
         MenuItem(
             id: 'dashboard_fiscal',
             label: 'Dashboard Fiscal',
@@ -206,7 +193,7 @@ class MenuConfig {
             screenIndex: 48),
         MenuItem(
             id: 'nfe_serie',
-            label: 'NF-e Série',
+            label: 'Série NF',
             icon: FontAwesomeIcons.hashtag,
             screenIndex: 55),
         MenuItem(
