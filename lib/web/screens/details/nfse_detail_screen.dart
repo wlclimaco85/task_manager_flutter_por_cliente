@@ -743,6 +743,10 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
   /// transmitir nada de verdade.
   Future<void> _enviarNfse() async {
     if (_statusAtual == 'AUTORIZADA') return;
+    if (!_isNovo) {
+      final salvo = await _salvarCabecalho(showFeedback: false);
+      if (!salvo || !mounted) return;
+    }
     setState(() => _enviando = true);
     try {
       final r =
