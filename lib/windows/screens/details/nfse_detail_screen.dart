@@ -119,7 +119,7 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
 
     final status = _isNovo ? 'RASCUNHO' : (i['status']?.toString() ?? 'RASCUNHO');
     _statusVal = status;
-    _numeroCtrl.text = status == 'AUTORIZADA' ? (i['numero']?.toString() ?? '') : '';
+    _numeroCtrl.text = i['numero']?.toString() ?? '';
     _serieCtrl.text = i['serie']?.toString() ?? '';
     _municipioCtrl.text =
         i['municipioPrestacao']?.toString() ?? i['municipio']?.toString() ?? '';
@@ -272,11 +272,31 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
       // cadastrada nunca aparecia aqui porque vinha da tabela errada.
       _loadList(
           '${ApiLinks.baseUrl}/api/nfe-serie?tamanho=100${empId != null ? '&empId=$empId' : ''}',
-          (d) => setState(() => _series = d.where((s) {
-                final tipo = s['tipo']?.toString().trim();
-                final normalizado = tipo?.replaceAll('_', '-').toUpperCase();
-                return normalizado == 'NFS-E' || normalizado == 'NFSE';
-              }).toList())),
+          (d) => setState(() {
+                _series = d.where((s) {
+                  final tipo = s['tipo']?.toString().trim();
+                  final normalizado = tipo?.replaceAll('_', '-').toUpperCase();
+                  return normalizado == 'NFS-E' || normalizado == 'NFSE';
+                }).toList();
+                if (_serieCtrl.text.isNotEmpty) {
+                  final match = _series.firstWhere(
+                    (s) =>
+                        s['serie']?.toString().trim() == _serieCtrl.text.trim() ||
+                        s['id']?.toString() == _serieId,
+                    orElse: () => {},
+                  );
+                  if (match.isNotEmpty) {
+                    _serieId = match['id']?.toString();
+                    _serieCtrl.text = match['serie']?.toString() ?? _serieCtrl.text;
+                    if (_numeroCtrl.text.isEmpty) {
+                      final proxNum = _numeroAtualSerie(match);
+                      if (proxNum != null) {
+                        _numeroCtrl.text = proxNum.toString();
+                      }
+                    }
+                  }
+                }
+              })),
       // Carrega apenas um lote inicial (primeiras cidades em ordem alfabética)
       // para exibição rápida do dropdown. A base tem 5571 cidades (seed IBGE) —
       // carregar tudo e filtrar no cliente truncava a lista e a busca por
@@ -523,8 +543,7 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
   Future<bool> _salvarCabecalho({bool showFeedback = true}) async {
     final body = <String, dynamic>{
       if (!_isNovo) 'id': _item['id'],
-      if ((_statusAtual == 'AUTORIZADA' || _statusVal == 'AUTORIZADA') &&
-          _numeroCtrl.text.isNotEmpty)
+      if (_numeroCtrl.text.isNotEmpty)
         'numero': _numeroCtrl.text,
       'serie': _serieCtrl.text,
       'municipioPrestacao': _municipioCtrl.text,
@@ -624,7 +643,7 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
   /// e o backend so tinha um fluxo mockado que sempre "funcionava" sem
   /// transmitir nada de verdade.
   Future<void> _enviarNfse() async {
-    if (_statusAtual != 'CONFIRMADA') return;
+    if (_statusAtual == 'AUTORIZADA') return;
     setState(() => _enviando = true);
     try {
       final r =
@@ -944,7 +963,10 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
               label: const Text('Confirmar NFS-e',
                   style: TextStyle(color: Colors.white, fontSize: 12)),
             ),
-          if (_statusAtual == 'CONFIRMADA')
+          if (_statusAtual == 'CONFIRMADA' ||
+              _statusAtual == 'REJEITADA' ||
+              _statusAtual == 'ERRO' ||
+              _statusAtual == 'FALHA')
             TextButton.icon(
               onPressed: !_enviando ? _enviarNfse : null,
               icon: _enviando
@@ -954,8 +976,8 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.send, size: 16, color: Colors.white),
-              label: const Text('Emitir NFS-e',
-                  style: TextStyle(color: Colors.white, fontSize: 12)),
+              label: Text(_statusAtual == 'CONFIRMADA' ? 'Emitir NFS-e' : 'Reenviar NFS-e',
+                  style: const TextStyle(color: Colors.white, fontSize: 12)),
             ),
           if (_podeCancelar)
             TextButton.icon(
@@ -1054,9 +1076,14 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
         _ddSerie(),
         _inpDisabledText(
             'Numero',
-            (_statusVal == 'AUTORIZADA' || _statusAtual == 'AUTORIZADA')
+            _numeroCtrl.text.isNotEmpty
                 ? _numeroCtrl.text
-                : ''),
+                : (_serieId != null
+                    ? (_numeroAtualSerie(_series.firstWhere(
+                                (s) => s['id']?.toString() == _serieId,
+                                orElse: () => {}))?.toString() ??
+                            '')
+                    : '')),
         _dateField('Data Emissao', _dataEmissao,
             (d) => setState(() => _dataEmissao = d)),
         _dateField('Data Competencia', _dataCompetencia,
@@ -1241,12 +1268,18 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
         nullable: true,
         nullLabel: '— Selecione —',
         onChanged: (v) {
-          setState(() => _serieId = v);
-          final s = _series.firstWhere((o) => o['id']?.toString() == v,
-              orElse: () => {});
-          if (s.isNotEmpty) {
-            _serieCtrl.text = s['serie']?.toString() ?? '';
-          }
+          setState(() {
+            _serieId = v;
+            final s = _series.firstWhere((o) => o['id']?.toString() == v,
+                orElse: () => {});
+            if (s.isNotEmpty) {
+              _serieCtrl.text = s['serie']?.toString() ?? '';
+              final proxNum = _numeroAtualSerie(s);
+              if (proxNum != null) {
+                _numeroCtrl.text = proxNum.toString();
+              }
+            }
+          });
         },
       ),
     );
