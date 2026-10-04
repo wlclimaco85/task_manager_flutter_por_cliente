@@ -631,6 +631,16 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
             .toList();
         for (final item in itens) {
           _normalizarServicoItem(item);
+          final prodId = (item['produto'] is Map
+                  ? item['produto']['id']
+                  : item['produto_id'])
+              ?.toString();
+          if ((item['aliquotaIss'] == null ||
+                  _num(item['aliquotaIss']) == 0) &&
+              prodId != null &&
+              prodId.isNotEmpty) {
+            await _carregarImpostosServico(item, prodId);
+          }
         }
         setState(() => _itens = itens);
       }
@@ -1032,22 +1042,19 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
             selected['codigo_tributacao_municipal']?.toString() ??
             item['codigoTributacaoMunicipal'] ??
             '';
-            
-    final temIss = selected['temIss'] == true || selected['tem_iss'] == true;
-    
-    if (temIss) {
-      if (id != null) {
-        _carregarImpostosServico(item, id);
-      } else {
-        _recalcularServicoItem(item);
-      }
+
+    final aliqDireta = selected['aliquotaIss'] ??
+        selected['aliquota_iss'] ??
+        selected['aliqIss'] ??
+        selected['aliq_iss'];
+    if (aliqDireta != null && _num(aliqDireta) > 0) {
+      item['aliquotaIss'] = aliqDireta.toString();
+      item['aliquota_iss'] = aliqDireta.toString();
+    }
+
+    if (id != null && id.isNotEmpty) {
+      _carregarImpostosServico(item, id);
     } else {
-      item['aliquotaIss'] = '0.00';
-      item['aliquota_iss'] = '0.00';
-      item['valorIss'] = '0.00';
-      item['valor_iss'] = '0.00';
-      item['codigoTributacaoMunicipal'] = '';
-      item['codigo_tributacao_municipal'] = '';
       _recalcularServicoItem(item);
     }
   }
@@ -1063,13 +1070,22 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
       final imp = Map<String, dynamic>.from(raw.first as Map);
       if (!mounted) return;
       setState(() {
-        item['aliquotaIss'] =
-            (imp['aliqIss'] ?? imp['aliquotaIss'] ?? item['aliquotaIss'])
-                ?.toString();
-        item['codigoTributacaoMunicipal'] = (imp['codTribIss'] ??
-                imp['codigoTributacaoMunicipal'] ??
-                item['codigoTributacaoMunicipal'])
-            ?.toString();
+        final aliq = imp['aliqIss'] ??
+            imp['aliquotaIss'] ??
+            imp['aliq_iss'] ??
+            imp['aliquota_iss'];
+        if (aliq != null && aliq.toString().isNotEmpty) {
+          item['aliquotaIss'] = aliq.toString();
+          item['aliquota_iss'] = aliq.toString();
+        }
+        final codTrib = imp['codTribIss'] ??
+            imp['codigoTributacaoMunicipal'] ??
+            imp['cod_trib_iss'] ??
+            imp['codigo_tributacao_municipal'];
+        if (codTrib != null && codTrib.toString().isNotEmpty) {
+          item['codigoTributacaoMunicipal'] = codTrib.toString();
+          item['codigo_tributacao_municipal'] = codTrib.toString();
+        }
         _recalcularServicoItem(item);
       });
     } catch (_) {}
