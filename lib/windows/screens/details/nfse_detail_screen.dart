@@ -540,7 +540,7 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
                   _num(item['aliquotaIss']) == 0) &&
               prodId != null &&
               prodId.isNotEmpty) {
-            _carregarImpostosServico(item, prodId);
+            await _carregarImpostosServico(item, prodId);
           }
         }
         setState(() => _itens = itens);
