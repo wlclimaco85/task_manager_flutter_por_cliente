@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io' as io;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -547,6 +548,10 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
   }
 
   Future<void> _executarAgora() async {
+    if (kIsWeb) {
+      await _enviarArquivosLocais();
+      return;
+    }
     setState(() => _executando = true);
     try {
       final resp = await NetworkCaller().postRequest(
@@ -602,54 +607,16 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
 
   Future<void> _enviarArquivosLocais() async {
     try {
-      if (kIsWeb) {
-        _snack('Não é possível ler diretórios locais na Web.', error: true);
-        return;
-      }
-      final dirPath = _pastaRaizCtrl.text.trim();
-      if (dirPath.isEmpty) {
-        _snack('Pasta raiz não configurada.', error: true);
-        return;
-      }
-
-      final rootDir = io.Directory(dirPath);
-      if (!await rootDir.exists()) {
-        _snack('Pasta raiz não encontrada: $dirPath', error: true);
-        return;
-      }
-
-      final allowedExtensions = ['.pdf', '.xml', '.txt'];
-      final targetSubdirs = ['boletos', 'speds', 'sintegra', 'xmls'];
-      final filesToSend = <io.File>[];
-      final fileToSubdirMap = <String, String>{};
-      final sep = io.Platform.pathSeparator;
-
-      for (final subdirName in targetSubdirs) {
-        final subdir = io.Directory('${rootDir.path}$sep$subdirName');
-        if (await subdir.exists()) {
-          final items = await subdir.list().toList();
-          for (final item in items) {
-            if (item is io.File) {
-              final fileName = item.path.split(sep).last;
-              if (fileName.contains('.')) {
-                final ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
-                if (allowedExtensions.contains(ext)) {
-                  filesToSend.add(item);
-                  fileToSubdirMap[fileName] = subdirName;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      if (filesToSend.isEmpty) {
-        _snack('Nenhum arquivo válido (.pdf, .xml, .txt) encontrado nas subpastas (boletos, speds, sintegra, xmls).');
-        return;
-      }
+      final result = await FilePicker.pickFiles(
+        allowMultiple: true,
+        withData: true,
+        type: FileType.custom,
+        allowedExtensions: const ['pdf', 'xml', 'txt'],
+      );
+      if (result == null || result.files.isEmpty) return;
 
       setState(() => _enviandoArquivos = true);
-      _snack('Enviando ${filesToSend.length} arquivo(s) locais para o servidor e processando...');
+      _snack('Enviando ${result.files.length} arquivo(s) para o servidor e processando...');
 
       final uri = Uri.parse('${ApiLinks.baseUrl}/api/automacao-fiscal/upload-lote');
       final request = http.MultipartRequest('POST', uri);
@@ -661,13 +628,19 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
       final tenantHeaders = Map<String, String>.from(TenantContext.headers);
       request.headers.addAll(tenantHeaders);
 
-      for (final arq in filesToSend) {
-        final bytes = await arq.readAsBytes();
-        final fileName = arq.path.split(sep).last;
+      for (final arq in result.files) {
+        Uint8List bytes;
+        if (arq.bytes != null) {
+          bytes = arq.bytes!;
+        } else if (arq.path != null) {
+          bytes = await io.File(arq.path!).readAsBytes();
+        } else {
+          continue;
+        }
         request.files.add(http.MultipartFile.fromBytes(
           'files',
           bytes,
-          filename: fileName,
+          filename: arq.name,
         ));
       }
 
@@ -678,58 +651,22 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
       if (streamed.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(bodyStr);
         String mensagem = 'Execução concluída com sucesso!';
-        
-        List<Map<String, dynamic>> novosLogs = [];
-        if (body['ultimosLogs'] != null && body['ultimosLogs'] is List) {
-          novosLogs = List<Map<String, dynamic>>.from(
-              (body['ultimosLogs'] as List)
-                  .whereType<Map>()
-                  .map((e) => Map<String, dynamic>.from(e)));
-        }
-
-        int sucessoCount = 0;
-        int erroCount = 0;
-        for (final log in novosLogs) {
-          final status = (log['status'] ?? '').toString().toUpperCase();
-          final arquivoNome = (log['arquivo'] ?? '').toString();
-          
-          if (fileToSubdirMap.containsKey(arquivoNome)) {
-            final subdirName = fileToSubdirMap[arquivoNome]!;
-            final isSucesso = status == 'SUCESSO' || _ehJaImportado(log);
-            final destFolder = isSucesso ? 'sucesso' : 'erro';
-            
-            final sourcePath = '${rootDir.path}$sep$subdirName$sep$arquivoNome';
-            final destDirPath = '${rootDir.path}$sep$subdirName$sep$destFolder';
-            final destPath = '$destDirPath$sep$arquivoNome';
-            
-            try {
-              final destDir = io.Directory(destDirPath);
-              if (!await destDir.exists()) {
-                await destDir.create(recursive: true);
-              }
-              final sourceFile = io.File(sourcePath);
-              if (await sourceFile.exists()) {
-                await sourceFile.rename(destPath);
-                if (isSucesso) sucessoCount++; else erroCount++;
-              }
-            } catch (e) {
-              AppLogger.i.warn('[AutomacaoFiscal] Falha ao mover arquivo $arquivoNome para $destFolder: $e');
-            }
-          }
-        }
-
         if (body['ultimoResultado'] != null) {
           final res = body['ultimoResultado'].toString().trim();
           if (res.isNotEmpty) {
-            mensagem = 'Execução concluída ($res). Movidos: $sucessoCount sucesso, $erroCount erro.';
+            mensagem = 'Execução concluída ($res).';
             _ultimoResultado = res;
           }
         }
         if (body['ultimaExecucao'] != null) {
           _ultimaExecucao = DateTime.tryParse(body['ultimaExecucao'].toString());
         }
-        _logs = novosLogs;
-        
+        if (body['ultimosLogs'] != null && body['ultimosLogs'] is List) {
+          _logs = List<Map<String, dynamic>>.from(
+              (body['ultimosLogs'] as List)
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e)));
+        }
         _snack(mensagem);
         await _carregar();
       } else {
@@ -742,8 +679,6 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
       if (mounted) setState(() => _enviandoArquivos = false);
     }
   }
-
-
 
   bool _ehJaImportado(Map<String, dynamic> log) {
     final status = (log['status'] ?? '').toString().toUpperCase();
@@ -1234,15 +1169,20 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _pastaRaizCtrl,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Pasta raiz',
                   hintText: r'Ex.: C:\AutomacaoFiscal',
                   helperText:
                       'Pasta no servidor/máquina do usuário. Dentro dela serão lidas as '
                       'subpastas "boletos", "speds", "sintegra" e "xmls".',
                   helperMaxLines: 2,
-                  prefixIcon: Icon(Icons.folder_outlined),
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.folder_outlined),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.file_upload_outlined),
+                    tooltip: 'Selecionar e enviar arquivos desta pasta',
+                    onPressed: _enviarArquivosLocais,
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty)
                     ? 'Informe o caminho da pasta raiz.'

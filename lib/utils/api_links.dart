@@ -139,6 +139,14 @@ class ApiLinks {
   static String get windowsDownloadUrl => _windowsDownloadUrl.isNotEmpty
       ? _windowsDownloadUrl
       : '$_baseUrlNew/api/downloads/windows';
+
+  static const String _pdvWindowsDownloadUrl = String.fromEnvironment(
+    'PDV_WINDOWS_DOWNLOAD_URL',
+    defaultValue: '',
+  );
+  static String get pdvWindowsDownloadUrl => _pdvWindowsDownloadUrl.isNotEmpty
+      ? _pdvWindowsDownloadUrl
+      : '$_baseUrlNew/api/downloads/pdv-windows';
   static String get createNoticia => '$_baseUrlNew/api/noticias';
   static String updateNoticia(String id) => '$_baseUrlNew/api/noticias/$id';
   static String deleteNoticia(String id) => '$_baseUrlNew/api/noticias/$id';
@@ -1128,6 +1136,7 @@ class ApiLinks {
   static String get allNfse => '$_baseUrlNew/api/nfse';
   static String nfse(String id) => '$_baseUrlNew/api/nfse/$id';
   static String get allNfseSerie => '$_baseUrlNew/api/nfse_serie';
+  static String get allNfeSerie => '$_baseUrlNew/api/nfe_serie';
   static String nfseSerie(String id) => '$_baseUrlNew/api/nfse_serie/$id';
   // NFS-e config
   static String nfseConfig(int empresaId) =>
