@@ -516,7 +516,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('btn_enviar_arquivos_locais')), findsOneWidget);
-      expect(find.text('Enviar arquivos da minha máquina'), findsOneWidget);
+      expect(find.text('Enviar arquivos ou ZIP da pasta raiz'), findsOneWidget);
     });
   });
 }

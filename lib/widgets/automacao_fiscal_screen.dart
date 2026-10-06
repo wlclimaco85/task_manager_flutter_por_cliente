@@ -604,14 +604,14 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
           allowMultiple: true,
           withData: true,
           type: FileType.custom,
-          allowedExtensions: const ['pdf', 'xml', 'txt'],
+          allowedExtensions: const ['zip', 'pdf', 'xml', 'txt'],
         );
         if (result == null || result.files.isEmpty) return;
         filesToSend = result.files;
       }
 
       setState(() => _enviandoArquivos = true);
-      _snack('Enviando ${filesToSend.length} arquivo(s) para o servidor e processando...');
+      _snack('Enviando ${filesToSend.length} arquivo(s)/ZIP para o servidor e processando...');
 
       final uri = Uri.parse('${ApiLinks.baseUrl}/api/automacao-fiscal/upload-lote');
       final request = http.MultipartRequest('POST', uri);
@@ -1324,10 +1324,10 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
                           height: 16,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.cloud_upload_outlined),
+                      : const Icon(Icons.folder_zip_outlined),
                   label: Text(_enviandoArquivos
                       ? 'Processando...'
-                      : 'Enviar arquivos da minha máquina'),
+                      : 'Enviar arquivos ou ZIP da pasta raiz'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF10B981),
                     foregroundColor: Colors.white,
@@ -1393,9 +1393,9 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Aviso de Nuvem / Servidor Remoto: Quando o sistema está no servidor web/nuvem, ele não tem acesso '
-              'ao disco rígido local (C:\\...) do seu computador. Use o botão "Enviar arquivos da minha máquina" '
-              'para carregar e processar imediatamente os boletos, XMLs e SPEDs salvos no seu PC.',
+              'Aviso de Nuvem: Na Web, você pode enviar diretamente os arquivos soltos ou o arquivo ZIP '
+              'da sua pasta raiz (com as subpastas boletos, speds, sintegra e xmls). O sistema descompacta '
+              'e processa todos os documentos automaticamente.',
               style: const TextStyle(
                 fontSize: 12,
                 color: GridColors.textSecondary,
