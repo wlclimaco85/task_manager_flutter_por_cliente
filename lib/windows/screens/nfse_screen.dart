@@ -16,13 +16,18 @@ import 'details/nfse_detail_screen.dart';
 bool nfsePodeConfirmarStatus(String? status) {
   final s = status?.toString().trim().toUpperCase() ?? '';
   return s.isEmpty ||
-      const {'RASCUNHO', 'PENDENTE', 'REJEITADA', 'DIGITACAO', 'CRIADA'}
+      const {'RASCUNHO', 'PENDENTE', 'DIGITACAO', 'CRIADA'}
           .contains(s);
 }
 
 bool nfsePodeEnviarStatus(String? status) {
   final s = status?.toString().trim().toUpperCase() ?? '';
-  return const {'CONFIRMADA', 'REJEITADA'}.contains(s);
+  return s == 'CONFIRMADA';
+}
+
+bool nfsePodeReenviarStatus(String? status) {
+  final s = status?.toString().trim().toUpperCase() ?? '';
+  return const {'REJEITADA', 'REJEITADO', 'ERRO'}.contains(s);
 }
 
 bool nfsePodeGerarPdfStatus(String? status) {
@@ -277,15 +282,10 @@ class _NfseScreenState extends State<NfseScreen> {
   }
 
   void _showAuditoriaDialog() {
-    _carregarAuditoria();
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (_) => _AuditoriaDialog(
-        logs: _logs,
-        carregando: _carregandoLogs,
-        onRefresh: _carregarAuditoria,
-      ),
+      builder: (_) => _AuditoriaDialog(caller: _caller),
     );
   }
 
@@ -342,6 +342,13 @@ class _NfseScreenState extends State<NfseScreen> {
           icon: Icons.send,
           label: 'Enviar',
           isVisible: (item) => nfsePodeEnviarStatus(item['status']?.toString()),
+          onPressed: (context, item) => _bulkEnviar(context, [item]),
+        ),
+        CustomAction<Map<String, dynamic>>(
+          icon: Icons.refresh,
+          label: 'Reenviar',
+          isVisible: (item) =>
+              nfsePodeReenviarStatus(item['status']?.toString()),
           onPressed: (context, item) => _bulkEnviar(context, [item]),
         ),
         CustomAction<Map<String, dynamic>>(
@@ -421,7 +428,8 @@ class _NfseScreenState extends State<NfseScreen> {
           isEnabled: (items) =>
               items.isNotEmpty &&
               items.every((i) =>
-                  (i['status']?.toString().toUpperCase() ?? '') == 'AUTORIZADA'),
+                  (i['status']?.toString().toUpperCase() ?? '') ==
+                  'AUTORIZADA'),
           onPressed: _bulkCancelar,
         ),
       ];
@@ -1333,16 +1341,48 @@ class _CancelamentoDialog extends StatelessWidget {
   }
 }
 
-class _AuditoriaDialog extends StatelessWidget {
-  final List<Map<String, dynamic>> logs;
-  final bool carregando;
-  final Future<void> Function() onRefresh;
+class _AuditoriaDialog extends StatefulWidget {
+  final NfseCaller caller;
+  const _AuditoriaDialog({required this.caller});
 
-  const _AuditoriaDialog({
-    required this.logs,
-    required this.carregando,
-    required this.onRefresh,
-  });
+  @override
+  State<_AuditoriaDialog> createState() => _AuditoriaDialogState();
+}
+
+class _AuditoriaDialogState extends State<_AuditoriaDialog> {
+  List<Map<String, dynamic>> _logs = [];
+  bool _carregando = true;
+  String? _erro;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregar();
+  }
+
+  Future<void> _carregar() async {
+    setState(() {
+      _carregando = true;
+      _erro = null;
+    });
+    try {
+      final logs = await widget.caller.auditoria();
+      if (mounted) {
+        setState(() {
+          _logs = logs;
+          _carregando = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _logs = [];
+          _erro = e.toString();
+          _carregando = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1371,7 +1411,7 @@ class _AuditoriaDialog extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Colors.white),
-                    onPressed: onRefresh,
+                    onPressed: _carregar,
                     tooltip: 'Atualizar',
                   ),
                   IconButton(
@@ -1382,39 +1422,82 @@ class _AuditoriaDialog extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: carregando
-                  ? const Center(child: CircularProgressIndicator())
-                  : logs.isEmpty
-                      ? const Center(
-                          child: Text('Nenhum log de auditoria encontrado.'))
-                      : ListView.separated(
-                          itemCount: logs.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (_, i) {
-                            final log = logs[i];
-                            final data = log['data'] ??
-                                log['createdAt'] ??
-                                log['timestamp'] ??
-                                '';
-                            final acao = log['acao'] ??
-                                log['operacao'] ??
-                                log['tipo'] ??
-                                log['evento'] ??
-                                '';
-                            final desc = log['descricao'] ??
-                                log['detalhe'] ??
-                                log['mensagem'] ??
-                                '';
-                            return ListTile(
-                              dense: true,
-                              leading: const Icon(Icons.history, size: 18),
-                              title: Text('$acao',
-                                  style: const TextStyle(fontSize: 13)),
-                              subtitle: Text('$data — $desc',
-                                  style: const TextStyle(fontSize: 12)),
-                            );
-                          },
-                        ),
+              child: _carregando
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(GridColors.error),
+                      ),
+                    )
+                  : _erro != null
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.error_outline,
+                                    size: 40, color: Colors.red),
+                                const SizedBox(height: 12),
+                                Text('Erro ao carregar auditoria: $_erro',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        color: Colors.red, fontSize: 13)),
+                                const SizedBox(height: 12),
+                                ElevatedButton.icon(
+                                  onPressed: _carregar,
+                                  icon: const Icon(Icons.refresh, size: 16),
+                                  label: const Text('Tentar novamente'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : _logs.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.history_toggle_off,
+                                      size: 48, color: Colors.grey.shade400),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Nenhum log de auditoria encontrado.',
+                                    style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 14),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: _logs.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (_, i) {
+                                final log = _logs[i];
+                                final data = log['data'] ??
+                                    log['createdAt'] ??
+                                    log['timestamp'] ??
+                                    '';
+                                final acao = log['acao'] ??
+                                    log['operacao'] ??
+                                    log['tipo'] ??
+                                    log['evento'] ??
+                                    '';
+                                final desc = log['descricao'] ??
+                                    log['detalhe'] ??
+                                    log['mensagem'] ??
+                                    '';
+                                return ListTile(
+                                  dense: true,
+                                  leading: const Icon(Icons.history, size: 18),
+                                  title: Text('$acao',
+                                      style: const TextStyle(fontSize: 13)),
+                                  subtitle: Text('$data — $desc',
+                                      style: const TextStyle(fontSize: 12)),
+                                );
+                              },
+                            ),
             ),
           ],
         ),
