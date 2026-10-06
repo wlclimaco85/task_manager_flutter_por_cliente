@@ -15,8 +15,8 @@ void main() {
     expect(
         source,
         contains(
-            "if (_statusAtual == 'RASCUNHO' || _statusAtual == 'PENDENTE')"));
-    expect(source, contains("if (_statusAtual == 'CONFIRMADA'"));
+            "if (_statusAtual == 'RASCUNHO' || _statusAtual == 'PENDENTE' || _statusAtual == 'REJEITADA' || _statusAtual == 'DIGITACAO' || _statusAtual == 'CRIADA')"));
+    expect(source, contains("if (_statusAtual == 'CONFIRMADA' || _statusAtual == 'REJEITADA')"));
     expect(source, contains('ApiLinks.confirmarNfse(_nfseId)'));
     expect(source, contains('ApiLinks.emitirNfseNacional(_nfseId)'));
     expect(source, contains("'observacao': _observacaoCtrl.text"));

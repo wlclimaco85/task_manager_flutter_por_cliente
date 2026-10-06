@@ -978,7 +978,7 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
         title: Text('NFSe #$_nfseId',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         actions: [
-          if (_statusAtual == 'RASCUNHO' || _statusAtual == 'PENDENTE')
+          if (_statusAtual == 'RASCUNHO' || _statusAtual == 'PENDENTE' || _statusAtual == 'REJEITADA' || _statusAtual == 'DIGITACAO' || _statusAtual == 'CRIADA')
             TextButton.icon(
               onPressed: !_enviando ? _confirmarNfse : null,
               icon:
@@ -986,10 +986,7 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
               label: const Text('Confirmar NFS-e',
                   style: TextStyle(color: Colors.white, fontSize: 12)),
             ),
-          if (_statusAtual == 'CONFIRMADA' ||
-              _statusAtual == 'REJEITADA' ||
-              _statusAtual == 'ERRO' ||
-              _statusAtual == 'FALHA')
+          if (_statusAtual == 'CONFIRMADA' || _statusAtual == 'REJEITADA')
             TextButton.icon(
               onPressed: !_enviando ? _enviarNfse : null,
               icon: _enviando
@@ -999,7 +996,7 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.send, size: 16, color: Colors.white),
-              label: Text(_statusAtual == 'CONFIRMADA' ? 'Emitir NFS-e' : 'Reenviar NFS-e',
+              label: Text(_statusAtual == 'REJEITADA' ? 'Reenviar NFS-e' : 'Emitir NFS-e',
                   style: const TextStyle(color: Colors.white, fontSize: 12)),
             ),
           if (_podeCancelar)
@@ -1019,9 +1016,9 @@ class _NfseDetailScreenState extends State<NfseDetailScreen> {
           if (_statusAtual == 'AUTORIZADA')
             TextButton.icon(
               onPressed: _baixarPdf,
-              icon: const Icon(Icons.picture_as_pdf,
+              icon: const Icon(Icons.print,
                   size: 16, color: Colors.white),
-              label: const Text('Baixar PDF',
+              label: const Text('Imprimir',
                   style: TextStyle(color: Colors.white, fontSize: 12)),
             ),
           const SizedBox(width: 8),

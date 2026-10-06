@@ -1065,6 +1065,8 @@ class ApiLinks {
       '$_baseUrlNew/api/nfse/$nfseId/confirmar';
   static String danfseNfse(String nfseId) =>
       '$_baseUrlNew/api/nfse/$nfseId/danfse';
+  static String cancelarNfseNacional(String nfseId) =>
+      '$_baseUrlNew/api/nfse/$nfseId/cancelar-nacional';
   static String aceitarNfe(String nfeId) =>
       '$_baseUrlNew/api/nfe/$nfeId/aceitar';
   static String recusarNfe(String nfeId) =>
