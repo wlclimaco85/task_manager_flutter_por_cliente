@@ -548,75 +548,70 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
   }
 
   Future<void> _executarAgora() async {
-    if (kIsWeb) {
-      await _enviarArquivosLocais();
-      return;
-    }
-    setState(() => _executando = true);
-    try {
-      final resp = await NetworkCaller().postRequest(
-          '${ApiLinks.baseUrl}/api/automacao-fiscal/executar-agora', {});
-      if (!mounted) return;
-      final Map<String, dynamic>? body =
-          resp.body is Map ? Map<String, dynamic>.from(resp.body as Map) : null;
-      if (resp.isSuccess) {
-        String mensagem = 'Execução concluída.';
-        if (body != null) {
-          if (body['ultimoResultado'] != null) {
-            final res = body['ultimoResultado'].toString().trim();
-            if (res.isNotEmpty) {
-              mensagem = 'Execução concluída ($res).';
-              _ultimoResultado = res;
-            }
-          }
-          if (body['ultimaExecucao'] != null) {
-            _ultimaExecucao =
-                DateTime.tryParse(body['ultimaExecucao'].toString());
-          }
-          if (body['ultimosLogs'] != null && body['ultimosLogs'] is List) {
-            _logs = List<Map<String, dynamic>>.from(
-                (body['ultimosLogs'] as List)
-                    .whereType<Map>()
-                    .map((e) => Map<String, dynamic>.from(e)));
-          }
-        }
-        _snack(mensagem);
-        await _carregar();
-      } else {
-        String msg = 'Erro ao executar (status ${resp.statusCode}).';
-        if (body != null &&
-            body['message'] != null &&
-            body['message'].toString().isNotEmpty) {
-          msg = body['message'].toString();
-        } else if (body != null &&
-            body['erro'] != null &&
-            body['erro'].toString().isNotEmpty) {
-          msg = body['erro'].toString();
-        }
-        _snack(msg, error: true);
-        AppLogger.i.warn(
-            '[AutomacaoFiscal] Erro ao executar agora (status ${resp.statusCode}): $msg');
-      }
-    } catch (e, st) {
-      if (mounted) _snack('Erro ao executar: $e', error: true);
-      AppLogger.i.error('[AutomacaoFiscal] Erro ao executar agora: $e', st);
-    } finally {
-      if (mounted) setState(() => _executando = false);
-    }
+    // Varrer a pasta raiz localmente (boletos, speds, sintegra, xmls), enviar e mover para sucesso/erro
+    await _enviarArquivosLocais();
   }
 
   Future<void> _enviarArquivosLocais() async {
     try {
-      final result = await FilePicker.pickFiles(
-        allowMultiple: true,
-        withData: true,
-        type: FileType.custom,
-        allowedExtensions: const ['pdf', 'xml', 'txt'],
-      );
-      if (result == null || result.files.isEmpty) return;
+      final allowedExtensions = ['.pdf', '.xml', '.txt'];
+      final targetSubdirs = ['boletos', 'speds', 'sintegra', 'xmls'];
+
+      List<dynamic> filesToSend = [];
+      Map<String, String> fileToSubdirMap = {};
+      String? dirPath;
+      io.Directory? rootDir;
+
+      if (!kIsWeb) {
+        dirPath = _pastaRaizCtrl.text.trim();
+        if (dirPath.isEmpty) {
+          _snack('Pasta raiz não configurada.', error: true);
+          return;
+        }
+
+        rootDir = io.Directory(dirPath);
+        if (!await rootDir.exists()) {
+          _snack('Pasta raiz não encontrada: $dirPath', error: true);
+          return;
+        }
+
+        final sep = io.Platform.pathSeparator;
+        for (final subdirName in targetSubdirs) {
+          final subdir = io.Directory('${rootDir.path}$sep$subdirName');
+          if (await subdir.exists()) {
+            final items = await subdir.list().toList();
+            for (final item in items) {
+              if (item is io.File) {
+                final fileName = item.path.split(sep).last;
+                if (fileName.contains('.')) {
+                  final ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+                  if (allowedExtensions.contains(ext)) {
+                    filesToSend.add(item);
+                    fileToSubdirMap[fileName] = subdirName;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (filesToSend.isEmpty) {
+          _snack('Nenhum arquivo novo (.pdf, .xml, .txt) encontrado nas subpastas (boletos, speds, sintegra, xmls).');
+          return;
+        }
+      } else {
+        final result = await FilePicker.pickFiles(
+          allowMultiple: true,
+          withData: true,
+          type: FileType.custom,
+          allowedExtensions: const ['pdf', 'xml', 'txt'],
+        );
+        if (result == null || result.files.isEmpty) return;
+        filesToSend = result.files;
+      }
 
       setState(() => _enviandoArquivos = true);
-      _snack('Enviando ${result.files.length} arquivo(s) para o servidor e processando...');
+      _snack('Enviando ${filesToSend.length} arquivo(s) para o servidor e processando...');
 
       final uri = Uri.parse('${ApiLinks.baseUrl}/api/automacao-fiscal/upload-lote');
       final request = http.MultipartRequest('POST', uri);
@@ -628,20 +623,28 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
       final tenantHeaders = Map<String, String>.from(TenantContext.headers);
       request.headers.addAll(tenantHeaders);
 
-      for (final arq in result.files) {
-        Uint8List bytes;
-        if (arq.bytes != null) {
-          bytes = arq.bytes!;
-        } else if (arq.path != null) {
-          bytes = await io.File(arq.path!).readAsBytes();
-        } else {
-          continue;
+      for (final arq in filesToSend) {
+        if (!kIsWeb && arq is io.File) {
+          final bytes = await arq.readAsBytes();
+          final fileName = arq.path.split(io.Platform.pathSeparator).last;
+          request.files.add(http.MultipartFile.fromBytes(
+            'files',
+            bytes,
+            filename: fileName,
+          ));
+        } else if (arq is PlatformFile) {
+          Uint8List? bytes = arq.bytes;
+          if (bytes == null && arq.path != null) {
+            bytes = await io.File(arq.path!).readAsBytes();
+          }
+          if (bytes != null) {
+            request.files.add(http.MultipartFile.fromBytes(
+              'files',
+              bytes,
+              filename: arq.name,
+            ));
+          }
         }
-        request.files.add(http.MultipartFile.fromBytes(
-          'files',
-          bytes,
-          filename: arq.name,
-        ));
       }
 
       final streamed = await request.send().timeout(const Duration(minutes: 5));
@@ -651,22 +654,76 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
       if (streamed.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(bodyStr);
         String mensagem = 'Execução concluída com sucesso!';
+        
+        List<Map<String, dynamic>> novosLogs = [];
+        if (body['ultimosLogs'] != null && body['ultimosLogs'] is List) {
+          novosLogs = List<Map<String, dynamic>>.from(
+              (body['ultimosLogs'] as List)
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e)));
+        }
+
+        int sucessoCount = 0;
+        int erroCount = 0;
+
+        // No Desktop (Windows/Linux/Mac), move os arquivos locais para sucesso ou erro
+        if (!kIsWeb && rootDir != null) {
+          final sep = io.Platform.pathSeparator;
+          for (final log in novosLogs) {
+            final status = (log['status'] ?? '').toString().toUpperCase();
+            final arquivoNome = (log['arquivo'] ?? '').toString();
+            final msgErro = (log['mensagem'] ?? '').toString();
+
+            if (fileToSubdirMap.containsKey(arquivoNome)) {
+              final subdirName = fileToSubdirMap[arquivoNome]!;
+              final isSucesso = status == 'SUCESSO' || _ehJaImportado(log);
+              final destFolder = isSucesso ? 'sucesso' : 'erro';
+
+              final sourcePath = '${rootDir.path}$sep$subdirName$sep$arquivoNome';
+              final destDirPath = '${rootDir.path}$sep$subdirName$sep$destFolder';
+              final destPath = '$destDirPath$sep$arquivoNome';
+
+              try {
+                final destDir = io.Directory(destDirPath);
+                if (!await destDir.exists()) {
+                  await destDir.create(recursive: true);
+                }
+                final sourceFile = io.File(sourcePath);
+                if (await sourceFile.exists()) {
+                  await sourceFile.rename(destPath);
+                  if (isSucesso) {
+                    sucessoCount++;
+                  } else {
+                    erroCount++;
+                    // Grava relatório de erros dentro da pasta erro
+                    final relatorioFile = io.File('$destDirPath${sep}relatorio_erros.txt');
+                    final linhaLog = '[${DateTime.now().toIso8601String()}] $arquivoNome: $msgErro\r\n';
+                    await relatorioFile.writeAsString(linhaLog, mode: io.FileMode.append);
+                  }
+                }
+              } catch (e) {
+                AppLogger.i.warn('[AutomacaoFiscal] Falha ao mover arquivo $arquivoNome para $destFolder: $e');
+              }
+            }
+          }
+        }
+
         if (body['ultimoResultado'] != null) {
           final res = body['ultimoResultado'].toString().trim();
           if (res.isNotEmpty) {
-            mensagem = 'Execução concluída ($res).';
+            if (!kIsWeb && (sucessoCount > 0 || erroCount > 0)) {
+              mensagem = 'Execução concluída ($res). Movidos localmente: $sucessoCount sucesso, $erroCount erro.';
+            } else {
+              mensagem = 'Execução concluída ($res).';
+            }
             _ultimoResultado = res;
           }
         }
         if (body['ultimaExecucao'] != null) {
           _ultimaExecucao = DateTime.tryParse(body['ultimaExecucao'].toString());
         }
-        if (body['ultimosLogs'] != null && body['ultimosLogs'] is List) {
-          _logs = List<Map<String, dynamic>>.from(
-              (body['ultimosLogs'] as List)
-                  .whereType<Map>()
-                  .map((e) => Map<String, dynamic>.from(e)));
-        }
+        _logs = novosLogs;
+
         _snack(mensagem);
         await _carregar();
       } else {
