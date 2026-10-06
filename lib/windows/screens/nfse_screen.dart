@@ -13,6 +13,28 @@ import '../../widgets/generic_grid_windows_screen.dart'
 import '../../widgets/searchable_dropdown.dart';
 import 'details/nfse_detail_screen.dart';
 
+bool nfsePodeConfirmarStatus(String? status) {
+  final s = status?.toString().trim().toUpperCase() ?? '';
+  return s.isEmpty ||
+      const {'RASCUNHO', 'PENDENTE', 'REJEITADA', 'DIGITACAO', 'CRIADA'}
+          .contains(s);
+}
+
+bool nfsePodeEnviarStatus(String? status) {
+  final s = status?.toString().trim().toUpperCase() ?? '';
+  return const {'CONFIRMADA', 'REJEITADA'}.contains(s);
+}
+
+bool nfsePodeGerarPdfStatus(String? status) {
+  final s = status?.toString().trim().toUpperCase() ?? '';
+  return s == 'AUTORIZADA';
+}
+
+bool nfsePodeCancelarStatus(String? status) {
+  final s = status?.toString().trim().toUpperCase() ?? '';
+  return s == 'AUTORIZADA';
+}
+
 /// Tela de NFSe — espelha o layout da NF-e Saída:
 /// header vermelho + painel de filtro lateral + botões + grid dinâmica.
 class NfseScreen extends StatefulWidget {
@@ -277,7 +299,58 @@ class _NfseScreenState extends State<NfseScreen> {
     _showCancelamentoDialog();
   }
 
+  Future<void> _confirmarLinha(
+      BuildContext context, Map<String, dynamic> item) async {
+    final id = item['id']?.toString() ?? '';
+    if (id.isEmpty || !nfsePodeConfirmarStatus(item['status']?.toString())) {
+      return;
+    }
+    try {
+      final response = await TenantContext.post(ApiLinks.confirmarNfse(id), {});
+      if (!context.mounted) return;
+      if (response.statusCode == 200) {
+        _dynamicGridKey.currentState?.reload();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('NFS-e confirmada. Já pode ser enviada.'),
+          backgroundColor: GridColors.success,
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Não foi possível confirmar: ${response.body}'),
+          backgroundColor: GridColors.error,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erro ao confirmar: $e'),
+          backgroundColor: GridColors.error,
+        ));
+      }
+    }
+  }
+
   List<CustomAction<Map<String, dynamic>>> _buildCustomActions() => [
+        CustomAction<Map<String, dynamic>>(
+          icon: Icons.check_circle_outline,
+          label: 'Confirmar',
+          isVisible: (item) =>
+              nfsePodeConfirmarStatus(item['status']?.toString()),
+          onPressed: _confirmarLinha,
+        ),
+        CustomAction<Map<String, dynamic>>(
+          icon: Icons.send,
+          label: 'Enviar',
+          isVisible: (item) => nfsePodeEnviarStatus(item['status']?.toString()),
+          onPressed: (context, item) => _bulkEnviar(context, [item]),
+        ),
+        CustomAction<Map<String, dynamic>>(
+          icon: Icons.print,
+          label: 'Imprimir',
+          isVisible: (item) =>
+              nfsePodeGerarPdfStatus(item['status']?.toString()),
+          onPressed: (context, item) => _bulkGerarPdf(context, [item]),
+        ),
         CustomAction<Map<String, dynamic>>(
           icon: Icons.manage_search,
           label: 'Consultar status',
@@ -286,6 +359,8 @@ class _NfseScreenState extends State<NfseScreen> {
         CustomAction<Map<String, dynamic>>(
           icon: Icons.cancel_outlined,
           label: 'Cancelar',
+          isVisible: (item) =>
+              nfsePodeCancelarStatus(item['status']?.toString()),
           onPressed: (context, item) {
             final st = (item['status']?.toString().toUpperCase() ?? '');
             if (st != 'AUTORIZADA') {
@@ -296,7 +371,7 @@ class _NfseScreenState extends State<NfseScreen> {
               ));
               return;
             }
-            _cancelarLinha(item);
+            _bulkCancelar(context, [item]);
           },
         ),
         CustomAction<Map<String, dynamic>>(
@@ -319,14 +394,13 @@ class _NfseScreenState extends State<NfseScreen> {
 
   List<BulkAction<Map<String, dynamic>>> _buildBulkActions() => [
         BulkAction<Map<String, dynamic>>(
-          icon: Icons.picture_as_pdf,
-          label: 'Gerar PDF',
+          icon: Icons.print,
+          label: 'Imprimir',
           isEnabled: (items) =>
               items.isNotEmpty &&
               items.every((i) {
                 final st = i['status']?.toString().toUpperCase() ?? '';
-                final num = _nfseNumero(i);
-                return st == 'AUTORIZADA' || num.isNotEmpty;
+                return nfsePodeGerarPdfStatus(st);
               }),
           onPressed: _bulkGerarPdf,
         ),
@@ -337,7 +411,7 @@ class _NfseScreenState extends State<NfseScreen> {
               items.isNotEmpty &&
               items.every((i) {
                 final st = i['status']?.toString().toUpperCase() ?? '';
-                return st != 'AUTORIZADA' && st != 'CANCELADA';
+                return nfsePodeEnviarStatus(st);
               }),
           onPressed: _bulkEnviar,
         ),

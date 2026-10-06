@@ -13,14 +13,27 @@ import '../../widgets/generic_grid_windows_screen.dart'
 import '../../widgets/searchable_dropdown.dart';
 import 'details/nfse_detail_screen.dart';
 
-bool nfsePodeConfirmarStatus(String? status) =>
-    const {'RASCUNHO', 'PENDENTE'}.contains(status?.toUpperCase());
-bool nfsePodeEnviarStatus(String? status) =>
-    status?.toUpperCase() == 'CONFIRMADA';
-bool nfsePodeGerarPdfStatus(String? status) =>
-    status?.toUpperCase() == 'AUTORIZADA';
-bool nfsePodeCancelarStatus(String? status) =>
-    status?.toUpperCase() == 'AUTORIZADA';
+bool nfsePodeConfirmarStatus(String? status) {
+  final s = status?.toString().trim().toUpperCase() ?? '';
+  return s.isEmpty ||
+      const {'RASCUNHO', 'PENDENTE', 'REJEITADA', 'DIGITACAO', 'CRIADA'}
+          .contains(s);
+}
+
+bool nfsePodeEnviarStatus(String? status) {
+  final s = status?.toString().trim().toUpperCase() ?? '';
+  return const {'CONFIRMADA', 'REJEITADA'}.contains(s);
+}
+
+bool nfsePodeGerarPdfStatus(String? status) {
+  final s = status?.toString().trim().toUpperCase() ?? '';
+  return s == 'AUTORIZADA';
+}
+
+bool nfsePodeCancelarStatus(String? status) {
+  final s = status?.toString().trim().toUpperCase() ?? '';
+  return s == 'AUTORIZADA';
+}
 
 /// Tela de NFSe — espelha o layout da NF-e Saída:
 /// header vermelho + painel de filtro lateral + botões + grid dinâmica.
@@ -334,8 +347,8 @@ class _NfseScreenState extends State<NfseScreen> {
           onPressed: (context, item) => _bulkEnviar(context, [item]),
         ),
         CustomAction<Map<String, dynamic>>(
-          icon: Icons.picture_as_pdf,
-          label: 'Gerar PDF',
+          icon: Icons.print,
+          label: 'Imprimir',
           isVisible: (item) =>
               nfsePodeGerarPdfStatus(item['status']?.toString()),
           onPressed: (context, item) => _bulkGerarPdf(context, [item]),
@@ -360,7 +373,7 @@ class _NfseScreenState extends State<NfseScreen> {
               ));
               return;
             }
-            _cancelarLinha(item);
+            _bulkCancelar(context, [item]);
           },
         ),
         CustomAction<Map<String, dynamic>>(
@@ -383,8 +396,8 @@ class _NfseScreenState extends State<NfseScreen> {
 
   List<BulkAction<Map<String, dynamic>>> _buildBulkActions() => [
         BulkAction<Map<String, dynamic>>(
-          icon: Icons.picture_as_pdf,
-          label: 'Gerar PDF',
+          icon: Icons.print,
+          label: 'Imprimir',
           isEnabled: (items) =>
               items.isNotEmpty &&
               items.every((i) {
