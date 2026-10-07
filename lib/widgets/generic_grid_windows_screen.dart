@@ -4060,7 +4060,11 @@ class GenericGridScreenState<T> extends State<GenericGridScreen<T>> {
 
     // ── dropdown: campo clicável que abre diálogo com busca ──────────────────
     final cached = _dropdownCache[cacheKey];
-    if (cached == null) {
+    // Campos com busca remota (Parceiro/Fornecedor) nao pre-carregam lista: o
+    // dialogo remoto pagina sob demanda. Sem esta excecao o filtro ficava
+    // eternamente em "carregando".
+    final remoteSearch = config.dropdownRemoteSearch;
+    if (cached == null && remoteSearch == null) {
       // Ainda carregando — mostra progress
       return InputDecorator(
         decoration: InputDecoration(
@@ -4079,7 +4083,7 @@ class GenericGridScreenState<T> extends State<GenericGridScreen<T>> {
       );
     }
 
-    final options = cached;
+    final options = cached ?? const <Map<String, dynamic>>[];
     final vf = config.dropdownValueField.isNotEmpty
         ? config.dropdownValueField
         : 'value';
@@ -4102,8 +4106,15 @@ class GenericGridScreenState<T> extends State<GenericGridScreen<T>> {
       onTap: () async {
               final result = await showDialog<Map<String, dynamic>>(
                 context: context,
-                builder: (_) =>
-                    _FilterSearchDialog(options: options, vf: vf, df: df),
+                builder: (_) => remoteSearch != null
+                    ? RemoteDropdownSearchDialog(
+                        title: config.label,
+                        valueField: vf,
+                        displayField: df,
+                        currentValue: _filterDropdownValues[config.fieldName],
+                        loadPage: remoteSearch,
+                      )
+                    : _FilterSearchDialog(options: options, vf: vf, df: df),
               );
               if (result == null) return; // cancelado
               final val = result[vf]?.toString() ?? '';
