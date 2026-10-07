@@ -230,6 +230,14 @@ class _QueryBuilderWindowScreenState extends State<QueryBuilderWindowScreen> {
 
   // ── Edição de linha ─────────────────────────────────────────────────
 
+  String? _inferirTabelaDaSql() {
+    final match = RegExp(
+      r'\bfrom\s+(?:(?:"?[A-Za-z_][\w]*"?\s*\.\s*)?"?([A-Za-z_][\w]*)"?)',
+      caseSensitive: false,
+    ).firstMatch(_sqlController.text);
+    return match?.group(1);
+  }
+
   Future<void> _editarLinha(int rowIndex) async {
     if (_colunasResultado.isEmpty || rowIndex >= _linhasResultado.length) {
       return;
@@ -247,6 +255,7 @@ class _QueryBuilderWindowScreenState extends State<QueryBuilderWindowScreen> {
     final editou = await showEditRowDialog(
       context,
       schema: _schemaSelecionado ?? 'public',
+      tabela: _tabelaSelecionada ?? _inferirTabelaDaSql(),
       colunas: _colunasResultado,
       rowData: rowData,
     );

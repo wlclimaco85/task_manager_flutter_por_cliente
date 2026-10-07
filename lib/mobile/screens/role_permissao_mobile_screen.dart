@@ -74,7 +74,7 @@ class _RolePermissaoMobileScreenState extends State<RolePermissaoMobileScreen> {
       );
 
       final resRoles = await http.get(
-        Uri.parse('${ApiLinks.baseUrl}/api/role'),
+        Uri.parse('${ApiLinks.baseUrl}/api/role?tamanho=1000'),
         headers: {'Authorization': 'Bearer $token', 'X-Tenant-ID': tenantId},
       );
 
