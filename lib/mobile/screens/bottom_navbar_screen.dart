@@ -2619,7 +2619,8 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
           'Departamento Pessoal',
           Icons.badge,
           [
-            _MoreMenuAction(Icons.access_time, 'Bater Ponto'),
+            if (_canSeeOption('Bater Ponto', sec))
+              _MoreMenuAction(Icons.access_time, 'Bater Ponto'),
             _MoreMenuAction(Icons.people_outline, 'Funcionários'),
             _MoreMenuAction(Icons.edit_calendar, 'Solicitar Ajuste'),
             _MoreMenuAction(Icons.schedule, 'Ajuste de Ponto'),

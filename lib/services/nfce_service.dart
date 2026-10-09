@@ -317,15 +317,13 @@ class NfceService {
     required int empresaId,
     int tamanho = 20,
   }) async {
-    // Bug de producao: GET /api/produto ignora os parametros nome/empresa
-    // (ProdutoController.listarProdutos() nao os declara) e, pior, o
-    // create/list desse recurso mapeia para a entidade CatalogoProduto
-    // (dominio de negociacao agricola, campos nome/preco sempre null),
-    // nao para a entidade Produto real usada pelo catalogo fiscal. O
-    // endpoint correto, que filtra por nome/empresa e usa a entidade
-    // Produto (nome, preco, ncm, gtin, codigo), e /api/produto_contabil.
+    // Bug de producao: /api/produto_contabil filtra por parceiro_id exato do
+    // JWT via findByFiltros, excluindo produtos sem parceiro_id (cadastros
+    // diretos pela empresa). O endpoint correto e /api/pdv/produtos que usa
+    // buscarParaSelecao com tolerancia a parceiro_id null e retorna os campos
+    // necessarios (nome, preco, codigo, ncm, gtin, unidadeComercial).
     final url =
-        '${ApiLinks.baseUrl}/api/produto_contabil?nome=${Uri.encodeComponent(query)}&empresa=$empresaId&tamanho=$tamanho';
+        '${ApiLinks.baseUrl}/api/pdv/produtos?nome=${Uri.encodeComponent(query)}&page=0&tamanho=$tamanho';
     final response = await http.get(
       Uri.parse(TenantContext.applyToUrl(url)),
       headers: TenantContext.headers,
