@@ -250,7 +250,10 @@ class _PdvScreenState extends State<PdvScreen> {
       child: Column(
         children: [
           const TabBar(
-            tabs: [Tab(text: 'Buscar Produto'), Tab(text: 'Carrinho')],
+            tabs: [
+              Tab(icon: Icon(Icons.search), text: 'Produtos'),
+              Tab(icon: Icon(Icons.shopping_cart_checkout), text: 'Carrinho / Emitir NFC-e'),
+            ],
             labelColor: GridColors.secondary,
           ),
           Expanded(
