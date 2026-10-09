@@ -227,7 +227,7 @@ class _PdvScreenState extends State<PdvScreen> {
           _buildNoticeBanner(),
           const SizedBox(height: 12),
           _buildResumoFiscalCard(),
-          Expanded(child: isWide ? _buildWideLayout() : _buildNarrowLayout()),
+          Expanded(child: isWide ? _buildWideLayout(isWide) : _buildNarrowLayout(isWide)),
         ],
       ),
     );
