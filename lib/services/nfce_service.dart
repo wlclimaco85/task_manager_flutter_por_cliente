@@ -315,26 +315,38 @@ class NfceService {
   Future<List<Map<String, dynamic>>> buscarProdutos({
     required String query,
     required int empresaId,
+    int page = 0,
     int tamanho = 20,
   }) async {
-    // Bug de producao: GET /api/produto ignora os parametros nome/empresa
-    // (ProdutoController.listarProdutos() nao os declara) e, pior, o
-    // create/list desse recurso mapeia para a entidade CatalogoProduto
-    // (dominio de negociacao agricola, campos nome/preco sempre null),
-    // nao para a entidade Produto real usada pelo catalogo fiscal. O
-    // endpoint correto, que filtra por nome/empresa e usa a entidade
-    // Produto (nome, preco, ncm, gtin, codigo), e /api/produto_contabil.
+    final paginado = await buscarProdutosPaginado(
+      query: query,
+      empresaId: empresaId,
+      page: page,
+      tamanho: tamanho,
+    );
+    return paginado.itens.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<ResultadoPaginadoSpring> buscarProdutosPaginado({
+    required String query,
+    required int empresaId,
+    int page = 0,
+    int tamanho = 20,
+  }) async {
     final url =
-        '${ApiLinks.baseUrl}/api/produto_contabil?nome=${Uri.encodeComponent(query)}&empresa=$empresaId&tamanho=$tamanho';
+        '${ApiLinks.baseUrl}/api/pdv/produtos?nome=${Uri.encodeComponent(query)}&page=$page&tamanho=$tamanho';
     final response = await http.get(
       Uri.parse(TenantContext.applyToUrl(url)),
       headers: TenantContext.headers,
     );
     if (response.statusCode == 200) {
-      return extrairListaPaginada(jsonDecode(response.body))
-          .cast<Map<String, dynamic>>();
+      return extrairResultadoPaginadoSpring(jsonDecode(response.body));
     }
-    return [];
+    return const ResultadoPaginadoSpring(
+      itens: [],
+      totalElements: 0,
+      isLast: true,
+    );
   }
 
   Future<void> inutilizar({
