@@ -34,7 +34,7 @@ void _logErr(String tag, Object e, [StackTrace? s]) =>
 
 void main() {
   // runZonedGuarded captura erros assíncronos não tratados em qualquer ponto.
-  runZonedGuarded(() async {
+  runZonedGuarded(() {
     WidgetsFlutterBinding.ensureInitialized();
     _log('WidgetsFlutterBinding pronto');
 
@@ -94,74 +94,104 @@ void main() {
       return const _AdaptiveErrorBox();
     };
 
-    try {
-      await initializeDateFormatting('pt_BR', null);
-      _log('initializeDateFormatting ok');
-    } catch (e, s) {
-      _logErr('initializeDateFormatting', e, s);
-    }
-
-    try {
-      await Hive.initFlutter();
-      _log('Hive.initFlutter ok');
-    } catch (e, s) {
-      _logErr('Hive.initFlutter', e, s);
-    }
-
-    // Blindagem: box corrompida não pode derrubar o app antes do runApp.
-    try {
-      await Hive.openBox('vendas_contingencia');
-      _log('openBox vendas_contingencia ok');
-    } catch (e, s) {
-      _logErr('openBox vendas_contingencia (tentando recriar)', e, s);
-      try {
-        await Hive.deleteBoxFromDisk('vendas_contingencia');
-        await Hive.openBox('vendas_contingencia');
-        _log('box vendas_contingencia recriada após corrupção');
-      } catch (e2, s2) {
-        _logErr('recriação da box vendas_contingencia', e2, s2);
-      }
-    }
-
-    // Blindagem: sessão corrompida -> limpa e cai para login em vez de crashar.
-    bool loggedIn = false;
-    try {
-      loggedIn = await AuthUtility.isUserLoggedIn();
-      _log('isUserLoggedIn = $loggedIn');
-    } catch (e, s) {
-      _logErr('isUserLoggedIn (limpando sessão)', e, s);
-      try {
-        await AuthUtility.clearUserInfo();
-      } catch (_) {}
-      loggedIn = false;
-    }
-
-    if (loggedIn) {
-      try {
-        await ModuloAccess.load();
-        _log('ModuloAccess.load ok');
-      } catch (e, s) {
-        _logErr('ModuloAccess.load', e, s);
-      }
-    }
-
-    _log('runApp');
-    runApp(TaskManagerApp(loggedIn: loggedIn));
+    _log('runApp bootstrap');
+    runApp(const TaskManagerBootstrap());
   }, (error, stack) {
     print('[APP-ERROR] erro não tratado: $error');
     print('[APP-ERROR] stack:\n$stack');
   });
 }
 
+Future<bool> _carregarEstadoInicial() async {
+  try {
+    await initializeDateFormatting('pt_BR', null);
+    _log('initializeDateFormatting ok');
+  } catch (e, s) {
+    _logErr('initializeDateFormatting', e, s);
+  }
+
+  try {
+    await Hive.initFlutter();
+    _log('Hive.initFlutter ok');
+  } catch (e, s) {
+    _logErr('Hive.initFlutter', e, s);
+  }
+
+  // Blindagem: box corrompida não pode derrubar o app antes do runApp.
+  try {
+    await Hive.openBox('vendas_contingencia');
+    _log('openBox vendas_contingencia ok');
+  } catch (e, s) {
+    _logErr('openBox vendas_contingencia (tentando recriar)', e, s);
+    try {
+      await Hive.deleteBoxFromDisk('vendas_contingencia');
+      await Hive.openBox('vendas_contingencia');
+      _log('box vendas_contingencia recriada após corrupção');
+    } catch (e2, s2) {
+      _logErr('recriação da box vendas_contingencia', e2, s2);
+    }
+  }
+
+  // Blindagem: sessão corrompida -> limpa e cai para login em vez de crashar.
+  bool loggedIn = false;
+  try {
+    loggedIn = await AuthUtility.isUserLoggedIn();
+    _log('isUserLoggedIn = $loggedIn');
+  } catch (e, s) {
+    _logErr('isUserLoggedIn (limpando sessão)', e, s);
+    try {
+      await AuthUtility.clearUserInfo();
+    } catch (_) {}
+    loggedIn = false;
+  }
+
+  if (loggedIn) {
+    try {
+      await ModuloAccess.load();
+      _log('ModuloAccess.load ok');
+    } catch (e, s) {
+      _logErr('ModuloAccess.load', e, s);
+    }
+  }
+
+  _log('runApp');
+
+  return loggedIn;
+}
+
+class TaskManagerBootstrap extends StatefulWidget {
+  const TaskManagerBootstrap({super.key});
+
+  @override
+  State<TaskManagerBootstrap> createState() => _TaskManagerBootstrapState();
+}
+
+class _TaskManagerBootstrapState extends State<TaskManagerBootstrap> {
+  bool? _loggedIn;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarEstadoInicial().then((loggedIn) {
+      if (mounted) setState(() => _loggedIn = loggedIn);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => TaskManagerApp(loggedIn: _loggedIn);
+}
+
 class TaskManagerApp extends StatelessWidget {
-  final bool loggedIn;
+  final bool? loggedIn;
   const TaskManagerApp({super.key, required this.loggedIn});
 
   @override
   Widget build(BuildContext context) {
     Widget home;
 
-    if (loggedIn) {
+    if (loggedIn == null) {
+      home = const _BootLoadingScreen();
+    } else if (loggedIn!) {
       if (kIsWeb) {
         home = const WebBottomNavBarScreen();
       } else if (defaultTargetPlatform == TargetPlatform.windows) {
@@ -313,6 +343,82 @@ class _ErroTelaCompleta extends StatelessWidget {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BootLoadingScreen extends StatelessWidget {
+  const _BootLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: GridColors.secondary,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 24,
+                          offset: Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.apartment_rounded,
+                      color: GridColors.primary,
+                      size: 36,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Gestão Empresarial',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Carregando sistema',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: GridColors.textPrimaryMuted,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: const LinearProgressIndicator(
+                      minHeight: 6,
+                      backgroundColor: Color(0x33FFFFFF),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(GridColors.primary),
                     ),
                   ),
                 ],

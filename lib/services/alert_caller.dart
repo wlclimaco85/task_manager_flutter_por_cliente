@@ -9,6 +9,28 @@ import '../../../utils/tenant_context.dart';
 
 import 'package:task_manager_flutter/utils/app_logger.dart';
 
+/// Converte a lista bruta de `NotificacaoDTO` (`tipo`/`mensagem`/`dataVencimento`/
+/// `id`/`referenciaId`) para o [Alert] consumido pelo sino
+/// (`texto`/`data`/`status`). Usado por [AlertCaller.fetchNotificacoes].
+List<Alert> mapNotificacoesToAlerts(List raw, {required int loginId}) {
+  return raw.whereType<Map>().map((item) {
+    final n = Map<String, dynamic>.from(item);
+    final dataVencimento = n['dataVencimento']?.toString();
+    final idBruto = n['id'] ?? n['referenciaId'] ?? 0;
+    return Alert(
+      id: idBruto is int ? idBruto : int.tryParse(idBruto.toString()) ?? 0,
+      idUserDestino: loginId,
+      // DateTime.parse exige um formato válido; quando não há data de
+      // vencimento (eventos pontuais), usamos o instante atual.
+      data: (dataVencimento != null && dataVencimento.isNotEmpty)
+          ? dataVencimento
+          : DateTime.now().toIso8601String(),
+      texto: n['mensagem']?.toString() ?? n['texto']?.toString() ?? '',
+      status: n['tipo']?.toString() ?? 'NOVO',
+    );
+  }).toList();
+}
+
 class AlertCaller {
   Future<List<Alert>> fetchAllAlerts(BuildContext context) async {
     List<Alert>? model = [];
@@ -92,23 +114,10 @@ class AlertCaller {
                     [])
                 : []);
 
-        model = raw.whereType<Map>().map((item) {
-          final n = Map<String, dynamic>.from(item);
-          final dataVencimento = n['dataVencimento']?.toString();
-          return Alert(
-            id: (n['id'] ?? n['referenciaId'] ?? 0) is int
-                ? (n['id'] ?? n['referenciaId'] ?? 0) as int
-                : int.tryParse((n['id'] ?? n['referenciaId']).toString()) ?? 0,
-            idUserDestino: AuthUtility.userInfo?.data?.id ?? 0,
-            // DateTime.parse exige um formato válido; quando não há data de
-            // vencimento (eventos pontuais), usamos o instante atual.
-            data: (dataVencimento != null && dataVencimento.isNotEmpty)
-                ? dataVencimento
-                : DateTime.now().toIso8601String(),
-            texto: n['mensagem']?.toString() ?? n['texto']?.toString() ?? '',
-            status: n['tipo']?.toString() ?? 'NOVO',
-          );
-        }).toList();
+        model = mapNotificacoesToAlerts(
+          raw,
+          loginId: AuthUtility.userInfo?.data?.id ?? 0,
+        );
       } else {
         L.d('Erro: Nenhum dado retornado de /api/notificacoes (status ${response.statusCode})');
       }
