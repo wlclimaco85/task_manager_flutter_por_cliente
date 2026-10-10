@@ -319,14 +319,7 @@ class WindowsLoginDetailScreen extends StatelessWidget {
         RelatedGridTab(
           title: 'Roles',
           icon: Icons.security,
-          telaNome: 'role',
-          extraParams: {
-            'loginId': loginId,
-            'empresaId': empresaId,
-            'parceiroId': parceiroId
-          },
-          deleteEndpointOverride:
-              '${ApiLinks.rolesDisponiveis.replaceAll('/api/role/disponiveis', '')}/api/logins/$loginId/roles/:id',
+          customWidget: LoginRoleesDetail(loginId: item.id),
         ),
         RelatedGridTab(
           title: 'Setores',

@@ -6,6 +6,7 @@ import '../../../utils/grid_colors.dart';
 
 import '../../../services/nfce_service.dart';
 import '../../../utils/api_links.dart';
+import '../../../utils/app_logger.dart';
 import '../../../utils/api_response_helpers.dart';
 import '../../../utils/grid_texts.dart';
 import '../../../utils/security_matrix.dart';
@@ -36,6 +37,8 @@ class _ConfigFiscalScreenState extends State<ConfigFiscalScreen> {
   String _idCsc = '';
   String _csc = '';
   String _serie = '001';
+  // Series do tipo NFC-e cadastradas para o cliente (tela de Series): alimenta o dropdown.
+  List<Map<String, dynamic>> _seriesNfce = [];
   String _senhaCertificado = '';
   bool _mostrarSenha = false;
   bool _mostrarCsc = false;
@@ -139,12 +142,61 @@ class _ConfigFiscalScreenState extends State<ConfigFiscalScreen> {
     }
   }
 
+  /// Series NFC-e do cliente selecionado (ou da empresa): GET /api/nfe-serie filtrado por tipo NFC-e.
+  Future<void> _carregarSeriesNfce() async {
+    final empresaId = TenantContext.empresaId;
+    if (empresaId == null) return;
+    try {
+      final params = <String>[
+        'pagina=0',
+        'tamanho=200',
+        'empId=$empresaId',
+        if (_clienteId != null) 'parceiroId=$_clienteId',
+      ];
+      final r = await TenantContext.get('${ApiLinks.allNfeSerie}?${params.join('&')}');
+      if (r.statusCode != 200) {
+        AppLogger.i.warn('Config fiscal NFC-e: HTTP ${r.statusCode} ao listar series');
+        return;
+      }
+      final corpo = jsonDecode(r.body);
+      dynamic lista = corpo;
+      if (corpo is Map) {
+        lista = corpo['data'] ?? corpo['dados'] ?? corpo['content'] ?? corpo['items'] ?? const [];
+        if (lista is Map) lista = lista['dados'] ?? lista['content'] ?? const [];
+      }
+      final series = <Map<String, dynamic>>[];
+      for (final item in (lista is List ? lista : const [])) {
+        if (item is! Map) continue;
+        final tipo = item['tipo']?.toString().trim().replaceAll('_', '-').toUpperCase();
+        if (tipo != 'NFC-E' && tipo != 'NFCE') continue;
+        final numero = item['serie']?.toString().trim() ?? '';
+        if (numero.isEmpty || int.tryParse(numero) == null) continue;
+        final descricao = item['descricao']?.toString().trim() ?? '';
+        series.add({'id': numero, 'nome': descricao.isEmpty ? numero : '$numero - $descricao'});
+      }
+      if (!mounted) return;
+      setState(() => _seriesNfce = series);
+    } catch (e) {
+      AppLogger.i.warn('Config fiscal NFC-e: erro ao listar series: $e');
+    }
+  }
+
+  /// Series exibidas no dropdown: as do cliente + a serie atual (para nao sumir do campo).
+  List<Map<String, dynamic>> get _opcoesSerie {
+    final opcoes = List<Map<String, dynamic>>.of(_seriesNfce);
+    if (_serie.isNotEmpty && !opcoes.any((o) => o['id'] == _serie)) {
+      opcoes.insert(0, {'id': _serie, 'nome': _serie});
+    }
+    return opcoes;
+  }
+
   /// Carrega a config fiscal aplicando a regra de precedência Cliente > Empresa.
   /// Primeiro tenta o cache local (Hive); se não houver cache, busca no backend
   /// e grava no cache para a próxima abertura da tela.
   Future<void> _carregarConfig({bool ignorarCache = false}) async {
     final empresaId = TenantContext.empresaId;
     if (empresaId == null) return;
+    _carregarSeriesNfce();
 
     setState(() => _carregando = true);
     try {
@@ -725,8 +777,13 @@ class _ConfigFiscalScreenState extends State<ConfigFiscalScreen> {
                       ),
                     ),
                     obscureText: !_mostrarCsc,
-                    validator: (v) =>
-                        (v == null || v.isEmpty) ? 'Informe o ID CSC.' : null,
+                    maxLength: 6,
+                    validator: (v) {
+                      final id = v?.trim() ?? '';
+                      if (id.isEmpty) return 'Informe o ID CSC.';
+                      if (id.length > 6) return 'O ID CSC tem no maximo 6 caracteres.';
+                      return null;
+                    },
                     onSaved: (v) => _idCsc = v?.trim() ?? '',
                   ),
                   const SizedBox(height: 16),
@@ -812,17 +869,18 @@ class _ConfigFiscalScreenState extends State<ConfigFiscalScreen> {
                   const SizedBox(height: 24),
                   const _SectionTitle(title: 'NFC-e'),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    key: ValueKey('serie_$_serie'),
-                    initialValue: _serie,
-                    readOnly: !_camposFiscaisEditaveis,
-                    decoration: const InputDecoration(
-                      labelText: 'Série NFC-e',
-                      border: OutlineInputBorder(),
-                    ),
+                  SearchableDropdownField(
+                    key: ValueKey('serie_nfce_${_opcoesSerie.length}_$_serie'),
+                    label: 'Série NFC-e',
+                    value: _serie.isEmpty ? null : _serie,
+                    items: _opcoesSerie,
+                    valueField: 'id',
+                    displayField: 'nome',
+                    isRequired: true,
+                    enabled: _camposFiscaisEditaveis,
+                    onChanged: (v) => setState(() => _serie = v ?? ''),
                     validator: (v) =>
-                        (v == null || v.isEmpty) ? 'Informe a série.' : null,
-                    onSaved: (v) => _serie = v?.trim() ?? '001',
+                        (v == null || v.isEmpty) ? 'Selecione a série.' : null,
                   ),
                   const SizedBox(height: 12),
                   SwitchListTile(

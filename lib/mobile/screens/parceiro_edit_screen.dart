@@ -1,6 +1,7 @@
 import 'dart:io';
 import '../../widgets/user_banners.dart';
 import 'package:flutter/material.dart';
+import '../../utils/valor_digitado_utils.dart';
 import 'package:task_manager_flutter/services/network_caller.dart';
 import 'package:task_manager_flutter/utils/api_links.dart';
 import 'package:task_manager_flutter/utils/grid_colors.dart';
@@ -129,8 +130,7 @@ class _ParceiroEditScreenState extends State<ParceiroEditScreen> {
     );
     try {
       double? valorMensal;
-      final rawValor = _valorMensal.text.replaceAll('.', '').replaceAll(',', '.').trim();
-      if (rawValor.isNotEmpty) valorMensal = double.tryParse(rawValor);
+      valorMensal = parseValorDigitado(_valorMensal.text);
 
       final endereco = {
         'logradouro': _logradouro.text.trim(),

@@ -16,6 +16,7 @@ Future<bool?> showEditRowDialog(
   required String schema,
   required List<Map<String, dynamic>> colunas,
   required Map<String, dynamic> rowData,
+  String? tabela,
 }) {
   // Identifica a PK (primeira coluna que for PK ou 'id')
   String? pkColumn;
@@ -40,6 +41,7 @@ Future<bool?> showEditRowDialog(
     context: context,
     builder: (ctx) => _EditRowDialog(
       schema: schema,
+      tabela: tabela,
       colunas: colunas,
       rowData: Map<String, dynamic>.from(rowData),
       pkColumn: pkColumn,
@@ -50,6 +52,7 @@ Future<bool?> showEditRowDialog(
 
 class _EditRowDialog extends StatefulWidget {
   final String schema;
+  final String? tabela;
   final List<Map<String, dynamic>> colunas;
   final Map<String, dynamic> rowData;
   final String? pkColumn;
@@ -57,6 +60,7 @@ class _EditRowDialog extends StatefulWidget {
 
   const _EditRowDialog({
     required this.schema,
+    this.tabela,
     required this.colunas,
     required this.rowData,
     this.pkColumn,
@@ -172,6 +176,7 @@ class _EditRowDialogState extends State<_EditRowDialog> {
 
     final tabela = _inferirTabela();
     if (tabela.isEmpty) {
+      setState(() => _salvando = false);
       _mostrarErro('Nome da tabela não encontrado nos metadados. Não é possível editar.');
       return;
     }
@@ -196,6 +201,9 @@ class _EditRowDialogState extends State<_EditRowDialog> {
   }
 
   String _inferirTabela() {
+    if (widget.tabela != null && widget.tabela!.trim().isNotEmpty) {
+      return widget.tabela!.trim();
+    }
     for (final col in widget.colunas) {
       if (col.containsKey('tabela')) {
         return col['tabela'].toString();

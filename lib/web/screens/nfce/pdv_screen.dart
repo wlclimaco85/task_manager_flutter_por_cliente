@@ -227,35 +227,38 @@ class _PdvScreenState extends State<PdvScreen> {
           _buildNoticeBanner(),
           const SizedBox(height: 12),
           _buildResumoFiscalCard(),
-          Expanded(child: isWide ? _buildWideLayout() : _buildNarrowLayout()),
+          Expanded(child: isWide ? _buildWideLayout(isWide) : _buildNarrowLayout(isWide)),
         ],
       ),
     );
   }
 
-  Widget _buildWideLayout() {
+  Widget _buildWideLayout(bool isWide) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(flex: 5, child: _buildPainelBusca()),
+        Expanded(flex: 5, child: _buildPainelBusca(isWide)),
         const VerticalDivider(width: 1),
         Expanded(flex: 4, child: _buildPainelCarrinho()),
       ],
     );
   }
 
-  Widget _buildNarrowLayout() {
+  Widget _buildNarrowLayout(bool isWide) {
     return DefaultTabController(
       length: 2,
       child: Column(
         children: [
           const TabBar(
-            tabs: [Tab(text: 'Buscar Produto'), Tab(text: 'Carrinho')],
+            tabs: [
+              Tab(icon: Icon(Icons.search), text: 'Produtos'),
+              Tab(icon: Icon(Icons.shopping_cart_checkout), text: 'Carrinho / Emitir NFC-e'),
+            ],
             labelColor: GridColors.secondary,
           ),
           Expanded(
             child: TabBarView(
-              children: [_buildPainelBusca(), _buildPainelCarrinho()],
+              children: [_buildPainelBusca(isWide), _buildPainelCarrinho()],
             ),
           ),
         ],
@@ -263,61 +266,86 @@ class _PdvScreenState extends State<PdvScreen> {
     );
   }
 
-  Widget _buildPainelBusca() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _buscaCtrl,
-            decoration: InputDecoration(
-              labelText: 'Buscar produto por nome ou código',
-              prefixIcon: _buscando
-                  ? const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+  Widget _buildPainelBusca(bool isWide) {
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _buscaCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Buscar produto por nome ou código',
+                  prefixIcon: _buscando
+                      ? const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : const Icon(Icons.search),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _resultadosBusca.isEmpty && _buscaCtrl.text.trim().length >= 2
+                    ? const Center(child: Text('Nenhum produto encontrado.'))
+                    : ListView.builder(
+                        itemCount: _resultadosBusca.length,
+                        itemBuilder: (_, i) {
+                          final p = _resultadosBusca[i];
+                          final preco = (p['preco'] ?? p['precoVenda'] ?? 0).toDouble();
+                          return ListTile(
+                            leading: const Icon(Icons.inventory_2_outlined),
+                            title: Text(p['nome']?.toString() ?? '—'),
+                            subtitle: Text('${p['codigo'] ?? ''} — R\$ ${preco.toStringAsFixed(2)}'),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.add_circle, color: GridColors.secondary),
+                              onPressed: () {
+                                _provider.adicionarItem(p);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('${p['nome']} adicionado ao carrinho.'),
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                            ),
+                            onTap: () => _provider.adicionarItem(p),
+                          );
+                        },
                       ),
-                    )
-                  : const Icon(Icons.search),
-              border: const OutlineInputBorder(),
+              ),
+            ],
+          ),
+        ),
+        if (!isWide && _provider.carrinho.isNotEmpty)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: Builder(
+              builder: (ctx) {
+                return FloatingActionButton.extended(
+                  onPressed: () {
+                    final tabCtrl = DefaultTabController.maybeOf(ctx);
+                    if (tabCtrl != null) {
+                      tabCtrl.animateTo(1);
+                    }
+                  },
+                  icon: const Icon(Icons.shopping_cart_checkout),
+                  label: Text('Finalizar (${_provider.carrinho.length})'),
+                  backgroundColor: GridColors.secondary,
+                  foregroundColor: Colors.white,
+                );
+              }
             ),
           ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _resultadosBusca.isEmpty && _buscaCtrl.text.trim().length >= 2
-                ? const Center(child: Text('Nenhum produto encontrado.'))
-                : ListView.builder(
-                    itemCount: _resultadosBusca.length,
-                    itemBuilder: (_, i) {
-                      final p = _resultadosBusca[i];
-                      final preco = (p['preco'] ?? p['precoVenda'] ?? 0).toDouble();
-                      return ListTile(
-                        leading: const Icon(Icons.inventory_2_outlined),
-                        title: Text(p['nome']?.toString() ?? '—'),
-                        subtitle: Text('${p['codigo'] ?? ''} — R\$ ${preco.toStringAsFixed(2)}'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.add_circle, color: GridColors.secondary),
-                          onPressed: () {
-                            _provider.adicionarItem(p);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('${p['nome']} adicionado ao carrinho.'),
-                                duration: const Duration(seconds: 1),
-                              ),
-                            );
-                          },
-                        ),
-                        onTap: () => _provider.adicionarItem(p),
-                      );
-                    },
-                  ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 

@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../utils/valor_digitado_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../utils/api_links.dart';
+import '../utils/app_logger.dart';
 import '../../../utils/grid_colors.dart';
 import '../../../utils/tenant_context.dart';
 import '../../../services/network_caller.dart';
@@ -185,6 +187,8 @@ class _GenericDetailFormScreenState extends State<GenericDetailFormScreen>
   bool _saving = false;
   bool _buscandoCep = false;
   bool _initialized = false;
+  // Nomes dos modulos contratados do parceiro (campo "Modulo Servicos", somente leitura).
+  String? _modulosContratados;
 
   Map<String, FieldConfigWindows> _overrideMap = {};
   Set<String> _suppressedFkFields = {};
@@ -194,6 +198,46 @@ class _GenericDetailFormScreenState extends State<GenericDetailFormScreen>
     super.initState();
     _buildOverrideMaps();
     _telaFuture = _loadTela();
+    _carregarModulosContratados();
+  }
+
+  /// O backend nao devolve "moduloServicos" no parceiro: monta o texto a partir dos modulos
+  /// contratados (mesma fonte da aba "Cobranca de Modulos": GET /api/parceiro-modulo).
+  Future<void> _carregarModulosContratados() async {
+    if (widget.telaNome != 'parceiro') return;
+    final id = int.tryParse(widget.item['id']?.toString() ?? '');
+    if (id == null || id <= 0) return;
+    try {
+      final r = await TenantContext.get(
+          '${ApiLinks.baseUrl}/api/parceiro-modulo?parceiroId=$id');
+      if (r.statusCode != 200) {
+        AppLogger.i.warn('Parceiro #$id: falha ao carregar modulos contratados (HTTP ${r.statusCode})');
+        return;
+      }
+      final dynamic corpo = jsonDecode(r.body);
+      final dynamic lista = corpo is List
+          ? corpo
+          : (corpo is Map ? (corpo['data'] ?? corpo['dados'] ?? const []) : const []);
+      final nomes = (lista is List ? lista : const [])
+          .whereType<Map>()
+          .map((m) => m['nome']?.toString().trim() ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList();
+      if (!mounted) return;
+      _modulosContratados = nomes.join(', ');
+      _aplicarModulosContratados();
+    } catch (e) {
+      AppLogger.i.warn('Parceiro #$id: erro ao carregar modulos contratados: $e');
+    }
+  }
+
+  void _aplicarModulosContratados() {
+    final texto = _modulosContratados;
+    if (texto == null || texto.isEmpty) return;
+    for (final fn in const ['moduloServicos', 'modulo_servicos', 'modulosServico']) {
+      final c = _controllers[fn];
+      if (c != null && c.text.isEmpty) c.text = texto;
+    }
   }
 
   void _buildOverrideMaps() {
@@ -416,6 +460,7 @@ class _GenericDetailFormScreenState extends State<GenericDetailFormScreen>
         }
       }
     }
+    _aplicarModulosContratados();
   }
 
   String _getValue(dynamic val) {
@@ -485,12 +530,10 @@ class _GenericDetailFormScreenState extends State<GenericDetailFormScreen>
         final key = entry.key;
         final text = entry.value.text.trim();
         if (key == 'valorMensal' || key == 'valor_mensal' || key == 'valor') {
-          final clean = text
-              .replaceAll('R\$', '')
-              .replaceAll(' ', '')
-              .replaceAll('.', '')
-              .replaceAll(',', '.');
-          final numVal = double.tryParse(clean);
+          // Texto pode vir do backend como "1097.47" (ponto = decimal) ou da
+          // mascara como "1.097,47": so remove o ponto se houver virgula decimal.
+          final numVal = parseValorDigitado(
+              text.replaceAll('R\$', '').replaceAll(' ', ''));
           body[key] = numVal ?? text;
         } else if (key == 'diaVencimentoMensalidade' ||
             key == 'dia_vencimento_mensalidade') {
