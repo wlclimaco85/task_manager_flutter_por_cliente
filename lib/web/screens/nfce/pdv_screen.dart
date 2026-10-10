@@ -12,6 +12,8 @@ import '../../../widgets/nfce/nfce_notice_banner.dart';
 import 'config_fiscal_screen.dart';
 import 'nfce_finalizacao_screen.dart';
 
+import '../../../widgets/nfce/produto_pdv_search_dialog.dart';
+
 /// Tela principal de venda / PDV NFC-e.
 /// Funciona em web, windows e mobile (layout responsivo).
 class PdvScreen extends StatefulWidget {
@@ -26,9 +28,14 @@ class _PdvScreenState extends State<PdvScreen> {
   final NfceService _service = NfceService();
 
   final TextEditingController _buscaCtrl = TextEditingController();
+  final ScrollController _scrollBuscaCtrl = ScrollController();
   Timer? _debounce;
   List<Map<String, dynamic>> _resultadosBusca = [];
   bool _buscando = false;
+  bool _carregandoMais = false;
+  int _searchPage = 0;
+  bool _isLastPage = false;
+  int _searchToken = 0;
 
   final TextEditingController _clienteCtrl = TextEditingController();
   String? _erroCliente;
@@ -43,16 +50,26 @@ class _PdvScreenState extends State<PdvScreen> {
       if (mounted) setState(() {});
     });
     _buscaCtrl.addListener(_onBuscaChanged);
+    _scrollBuscaCtrl.addListener(_onScrollBusca);
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _buscaCtrl.dispose();
+    _scrollBuscaCtrl.dispose();
     _clienteCtrl.dispose();
     _valorPagtoCtrl.dispose();
     _provider.dispose();
     super.dispose();
+  }
+
+  void _onScrollBusca() {
+    if (_buscando || _carregandoMais || _isLastPage) return;
+    if (!_scrollBuscaCtrl.hasClients) return;
+    if (_scrollBuscaCtrl.position.pixels >= _scrollBuscaCtrl.position.maxScrollExtent - 80) {
+      _carregarMaisProdutos();
+    }
   }
 
   void _onBuscaChanged() {
@@ -63,18 +80,83 @@ class _PdvScreenState extends State<PdvScreen> {
   Future<void> _buscarProdutos() async {
     final q = _buscaCtrl.text.trim();
     if (q.length < 2) {
-      setState(() => _resultadosBusca = []);
+      setState(() {
+        _resultadosBusca = [];
+        _searchPage = 0;
+        _isLastPage = false;
+      });
       return;
     }
     final empresaId = TenantContext.empresaId ?? 0;
-    setState(() => _buscando = true);
+    final token = ++_searchToken;
+    setState(() {
+      _buscando = true;
+      _searchPage = 0;
+      _isLastPage = false;
+    });
     try {
-      final res = await _service.buscarProdutos(query: q, empresaId: empresaId);
-      if (mounted) setState(() => _resultadosBusca = res);
+      final res = await _service.buscarProdutosPaginado(
+        query: q,
+        empresaId: empresaId,
+        page: 0,
+        tamanho: 20,
+      );
+      if (!mounted || token != _searchToken) return;
+      final itens = res.itens.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      setState(() {
+        _resultadosBusca = itens;
+        _isLastPage = res.isLast;
+      });
     } catch (_) {
-      if (mounted) setState(() => _resultadosBusca = []);
+      if (mounted && token == _searchToken) {
+        setState(() {
+          _resultadosBusca = [];
+          _isLastPage = true;
+        });
+      }
     } finally {
-      if (mounted) setState(() => _buscando = false);
+      if (mounted && token == _searchToken) setState(() => _buscando = false);
+    }
+  }
+
+  Future<void> _carregarMaisProdutos() async {
+    final q = _buscaCtrl.text.trim();
+    if (q.length < 2 || _isLastPage || _carregandoMais) return;
+    final empresaId = TenantContext.empresaId ?? 0;
+    final token = ++_searchToken;
+    final nextPage = _searchPage + 1;
+    setState(() => _carregandoMais = true);
+    try {
+      final res = await _service.buscarProdutosPaginado(
+        query: q,
+        empresaId: empresaId,
+        page: nextPage,
+        tamanho: 20,
+      );
+      if (!mounted || token != _searchToken) return;
+      final novos = res.itens.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      setState(() {
+        _resultadosBusca.addAll(novos);
+        _searchPage = nextPage;
+        _isLastPage = res.isLast;
+      });
+    } catch (_) {
+      // Ignora falha de página subsequente
+    } finally {
+      if (mounted && token == _searchToken) setState(() => _carregandoMais = false);
+    }
+  }
+
+  Future<void> _abrirDialogBuscaProdutos() async {
+    final produto = await ProdutoPdvSearchDialog.show(context);
+    if (produto != null && mounted) {
+      _provider.adicionarItem(produto);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${produto['nome']} adicionado ao carrinho.'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
     }
   }
 
@@ -274,30 +356,65 @@ class _PdvScreenState extends State<PdvScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
-                controller: _buscaCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Buscar produto por nome ou código',
-                  prefixIcon: _buscando
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : const Icon(Icons.search),
-                  border: const OutlineInputBorder(),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _buscaCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Buscar produto por nome ou código',
+                        prefixIcon: _buscando
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            : const Icon(Icons.search),
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 54,
+                    child: ElevatedButton.icon(
+                      onPressed: _abrirDialogBuscaProdutos,
+                      icon: const Icon(Icons.search, size: 20),
+                      label: const Text('Buscar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: GridColors.secondary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: _resultadosBusca.isEmpty && _buscaCtrl.text.trim().length >= 2
+                child: _resultadosBusca.isEmpty && _buscaCtrl.text.trim().length >= 2 && !_buscando
                     ? const Center(child: Text('Nenhum produto encontrado.'))
                     : ListView.builder(
-                        itemCount: _resultadosBusca.length,
+                        controller: _scrollBuscaCtrl,
+                        itemCount: _resultadosBusca.length + (_carregandoMais ? 1 : 0),
                         itemBuilder: (_, i) {
+                          if (i >= _resultadosBusca.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                            );
+                          }
                           final p = _resultadosBusca[i];
                           final preco = (p['preco'] ?? p['precoVenda'] ?? 0).toDouble();
                           return ListTile(

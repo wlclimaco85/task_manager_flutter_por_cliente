@@ -315,24 +315,38 @@ class NfceService {
   Future<List<Map<String, dynamic>>> buscarProdutos({
     required String query,
     required int empresaId,
+    int page = 0,
     int tamanho = 20,
   }) async {
-    // Bug de producao: /api/produto_contabil filtra por parceiro_id exato do
-    // JWT via findByFiltros, excluindo produtos sem parceiro_id (cadastros
-    // diretos pela empresa). O endpoint correto e /api/pdv/produtos que usa
-    // buscarParaSelecao com tolerancia a parceiro_id null e retorna os campos
-    // necessarios (nome, preco, codigo, ncm, gtin, unidadeComercial).
+    final paginado = await buscarProdutosPaginado(
+      query: query,
+      empresaId: empresaId,
+      page: page,
+      tamanho: tamanho,
+    );
+    return paginado.itens.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<ResultadoPaginadoSpring> buscarProdutosPaginado({
+    required String query,
+    required int empresaId,
+    int page = 0,
+    int tamanho = 20,
+  }) async {
     final url =
-        '${ApiLinks.baseUrl}/api/pdv/produtos?nome=${Uri.encodeComponent(query)}&page=0&tamanho=$tamanho';
+        '${ApiLinks.baseUrl}/api/pdv/produtos?nome=${Uri.encodeComponent(query)}&page=$page&tamanho=$tamanho';
     final response = await http.get(
       Uri.parse(TenantContext.applyToUrl(url)),
       headers: TenantContext.headers,
     );
     if (response.statusCode == 200) {
-      return extrairListaPaginada(jsonDecode(response.body))
-          .cast<Map<String, dynamic>>();
+      return extrairResultadoPaginadoSpring(jsonDecode(response.body));
     }
-    return [];
+    return const ResultadoPaginadoSpring(
+      itens: [],
+      totalElements: 0,
+      isLast: true,
+    );
   }
 
   Future<void> inutilizar({
