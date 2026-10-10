@@ -1063,6 +1063,9 @@ class ModuloAccess {
     }
 
     if (!hasModulosConfigurados) return true;
+    if (menuItemId == 'produtos' || menuItemId == 'catalogo_produto' || menuItemId == 'unidade_medida') {
+      return isModuloContratado('Comercial') || isModuloContratado('Notas Fiscais');
+    }
     return isModuloContratado(modulo);
   }
 
