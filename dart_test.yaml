@@ -1,0 +1,5 @@
+# Testes que dependem de backend local (127.0.0.1:9001) ficam pulados por padrao.
+# Para executar: flutter test --run-skipped -t integracao
+tags:
+  integracao:
+    skip: "Requer backend local em 127.0.0.1:9001 (use --run-skipped -t integracao)"

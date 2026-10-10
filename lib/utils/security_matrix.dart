@@ -704,6 +704,9 @@ class ModuloAccess {
   static bool _loaded = false;
 
   static Future<void> load() async {
+    // Cache por sessao: evita refazer as chamadas de empresa-modulo/parceiro-modulo
+    // (rate limit 429). reset() no login/logout forca nova leitura.
+    if (_loaded) return;
     final login = AuthUtility.userInfo?.login;
     final parceiroId = login?.parceiro?.id;
     final empresaId = login?.empresa?.id;

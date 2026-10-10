@@ -155,7 +155,7 @@ void main() {
   // ========================================================================
 
   group('SecurityMatrix._can — deny com modulos vazios', () {
-    test('usuario nao-MASTER sem modulos NAO pode ver contasPagar', () {
+    test('usuario nao-MASTER sem modulos configurados: permissao RBAC do backend prevalece (card 488)', () {
       final info = buildCliente(
         modulosContratados: [],
         permissoes: [
@@ -169,7 +169,26 @@ void main() {
         ],
       );
       final matrix = SecurityMatrix.of(info);
-      // Mesmo com permissao no backend, ModuloAccess nega porque nenhum modulo contratado
+      // Lista de modulos vazia = modulos nao configurados: o filtro de modulo nao
+      // bloqueia telas com permissao RBAC (hasModulosConfigurados == false).
+      expect(matrix.canView(AppScreen.contasPagar), isTrue);
+    });
+
+    test('usuario nao-MASTER com modulos configurados SEM cobrir a tela NAO pode ver contasPagar', () {
+      final info = buildCliente(
+        modulosContratados: ['Chamados'],
+        permissoes: [
+          RolePermissaoItem(
+            telaNome: 'contasPagar',
+            podeVer: true,
+            podeInserir: true,
+            podeEditar: true,
+            podeDeletar: true,
+          ),
+        ],
+      );
+      final matrix = SecurityMatrix.of(info);
+      // Com modulos efetivamente configurados, a tela do modulo Financeiro e negada.
       expect(matrix.canView(AppScreen.contasPagar), isFalse);
     });
 

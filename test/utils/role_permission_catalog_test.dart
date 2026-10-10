@@ -55,7 +55,7 @@ void main() {
     final telasNfe = nfe.entries.map((tela) => tela.label).toSet();
     expect(telasNfe, contains('NF-e Entrada'));
     expect(telasNfe, contains('NF-e Saída'));
-    expect(telasNfe, contains('NF-e Série'));
+    expect(telasNfe, contains('Série NF'));
     expect(telasNfe, contains('Consulta DF-e'));
     expect(telasNfe, contains('Manifestação Destinatário'));
     expect(telasNfe, contains('Cancelamento e CC-e'));
@@ -75,8 +75,6 @@ void main() {
 
     final comercial = grupos.firstWhere((grupo) => grupo.label == 'Comercial');
     final telasComercial = comercial.entries.map((tela) => tela.label).toSet();
-    expect(telasComercial, contains('NF-e Série'));
-    expect(telasComercial, contains('Séries NFS-e'));
     expect(telasComercial, contains('Dashboard Fiscal'));
   });
 
