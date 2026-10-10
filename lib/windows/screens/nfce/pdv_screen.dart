@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../utils/app_snackbar.dart';
 
 import 'package:flutter/material.dart';
 import '../../../utils/grid_colors.dart';
@@ -108,7 +109,8 @@ class _PdvScreenState extends State<PdvScreen> {
         _resultadosBusca = itens;
         _isLastPage = res.isLast;
       });
-    } catch (_) {
+    } catch (e) {
+      if (mounted) AppSnackbar.error(context, e is NfceException ? e.message : 'Falha ao buscar produtos.');
       if (mounted && token == _searchToken) {
         setState(() {
           _resultadosBusca = [];

@@ -8,6 +8,7 @@ import '../models/nfce/nfce_resultado_model.dart';
 import '../models/nfce/nfce_status_model.dart';
 import '../utils/api_links.dart';
 import '../utils/api_response_helpers.dart';
+import '../utils/app_logger.dart';
 import '../utils/tenant_context.dart';
 
 /// Serviço responsável pelas chamadas HTTP relacionadas a NFC-e.
@@ -342,11 +343,13 @@ class NfceService {
     if (response.statusCode == 200) {
       return extrairResultadoPaginadoSpring(jsonDecode(response.body));
     }
-    return const ResultadoPaginadoSpring(
-      itens: [],
-      totalElements: 0,
-      isLast: true,
-    );
+    // Nao mascarar falha (403 sem permissao, 5xx...) como "lista vazia": a tela
+    // do PDV mostrava "Nenhum produto encontrado" sem nenhuma pista do erro.
+    final msg = response.statusCode == 403
+        ? 'Sem permissao para consultar produtos no PDV (403)'
+        : _extractErrorMessage(response, 'Falha ao buscar produtos');
+    AppLogger.i.warn('PDV buscarProdutos: ${response.statusCode} $url');
+    throw NfceException(msg, statusCode: response.statusCode);
   }
 
   Future<void> inutilizar({

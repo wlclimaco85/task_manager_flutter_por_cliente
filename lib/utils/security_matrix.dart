@@ -1052,6 +1052,12 @@ class ModuloAccess {
     final modulo = _menuItemToModulo[menuItemId];
     if (modulo == null) return true;
 
+    // Produtos: o PDV (modulo Notas Fiscais/NFC-e) vende produtos, entao quem
+    // contrata so NFC-e precisa cadastrar/consultar Produtos tambem.
+    if (menuItemId == 'produtos' && hasModulosConfigurados) {
+      return isModuloContratado('Comercial') || isModuloContratado('Notas Fiscais');
+    }
+
     // Módulos legados opcionais: só são liberados se contratados especificamente
     if (modulo == 'GME') return isModuloContratado('GME');
     if (modulo == 'Service Desk') {

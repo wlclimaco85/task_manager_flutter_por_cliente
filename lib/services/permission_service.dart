@@ -38,8 +38,23 @@ class PermissionService {
 
     // Procurar permissão correspondente
     return _currentPermissoes!.any(
-      (perm) => perm.telaNome.toLowerCase() == telaNome.toLowerCase() && perm.podeVer,
+      (perm) => _telaNomeCombina(perm.telaNome, telaNome) && perm.podeVer,
     );
+  }
+
+  /// Nomes alternativos gravados em role_permissao para a mesma tela (cadastros
+  /// antigos usam o singular). Chaves e valores em minusculas.
+  static const Map<String, List<String>> _telaNomeAliases = {
+    'produtos': ['produto'],
+  };
+
+  /// Compara o telaNome salvo na role com o esperado, sem diferenciar caixa e
+  /// aceitando os aliases conhecidos (ex.: Produtos == produto).
+  static bool _telaNomeCombina(String telaNomeRole, String telaNomeEsperado) {
+    final role = telaNomeRole.toLowerCase();
+    final esperado = telaNomeEsperado.toLowerCase();
+    if (role == esperado) return true;
+    return _telaNomeAliases[esperado]?.contains(role) ?? false;
   }
 
   /// Verificar permissões detalhadas para um menuItem
@@ -50,7 +65,7 @@ class PermissionService {
     if (telaNome == null) return null;
 
     return _currentPermissoes!.firstWhereOrNull(
-      (perm) => perm.telaNome.toLowerCase() == telaNome.toLowerCase(),
+      (perm) => _telaNomeCombina(perm.telaNome, telaNome),
     );
   }
 
