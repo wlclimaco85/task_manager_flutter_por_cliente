@@ -334,22 +334,58 @@ class NfceService {
     int page = 0,
     int tamanho = 20,
   }) async {
-    final url =
-        '${ApiLinks.baseUrl}/api/pdv/produtos?nome=${Uri.encodeComponent(query)}&page=$page&tamanho=$tamanho';
-    final response = await http.get(
-      Uri.parse(TenantContext.applyToUrl(url)),
-      headers: TenantContext.headers,
-    );
-    if (response.statusCode == 200) {
-      return extrairResultadoPaginadoSpring(jsonDecode(response.body));
+    final termo = query.trim();
+    // 1. Tenta endpoint dedicado de PDV
+    int? statusPdv;
+    final urlPdv =
+        '${ApiLinks.baseUrl}/api/pdv/produtos?nome=${Uri.encodeComponent(termo)}&page=$page&tamanho=$tamanho';
+    try {
+      final responsePdv = await http.get(
+        Uri.parse(TenantContext.applyToUrl(urlPdv)),
+        headers: TenantContext.headers,
+      );
+      statusPdv = responsePdv.statusCode;
+      if (responsePdv.statusCode == 200) {
+        final res = extrairResultadoPaginadoSpring(jsonDecode(responsePdv.body));
+        if (res.itens.isNotEmpty || res.totalElements > 0) {
+          return res;
+        }
+      }
+    } catch (_) {
+      // Falha no endpoint PDV tenta fallback
     }
-    // Nao mascarar falha (403 sem permissao, 5xx...) como "lista vazia": a tela
-    // do PDV mostrava "Nenhum produto encontrado" sem nenhuma pista do erro.
-    final msg = response.statusCode == 403
+
+    // 2. Fallback para /api/produto-contabil (mesmo endpoint que atende o Web e todas as telas)
+    try {
+      final queryParam = termo.isNotEmpty ? '&nome=${Uri.encodeQueryComponent(termo)}' : '';
+      final urlProdutoContabil =
+          '${ApiLinks.baseUrl}/api/produto-contabil?pagina=$page&tamanho=$tamanho$queryParam';
+      final responseFallback = await http.get(
+        Uri.parse(TenantContext.applyToUrl(urlProdutoContabil)),
+        headers: TenantContext.headers,
+      );
+      if (responseFallback.statusCode == 200) {
+        return extrairResultadoPaginadoSpring(jsonDecode(responseFallback.body));
+      }
+    } catch (_) {
+      // Ignora erro e devolve vazio
+    }
+
+    // PDV e fallback falharam: nao mascarar como "lista vazia" (403 sem permissao,
+    // 5xx...) - a tela mostrava "Nenhum produto encontrado" sem pista do erro.
+    if (statusPdv == 200) {
+      // PDV respondeu 200 sem itens e o fallback tambem nao trouxe: lista vazia real.
+      return const ResultadoPaginadoSpring(
+        itens: [],
+        totalElements: 0,
+        isLast: true,
+      );
+    }
+    final msg = statusPdv == 403
         ? 'Sem permissao para consultar produtos no PDV (403)'
-        : _extractErrorMessage(response, 'Falha ao buscar produtos');
-    AppLogger.i.warn('PDV buscarProdutos: ${response.statusCode} $url');
-    throw NfceException(msg, statusCode: response.statusCode);
+        : 'Falha ao buscar produtos (status ${statusPdv ?? 'sem resposta'})';
+    AppLogger.i.warn('PDV buscarProdutos: $statusPdv $urlPdv');
+    throw NfceException(msg, statusCode: statusPdv ?? -1);
   }
 
   Future<void> inutilizar({
