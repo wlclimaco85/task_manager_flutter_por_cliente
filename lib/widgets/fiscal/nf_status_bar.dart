@@ -34,24 +34,36 @@ class NfStatusBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Em largura estreita as acoes viram botoes so de icone (com tooltip).
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          _barra(constraints.maxWidth < 520),
+    );
+  }
+
+  Widget _barra(bool compacto) {
     return Container(
       height: 56,
       color: GridColors.shellBackground,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: compacto ? 12 : 24),
       child: Row(
         children: [
           Icon(icone, color: GridColors.textPrimary, size: 20),
           const SizedBox(width: 10),
-          Text(
-            titulo,
-            style: const TextStyle(
-              color: GridColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              titulo,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: GridColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           if (ambiente != null) ...[
-            const SizedBox(width: 12),
+            SizedBox(width: compacto ? 6 : 12),
             AmbienteBadge(ambiente: ambiente!),
           ],
           const Spacer(),
@@ -68,7 +80,13 @@ class NfStatusBar extends StatelessWidget implements PreferredSizeWidget {
             const SizedBox(width: 8),
             acaoExtra!,
           ],
-          if (onSalvarRascunho != null) ...[
+          if (onSalvarRascunho != null && compacto) ...[
+            IconButton(
+              tooltip: 'Salvar',
+              onPressed: loading ? null : onSalvarRascunho,
+              icon: const Icon(Icons.save_outlined, size: 20, color: Colors.white),
+            ),
+          ] else if (onSalvarRascunho != null) ...[
             const SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: loading ? null : onSalvarRascunho,
@@ -81,7 +99,15 @@ class NfStatusBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ],
-          if (onEmitir != null) ...[
+          if (onEmitir != null && compacto) ...[
+            IconButton(
+              tooltip: 'Emitir',
+              onPressed: (loading || !podEmitir) ? null : onEmitir,
+              icon: Icon(Icons.send,
+                  size: 20,
+                  color: (loading || !podEmitir) ? Colors.white38 : GridColors.success),
+            ),
+          ] else if (onEmitir != null) ...[
             const SizedBox(width: 8),
             ElevatedButton.icon(
               onPressed: (loading || !podEmitir) ? null : onEmitir,

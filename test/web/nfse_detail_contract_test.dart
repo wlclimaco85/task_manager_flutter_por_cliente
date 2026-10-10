@@ -4,8 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('NFS-e Web bloqueia tomador da sessao e normaliza series de NFS-e', () {
+    // Normaliza espacos/quebras de linha: o contrato e' sobre o codigo, nao
+    // sobre a formatacao (dart format quebra condicoes longas em varias linhas).
     final source = File('lib/web/screens/details/nfse_detail_screen.dart')
-        .readAsStringSync();
+        .readAsStringSync()
+        .replaceAll(RegExp(r'\s+'), ' ');
 
     expect(source, contains('_tomadorNome'));
     expect(source, contains('_parceiroEmissorId'));

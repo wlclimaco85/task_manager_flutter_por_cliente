@@ -8,6 +8,7 @@ import 'design_tokens.dart';
 import 'manifestacao/manifestacao_header.dart';
 import 'manifestacao/manifestacao_form.dart';
 import 'manifestacao/manifestacao_footer.dart';
+import '../../core/exceptions/manifestacao_exceptions.dart';
 
 /// Screen principal de Manifestação de Recebimento NFe
 class ManifestacaoScreen extends StatefulWidget {
@@ -82,14 +83,14 @@ class _ManifestacaoScreenState extends State<ManifestacaoScreen> {
     _notifier.setStatus(ManifestacaoStatus.recusar);
 
     final updated = _notifier.manifestacao!;
-    final errors = ManifestacaoValidator.validateAll(
-      status: updated.status,
-      observacao: updated.observacao,
-      quantidadeRecebida: updated.quantidadeRecebida,
-      motivoRecusa: updated.motivoRecusa,
-    );
-
-    if (errors.isNotEmpty) {
+    try {
+      ManifestacaoValidator.validateAll(
+        status: updated.status,
+        observacao: updated.observacao,
+        quantidadeRecebida: updated.quantidadeRecebida,
+        motivoRecusa: updated.motivoRecusa,
+      );
+    } on ValidationException {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Preencha todos os campos obrigatórios'),
@@ -138,14 +139,14 @@ class _ManifestacaoScreenState extends State<ManifestacaoScreen> {
     _notifier.setStatus(ManifestacaoStatus.parcial);
 
     final updated = _notifier.manifestacao!;
-    final errors = ManifestacaoValidator.validateAll(
-      status: updated.status,
-      observacao: updated.observacao,
-      quantidadeRecebida: updated.quantidadeRecebida,
-      motivoRecusa: updated.motivoRecusa,
-    );
-
-    if (errors.isNotEmpty) {
+    try {
+      ManifestacaoValidator.validateAll(
+        status: updated.status,
+        observacao: updated.observacao,
+        quantidadeRecebida: updated.quantidadeRecebida,
+        motivoRecusa: updated.motivoRecusa,
+      );
+    } on ValidationException {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Preencha todos os campos obrigatórios'),
@@ -161,7 +162,8 @@ class _ManifestacaoScreenState extends State<ManifestacaoScreen> {
     ConfirmacaoModalWidget.show(
       context: context,
       titulo: 'Confirmar Recebimento Parcial',
-      mensagem: 'Confirmar recebimento de ${manifestacao.quantidadeRecebida} unidades?',
+      mensagem:
+          'Confirmar recebimento de ${manifestacao.quantidadeRecebida} unidades?',
       botaoPrincipal: 'Confirmar',
       botaoSecundario: 'Cancelar',
       corBotaoPrincipal: ManifestacaoDesignTokens.colorWarning,

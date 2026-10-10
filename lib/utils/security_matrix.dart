@@ -464,8 +464,7 @@ class SecurityMatrix {
     // Regra Financeiro Limitado: cliente sem módulo Financeiro completo só pode
     // VER e BAIXAR em Contas a Pagar; Contas a Receber fica bloqueada.
     if (screen == AppScreen.contasPagar &&
-        !ModuloAccess.isModuloContratado('Financeiro') &&
-        ModuloAccess.isModuloContratado('Financeiro Limitado')) {
+        ModuloAccess.financeiroLimitadoContratado) {
       return action == AppAction.view || action == AppAction.baixar;
     }
 
@@ -553,9 +552,7 @@ class SecurityMatrix {
     return hasRoleKey('ROLE_ADMIN') || hasRoleKey('ROLE_FISCAL');
   }
 
-  bool get isFinanceiroLimitado =>
-      !ModuloAccess.isModuloContratado('Financeiro') &&
-      ModuloAccess.isModuloContratado('Financeiro Limitado');
+  bool get isFinanceiroLimitado => ModuloAccess.financeiroLimitadoContratado;
 
   bool hasAnyAccess(AppScreen screen) {
     if (profile == UserProfile.system || tipoLogin == LoginEnum.MASTER) return true;
@@ -780,7 +777,8 @@ class ModuloAccess {
       // MASTER ja e tratado acima e nunca chega aqui.
       _modulosContratados = [];
     }
-    if (_modulosContratados.isNotEmpty && !_modulosContratados.contains('Financeiro')) {
+    if (_modulosContratados.isNotEmpty &&
+        !_financeiroCompleto.any(_modulosContratados.contains)) {
       _modulosContratados.add('Financeiro Limitado');
     }
     _loaded = true;
@@ -796,7 +794,6 @@ class ModuloAccess {
     ],
     'Financeiro': [
       'Financeiro',
-      'Financeiro Limitado',
       'Financeiro avançado',
       'Financeiro avancado',
     ],
@@ -860,6 +857,23 @@ class ModuloAccess {
   /// Indica se algum módulo foi efetivamente configurado na API.
   /// Quando false, o filtro de módulo não deve bloquear telas com permissão RBAC.
   static bool get hasModulosConfigurados => _loaded && _modulosContratados.isNotEmpty;
+
+  /// Nomes de modulo que representam o Financeiro COMPLETO (o alias 'Financeiro
+  /// Limitado' NAO conta: ele e' justamente o modo restrito).
+  static const List<String> _financeiroCompleto = [
+    'Financeiro',
+    'Financeiro avançado',
+    'Financeiro avancado',
+  ];
+
+  static bool get financeiroCompletoContratado =>
+      _loaded && _financeiroCompleto.any(_modulosContratados.contains);
+
+  /// Cliente apenas com Financeiro Limitado (VER e BAIXAR em Contas a Pagar).
+  static bool get financeiroLimitadoContratado =>
+      _loaded &&
+      _modulosContratados.contains('Financeiro Limitado') &&
+      !financeiroCompletoContratado;
 
   static bool isModuloContratado(String nome) {
     if (!_loaded) return false;

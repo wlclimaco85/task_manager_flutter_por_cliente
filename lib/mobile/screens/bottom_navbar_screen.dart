@@ -1948,43 +1948,43 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
         nav = _pushDynamicGrid(telaNome: 'projeto', sec: sec);
         break;
       case "Etapas Projeto":
-        nav = _pushDynamicGrid(telaNome: 'projeto_etapa_screen', sec: sec);
+        nav = _pushDynamicGrid(telaNome: 'projeto_etapa', sec: sec);
         break;
       case "Recursos Projeto":
-        nav = _pushDynamicGrid(telaNome: 'projeto_recurso_screen', sec: sec);
+        nav = _pushDynamicGrid(telaNome: 'projeto_recurso', sec: sec);
         break;
       case "Apontamentos":
         nav =
-            _pushDynamicGrid(telaNome: 'projeto_apontamento_screen', sec: sec);
+            _pushDynamicGrid(telaNome: 'projeto_apontamento', sec: sec);
         break;
       case "Medições":
-        nav = _pushDynamicGrid(telaNome: 'projeto_medicao_screen', sec: sec);
+        nav = _pushDynamicGrid(telaNome: 'projeto_medicao', sec: sec);
         break;
       case "Cargos/Recursos":
-        nav = _pushDynamicGrid(telaNome: 'cargo_recurso_screen', sec: sec);
+        nav = _pushDynamicGrid(telaNome: 'cargo_recurso', sec: sec);
         break;
       // Precificação
       case "Precificações":
-        nav = _pushDynamicGrid(telaNome: 'precificacao_screen', sec: sec);
+        nav = _pushDynamicGrid(telaNome: 'precificacao', sec: sec);
         break;
       case "Custos Diretos":
         nav = _pushDynamicGrid(
-            telaNome: 'precificacao_custo_direto_screen', sec: sec);
+            telaNome: 'custo_direto', sec: sec);
         break;
       case "Mão de Obra":
         nav = _pushDynamicGrid(
-            telaNome: 'precificacao_mao_de_obra', sec: sec);
+            telaNome: 'mao_de_obra', sec: sec);
         break;
       case "Serviços Precificação":
         nav =
-            _pushDynamicGrid(telaNome: 'precificacao_servico_screen', sec: sec);
+            _pushDynamicGrid(telaNome: 'precificacao_servico', sec: sec);
         break;
       case "Condições Pagamento":
         nav = _pushDynamicGrid(
-            telaNome: 'precificacao_condicao_pagamento_screen', sec: sec);
+            telaNome: 'condicao_pagamento', sec: sec);
         break;
       case "Propostas Comerciais":
-        nav = _pushDynamicGrid(telaNome: 'proposta_comercial_screen', sec: sec);
+        nav = _pushDynamicGrid(telaNome: 'proposta_comercial', sec: sec);
         break;
       case "Agendar NFe Recorrente":
         nav = Navigator.push(

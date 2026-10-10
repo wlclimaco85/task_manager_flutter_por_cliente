@@ -36,13 +36,20 @@ class NfeXmlImportCaller {
         mensagemErroPadrao: 'Erro no preview', client: client);
   }
 
+  /// [conciliacoes] é a escolha do usuário, por item, de usar um produto já
+  /// cadastrado (produtoId) ou cadastrar um novo (criarNovoProduto) --
+  /// serializado como JSON no campo multipart "itensConciliacao", casando
+  /// com NfeImportController.confirmar(@RequestParam("itensConciliacao")).
   static Future<NfeXmlImportResult> confirmar(
     Uint8List bytes,
     String fileName, {
+    List<Map<String, dynamic>>? conciliacoes,
     http.Client? client,
   }) {
     return _enviar(ApiLinks.nfeImportacaoConfirmar, bytes, fileName,
-        mensagemErroPadrao: 'Erro na importação', client: client);
+        mensagemErroPadrao: 'Erro na importação',
+        conciliacoes: conciliacoes,
+        client: client);
   }
 
   static Future<NfeXmlImportResult> _enviar(
@@ -50,6 +57,7 @@ class NfeXmlImportCaller {
     Uint8List bytes,
     String fileName, {
     required String mensagemErroPadrao,
+    List<Map<String, dynamic>>? conciliacoes,
     http.Client? client,
   }) async {
     final httpClient = client ?? http.Client();
@@ -69,6 +77,9 @@ class NfeXmlImportCaller {
         bytes,
         filename: fileName,
       ));
+      if (conciliacoes != null && conciliacoes.isNotEmpty) {
+        request.fields['itensConciliacao'] = jsonEncode(conciliacoes);
+      }
 
       final streamed = await httpClient.send(request);
       final resp = await http.Response.fromStream(streamed);

@@ -580,18 +580,18 @@ class _WebBottomNavBarScreenState extends State<WebBottomNavBarScreen> {
       DynamicGridDynamicScreen(telaNome: 'chamado_avaliacao_screen', hasPermission: (p) => true), // 168: Avaliações
       DynamicGridDynamicScreen(telaNome: 'projeto', hasPermission: (p) => true), // 169: Projetos
       const SizedBox.shrink(), // 170: reservado
-      DynamicGridDynamicScreen(telaNome: 'projeto_etapa_screen', hasPermission: (p) => true), // 171: Etapas
-      DynamicGridDynamicScreen(telaNome: 'projeto_recurso_screen', hasPermission: (p) => true), // 172: Recursos
-      DynamicGridDynamicScreen(telaNome: 'projeto_apontamento_screen', hasPermission: (p) => true), // 173: Apontamentos
-      DynamicGridDynamicScreen(telaNome: 'projeto_medicao_screen', hasPermission: (p) => true), // 174: Medições
-      DynamicGridDynamicScreen(telaNome: 'cargo_recurso_screen', hasPermission: (p) => true), // 175: Cargos/Recursos
-      DynamicGridDynamicScreen(telaNome: 'precificacao_screen', hasPermission: (p) => true), // 176: Precificações
+      DynamicGridDynamicScreen(telaNome: 'projeto_etapa', hasPermission: (p) => true), // 171: Etapas
+      DynamicGridDynamicScreen(telaNome: 'projeto_recurso', hasPermission: (p) => true), // 172: Recursos
+      DynamicGridDynamicScreen(telaNome: 'projeto_apontamento', hasPermission: (p) => true), // 173: Apontamentos
+      DynamicGridDynamicScreen(telaNome: 'projeto_medicao', hasPermission: (p) => true), // 174: Medições
+      DynamicGridDynamicScreen(telaNome: 'cargo_recurso', hasPermission: (p) => true), // 175: Cargos/Recursos
+      DynamicGridDynamicScreen(telaNome: 'precificacao', hasPermission: (p) => true), // 176: Precificações
       const SizedBox.shrink(), // 177: reservado
-      DynamicGridDynamicScreen(telaNome: 'precificacao_custo_direto_screen', hasPermission: (p) => true), // 178: Custos Diretos
-      DynamicGridDynamicScreen(telaNome: 'precificacao_mao_de_obra', hasPermission: (p) => true), // 179: Mão de Obra
-      DynamicGridDynamicScreen(telaNome: 'precificacao_servico_screen', hasPermission: (p) => true), // 180: Serviços
-      DynamicGridDynamicScreen(telaNome: 'precificacao_condicao_pagamento_screen', hasPermission: (p) => true), // 181: Condições Pagamento
-      DynamicGridDynamicScreen(telaNome: 'proposta_comercial_screen', hasPermission: (p) => true), // 182: Propostas Comerciais
+      DynamicGridDynamicScreen(telaNome: 'custo_direto', hasPermission: (p) => true), // 178: Custos Diretos
+      DynamicGridDynamicScreen(telaNome: 'mao_de_obra', hasPermission: (p) => true), // 179: Mão de Obra
+      DynamicGridDynamicScreen(telaNome: 'precificacao_servico', hasPermission: (p) => true), // 180: Serviços
+      DynamicGridDynamicScreen(telaNome: 'condicao_pagamento', hasPermission: (p) => true), // 181: Condições Pagamento
+      DynamicGridDynamicScreen(telaNome: 'proposta_comercial', hasPermission: (p) => true), // 182: Propostas Comerciais
       const AgendamentoModuleScreen(), // 183: Agendamento NFe Recorrente
       const ImportacaoFiscalAutomacaoScreen(), // 184: Importação Fiscal / Automação Fiscal
       const LoginEmpresaAcessoAprovacaoScreen(), // 185: Permissões Multi-Empresa

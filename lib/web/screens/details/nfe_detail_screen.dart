@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
@@ -11,9 +10,13 @@ import '../../../models/nfe_fatura_model.dart';
 import '../../../models/nfe_duplicata_model.dart';
 import '../../../utils/api_links.dart';
 import '../../../utils/tenant_context.dart';
+import '../../../utils/nfe_emission_payload.dart';
+import '../../../utils/nfe_action_feedback.dart';
 import '../../../widgets/searchable_dropdown.dart';
 import '../../../utils/dropdown_helpers.dart';
 import '../../../utils/fiscal_error_message.dart';
+import '../../../widgets/fiscal/nfe_authorization_status_banner.dart';
+import '../../../widgets/nfe/nfe_chave_qr_card.dart';
 import '../../../utils/grid_texts.dart';
 import '../../../utils/nfe_tax_aliases.dart';
 import '../produto_grid_screen.dart';
@@ -23,7 +26,376 @@ const _green = GridColors.secondary;
 const _bord = Color(0xFFDDDDDD);
 const _grey = Color(0xFF757575);
 const _dark = Color(0xFF212121);
-const _bg = Color(0xFFF5F5F5);
+
+const double _kCampoMinWidth = 260;
+const double nfeDetailPagamentoTipoCampoAltura = 56;
+const double nfeDetailItensResumoAltura = 260;
+const double nfeDetailItensFormularioAltura = 480;
+
+@visibleForTesting
+double nfeDetailAlturaItens(bool modoGrade) =>
+    modoGrade ? nfeDetailItensResumoAltura : nfeDetailItensFormularioAltura;
+
+@visibleForTesting
+String? nfeDetailIdRef(Object? value) {
+  if (value is Map) return value['id']?.toString();
+  return value?.toString();
+}
+
+@visibleForTesting
+Map<String, dynamic> nfeDetailCadastroPayloadIds({
+  String? formaPagamentoId,
+  String? nfeFinalidadeId,
+  String? centroCustoId,
+}) =>
+    <String, dynamic>{
+      if (formaPagamentoId != null)
+        'formaPagamentoId': int.tryParse(formaPagamentoId) ?? formaPagamentoId,
+      if (nfeFinalidadeId != null)
+        'nfeFinalidadeId': int.tryParse(nfeFinalidadeId) ?? nfeFinalidadeId,
+      if (centroCustoId != null)
+        'centroCustoId': int.tryParse(centroCustoId) ?? centroCustoId,
+    };
+
+@visibleForTesting
+bool isNfeRascunhoImportacao(Object? status) =>
+    (status?.toString() ?? '').toUpperCase() == 'RASCUNHO_IMPORTACAO';
+
+@visibleForTesting
+String nfeEntradaPrimaryActionLabel(Object? status) =>
+    isNfeRascunhoImportacao(status) ? 'Confirmar Entrada' : 'Aceitar';
+
+@visibleForTesting
+bool exibeSecaoFinanceiraNoDetalheNfe(Object? tipoOperacao) => false;
+
+@visibleForTesting
+Map<String, dynamic> nfeDetailCabecalhoAtual(
+  Map<String, dynamic> item,
+  Map<String, dynamic> detalhe,
+) {
+  final cabecalho = Map<String, dynamic>.from(item);
+  detalhe.forEach((key, value) {
+    if (value != null) cabecalho[key] = value;
+  });
+  return cabecalho;
+}
+
+@visibleForTesting
+double? nfeDetailParseDouble(Object? value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  final text = value.toString().trim();
+  if (text.isEmpty) return null;
+  final normalized =
+      text.contains(',') ? text.replaceAll('.', '').replaceAll(',', '.') : text;
+  return double.tryParse(normalized);
+}
+
+Set<String> _nfeDetailKeyVariants(String key, String snakeCase) {
+  final variants = <String>{key, snakeCase};
+  if (key.isNotEmpty) {
+    variants.add(key[0].toLowerCase() + key.substring(1));
+    variants.add(key[0].toUpperCase() + key.substring(1));
+  }
+  if (key.length > 1) {
+    variants.add(key[0] + key[1].toLowerCase() + key.substring(2));
+  }
+  return variants;
+}
+
+Object? _nfeDetailValue(
+    Map<String, dynamic> data, String camelCase, String snakeCase) {
+  for (final key in _nfeDetailKeyVariants(camelCase, snakeCase)) {
+    if (data.containsKey(key)) return data[key];
+  }
+  return null;
+}
+
+double _sumNfeDetailItems(
+        List<Map<String, dynamic>> itens, String camel, String snake) =>
+    itens.fold<double>(
+      0,
+      (sum, item) =>
+          sum +
+          (nfeDetailParseDouble(_nfeDetailValue(item, camel, snake)) ?? 0),
+    );
+
+double _nfeDetailTotal({
+  required Map<String, dynamic> cabecalho,
+  required List<Map<String, dynamic>> itens,
+  required String cabecalhoCamel,
+  required String cabecalhoSnake,
+  required String itemCamel,
+  required String itemSnake,
+}) {
+  final totalCabecalho = nfeDetailParseDouble(
+      _nfeDetailValue(cabecalho, cabecalhoCamel, cabecalhoSnake));
+  return totalCabecalho ?? _sumNfeDetailItems(itens, itemCamel, itemSnake);
+}
+
+@visibleForTesting
+List<MapEntry<String, double>> nfeDetailTotaisParaExibicao({
+  required double valorNota,
+  required List<Map<String, dynamic>> itens,
+  Map<String, dynamic> cabecalho = const {},
+  double totalServicos = 0,
+}) {
+  final totalProdutos = _sumNfeDetailItems(itens, 'vProd', 'v_prod');
+  final totais = <MapEntry<String, double>>[
+    MapEntry('Vlr. Nota', valorNota),
+    MapEntry('Total Produtos', totalProdutos > 0 ? totalProdutos : valorNota),
+    MapEntry('Total Serviços', totalServicos),
+    MapEntry(
+        'Base ICMS',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vBcIcms',
+            cabecalhoSnake: 'v_bc_icms',
+            itemCamel: 'vBcIcms',
+            itemSnake: 'v_bc_icms')),
+    MapEntry(
+        'ICMS',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIcms',
+            cabecalhoSnake: 'v_icms',
+            itemCamel: 'vIcms',
+            itemSnake: 'v_icms')),
+    MapEntry(
+        'ICMS Deson.',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIcmsDeson',
+            cabecalhoSnake: 'v_icms_deson',
+            itemCamel: 'vIcmsDeson',
+            itemSnake: 'v_icms_deson')),
+    MapEntry(
+        'FCP UF Dest.',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vFcpUfDest',
+            cabecalhoSnake: 'v_fcp_uf_dest',
+            itemCamel: 'vFcpUfDest',
+            itemSnake: 'v_fcp_uf_dest')),
+    MapEntry(
+        'ICMS UF Dest.',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIcmsUfDest',
+            cabecalhoSnake: 'v_icms_uf_dest',
+            itemCamel: 'vIcmsUfDest',
+            itemSnake: 'v_icms_uf_dest')),
+    MapEntry(
+        'ICMS UF Remet.',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIcmsUfRemet',
+            cabecalhoSnake: 'v_icms_uf_remet',
+            itemCamel: 'vIcmsUfRemet',
+            itemSnake: 'v_icms_uf_remet')),
+    MapEntry(
+        'FCP',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vFcp',
+            cabecalhoSnake: 'v_fcp',
+            itemCamel: 'vFcp',
+            itemSnake: 'v_fcp')),
+    MapEntry(
+        'Base ICMS-ST',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vBcIcmsSt',
+            cabecalhoSnake: 'v_bc_icms_st',
+            itemCamel: 'vBcSt',
+            itemSnake: 'v_bc_st')),
+    MapEntry(
+        'ICMS-ST',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIcmsSt',
+            cabecalhoSnake: 'v_icms_st',
+            itemCamel: 'vIcmsSt',
+            itemSnake: 'v_icms_st')),
+    MapEntry(
+        'FCP-ST',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vFcpSt',
+            cabecalhoSnake: 'v_fcp_st',
+            itemCamel: 'vFcpSt',
+            itemSnake: 'v_fcp_st')),
+    MapEntry(
+        'FCP-ST Ret.',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vFcpStRet',
+            cabecalhoSnake: 'v_fcp_st_ret',
+            itemCamel: 'vFcpStRet',
+            itemSnake: 'v_fcp_st_ret')),
+    MapEntry('ICMS-ST Ant.',
+        _sumNfeDetailItems(itens, 'vIcmsStAnt', 'v_icms_st_ant')),
+    MapEntry(
+        'II',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIi',
+            cabecalhoSnake: 'v_ii',
+            itemCamel: 'vIi',
+            itemSnake: 'v_ii')),
+    MapEntry('Base IPI', _sumNfeDetailItems(itens, 'vBcIpi', 'v_bc_ipi')),
+    MapEntry(
+        'IPI',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIpi',
+            cabecalhoSnake: 'v_ipi',
+            itemCamel: 'vIpi',
+            itemSnake: 'v_ipi')),
+    MapEntry(
+        'IPI Devol.',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIpiDevol',
+            cabecalhoSnake: 'v_ipi_devol',
+            itemCamel: 'vIpiDevol',
+            itemSnake: 'v_ipi_devol')),
+    MapEntry('Base ISS', _sumNfeDetailItems(itens, 'vBcIss', 'v_bc_iss')),
+    MapEntry('ISS', _sumNfeDetailItems(itens, 'vIss', 'v_iss')),
+    MapEntry('Base PIS', _sumNfeDetailItems(itens, 'vBcPis', 'v_bc_pis')),
+    MapEntry(
+        'PIS',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vPis',
+            cabecalhoSnake: 'v_pis',
+            itemCamel: 'vPis',
+            itemSnake: 'v_pis')),
+    MapEntry('PIS-ST', _sumNfeDetailItems(itens, 'vPisSt', 'v_pis_st')),
+    MapEntry(
+        'Base COFINS', _sumNfeDetailItems(itens, 'vBcCofins', 'v_bc_cofins')),
+    MapEntry(
+        'COFINS',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vCofins',
+            cabecalhoSnake: 'v_cofins',
+            itemCamel: 'vCofins',
+            itemSnake: 'v_cofins')),
+    MapEntry(
+        'COFINS-ST', _sumNfeDetailItems(itens, 'vCofinsSt', 'v_cofins_st')),
+    MapEntry(
+        'Base IBS/CBS',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vBcIbsCbs',
+            cabecalhoSnake: 'v_bc_ibs_cbs',
+            itemCamel: 'vBcIbsCbs',
+            itemSnake: 'v_bc_ibs_cbs')),
+    MapEntry(
+        'IBS UF',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIbsUf',
+            cabecalhoSnake: 'v_ibs_uf',
+            itemCamel: 'vIbsUf',
+            itemSnake: 'v_ibs_uf')),
+    MapEntry(
+        'IBS Mun.',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIbsMun',
+            cabecalhoSnake: 'v_ibs_mun',
+            itemCamel: 'vIbsMun',
+            itemSnake: 'v_ibs_mun')),
+    MapEntry(
+        'IBS',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vIbs',
+            cabecalhoSnake: 'v_ibs',
+            itemCamel: 'vIbs',
+            itemSnake: 'v_ibs')),
+    MapEntry(
+        'CBS',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vCbs',
+            cabecalhoSnake: 'v_cbs',
+            itemCamel: 'vCbs',
+            itemSnake: 'v_cbs')),
+    MapEntry(
+        'Frete',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vFrete',
+            cabecalhoSnake: 'v_frete',
+            itemCamel: 'vFrete',
+            itemSnake: 'v_frete')),
+    MapEntry(
+        'Seguro',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vSeg',
+            cabecalhoSnake: 'v_seg',
+            itemCamel: 'vSeg',
+            itemSnake: 'v_seg')),
+    MapEntry(
+        'Desconto',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vDesc',
+            cabecalhoSnake: 'v_desc',
+            itemCamel: 'vDesc',
+            itemSnake: 'v_desc')),
+    MapEntry(
+        'Outros',
+        _nfeDetailTotal(
+            cabecalho: cabecalho,
+            itens: itens,
+            cabecalhoCamel: 'vOutro',
+            cabecalhoSnake: 'v_outro',
+            itemCamel: 'vOutro',
+            itemSnake: 'v_outro')),
+    MapEntry(
+        'Total Tributos',
+        nfeDetailParseDouble(
+                _nfeDetailValue(cabecalho, 'vTotTrib', 'v_tot_trib')) ??
+            0),
+  ];
+
+  return totais
+      .where((t) =>
+          t.value != 0 ||
+          t.key.startsWith('Vlr.') ||
+          t.key == 'Total Produtos' ||
+          t.key == 'Total Serviços')
+      .toList();
+}
 
 class NfeSankhyaDetailScreen extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -33,18 +405,15 @@ class NfeSankhyaDetailScreen extends StatefulWidget {
 }
 
 class _State extends State<NfeSankhyaDetailScreen> {
-  int _tab = 0;
   bool _itensGrid = true;
   bool _finGrid = true;
+  bool _emitindo = false;
   int _selItem = 0;
   int _selFin = 0;
 
-  // Divisórias redimensionáveis
-  double _cabWidth = 320;
-  double _rodapeHeight = 260;
-
   List<Map<String, dynamic>> _itens = [];
   List<Map<String, dynamic>> _contas = [];
+  Map<String, dynamic> _detalheNfe = {};
 
   // NF07 — Pagamentos
   List<NfePagamento> _pagamentos = [];
@@ -70,6 +439,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
       []; // parceiros do parceiro logado
   List<Map<String, dynamic>> _formasPagamento = [];
   List<Map<String, dynamic>> _finalidades = [];
+  List<Map<String, dynamic>> _centrosCusto = [];
   List<Map<String, dynamic>> _produtos = [];
   List<Map<String, dynamic>> _series = [];
   List<Map<String, dynamic>> _unidades = [];
@@ -88,16 +458,22 @@ class _State extends State<NfeSankhyaDetailScreen> {
   String? _destinatarioId;
   String? _formaPagId;
   String? _finalidadeId;
+  String? _centroCustoId;
   String? _serieId; // ID da série selecionada (separado do texto _serieCtrl)
 
   // Dados do usuário logado (para campos disabled)
   String? _empresaNome;
   String? _parceiroNome;
+  String? _destinatarioNome;
   bool get _isNovo => widget.item['id'] == null;
 
   String get _nfeId => widget.item['id']?.toString() ?? '';
   bool get _isEntrada =>
       widget.item['tipoOperacao']?.toString().toUpperCase() == 'ENTRADA';
+  bool get _isRascunhoImportacao =>
+      isNfeRascunhoImportacao(_statusVal ?? widget.item['status']);
+  Map<String, dynamic> get _cabecalhoNfe =>
+      nfeDetailCabecalhoAtual(widget.item, _detalheNfe);
 
   @override
   void initState() {
@@ -105,10 +481,26 @@ class _State extends State<NfeSankhyaDetailScreen> {
     _initCabecalho();
     _loadDropdowns();
     if (!_isNovo) {
+      _loadDetalheNfe();
       _loadItens();
       _loadContas();
       _loadPagamentos();
     }
+  }
+
+  @override
+  void dispose() {
+    _novoPagVpag.dispose();
+    _fatNFat.dispose();
+    _fatVOrig.dispose();
+    _fatVLiq.dispose();
+    _dupNDup.dispose();
+    _dupDVenc.dispose();
+    _dupVDup.dispose();
+    _chaveCtrl.dispose();
+    _numeroCtrl.dispose();
+    _serieCtrl.dispose();
+    super.dispose();
   }
 
   void _initCabecalho() {
@@ -130,23 +522,63 @@ class _State extends State<NfeSankhyaDetailScreen> {
     _empresaNome = login?.empresa?.nome ??
         (i['empresa'] is Map ? i['empresa']['nome'] : null)?.toString();
 
-    // Parceiro: prioriza localstore, fallback para o item
-    final sessParcId = login?.parceiro?.id?.toString();
-    _parceiroId = sessParcId ??
-        (i['parceiro'] is Map ? i['parceiro']['id'] : i['parceiro'])
-            ?.toString();
-    _parceiroNome = login?.parceiro?.nome ??
-        (i['parceiro'] is Map ? i['parceiro']['nome'] : null)?.toString();
+    // Parceiro: em NF-e de SAIDA, "Parceiro" e' sempre o proprio tenant
+    // logado (quem emite) -- prioriza a sessao. Bug de producao (reportado
+    // com print, teste ao vivo confirmou): em NF-e de ENTRADA (importada de
+    // XML), o parceiro da nota e' o FORNECEDOR/emitente do XML -- VARIA por
+    // nota, nunca e' o proprio parceiro logado. Forcar a sessao aqui fazia
+    // TODA NF-e Entrada mostrar o proprio cliente logado como "Parceiro" em
+    // vez do fornecedor real (o backend ja manda certo em
+    // NfeServiceImpl.buscar -> dto.parceiro -- confirmado via
+    // GET /api/nfe/{id}, so' a tela ignorava esse dado pra Entrada).
+    if (_isEntrada) {
+      _parceiroId = (i['parceiro'] is Map ? i['parceiro']['id'] : i['parceiro'])
+          ?.toString();
+      _parceiroNome =
+          (i['parceiro'] is Map ? i['parceiro']['nome'] : null)?.toString();
 
-    _destinatarioId =
-        (i['destinatario'] is Map ? i['destinatario']['id'] : i['destinatario'])
-            ?.toString();
-    _formaPagId =
-        (i['formaPagamento'] is Map ? i['formaPagamento']['id'] : null)
-            ?.toString();
-    _finalidadeId =
-        (i['nfeFinalidade'] is Map ? i['nfeFinalidade']['id'] : null)
-            ?.toString();
+      final sessParcId = login?.parceiro?.id?.toString();
+      _destinatarioId = sessParcId ??
+          (i['destinatario'] is Map
+                  ? i['destinatario']['id']
+                  : i['destinatario'])
+              ?.toString();
+      _destinatarioNome = login?.parceiro?.nome ??
+          (i['destinatario'] is Map ? i['destinatario']['nome'] : null)
+              ?.toString();
+    } else {
+      // Saída: the backend uses 'destinatario' for the Tenant (for RLS grid filters)
+      // and 'parceiro' for the actual Buyer. We swap them here so the UI fields make sense.
+      final sessParcId = login?.parceiro?.id?.toString();
+
+      var parceiroMap = i['parceiro'];
+      var destMap = i['destinatario'];
+
+      if (parceiroMap != null) {
+        // Imported Saída: Buyer is parceiro, Tenant is destinatario
+        _destinatarioId =
+            (parceiroMap is Map ? parceiroMap['id'] : parceiroMap)?.toString();
+        _destinatarioNome =
+            (parceiroMap is Map ? parceiroMap['nome'] : null)?.toString();
+
+        _parceiroId = sessParcId ??
+            (destMap is Map ? destMap['id'] : destMap)?.toString();
+        _parceiroNome = login?.parceiro?.nome ??
+            (destMap is Map ? destMap['nome'] : null)?.toString();
+      } else {
+        // Manually created: Buyer is destinatario, parceiro is null (Tenant is sessParcId)
+        _destinatarioId =
+            (destMap is Map ? destMap['id'] : destMap)?.toString();
+        _destinatarioNome =
+            (destMap is Map ? destMap['nome'] : null)?.toString();
+
+        _parceiroId = sessParcId;
+        _parceiroNome = login?.parceiro?.nome;
+      }
+    }
+    _formaPagId = nfeDetailIdRef(i['formaPagamento']);
+    _finalidadeId = nfeDetailIdRef(i['nfeFinalidade']);
+    _centroCustoId = nfeDetailIdRef(i['centroCusto']);
 
     final topData = i['nfeTipoOperacao'];
     _tipoOperacaoId = (topData is Map ? topData['id'] : topData)?.toString();
@@ -162,6 +594,9 @@ class _State extends State<NfeSankhyaDetailScreen> {
           (d) => setState(() => _formasPagamento = d)),
       _loadList('${ApiLinks.baseUrl}/api/nfe-finalidade?tamanho=50',
           (d) => setState(() => _finalidades = d)),
+      _loadList(
+          '${ApiLinks.allCentrosCusto}?tamanho=100${empId != null ? '&empId=$empId' : ''}',
+          (d) => setState(() => _centrosCusto = d)),
       _loadList(
           '${ApiLinks.baseUrl}/api/produto-contabil?tamanho=500${empId != null ? '&empId=$empId' : ''}${parcId != null ? '&parceiroId=$parcId' : ''}&isServico=false',
           (d) => setState(() => _produtos = d)),
@@ -233,6 +668,34 @@ class _State extends State<NfeSankhyaDetailScreen> {
             .whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
             .toList());
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadDetalheNfe() async {
+    try {
+      final r = await TenantContext.get('${ApiLinks.baseUrl}/api/nfe/$_nfeId');
+      if (r.statusCode != 200) return;
+
+      final b = jsonDecode(r.body);
+      final raw = b is Map && b['data'] is Map ? b['data'] : b;
+      if (raw is! Map) return;
+
+      final detalhe = Map<String, dynamic>.from(raw);
+      if (!mounted) return;
+      setState(() {
+        _detalheNfe = detalhe;
+        if (detalhe['status'] != null) {
+          _statusVal = detalhe['status'].toString();
+        }
+        _formaPagId = nfeDetailIdRef(detalhe['formaPagamento']) ?? _formaPagId;
+        _finalidadeId =
+            nfeDetailIdRef(detalhe['nfeFinalidade']) ?? _finalidadeId;
+        _centroCustoId =
+            nfeDetailIdRef(detalhe['centroCusto']) ?? _centroCustoId;
+      });
+      if (_isRascunhoImportacao) {
+        setState(_aplicarDefaultsFinanceirosDaImportacao);
       }
     } catch (_) {}
   }
@@ -329,7 +792,38 @@ class _State extends State<NfeSankhyaDetailScreen> {
             .toList());
       }
     } catch (_) {}
+    if (!mounted) return;
+    if (_isRascunhoImportacao) {
+      _aplicarDefaultsFinanceirosDaImportacao();
+    }
     setState(() => _pagamentosLoading = false);
+  }
+
+  void _aplicarDefaultsFinanceirosDaImportacao() {
+    final valorTotal = _valorNfe();
+    if (valorTotal <= 0) return;
+
+    if (_pagamentos.isEmpty) {
+      _pagamentos = [NfePagamento(tPag: '01', vPag: valorTotal)];
+    }
+    if (_novoPagVpag.text.trim().isEmpty) {
+      _novoPagVpag.text = _valorMonetario(valorTotal);
+    }
+    if (_fatura == null && _fatNFat.text.trim().isEmpty) {
+      final numeroFatura =
+          _numeroCtrl.text.trim().isNotEmpty ? _numeroCtrl.text.trim() : _nfeId;
+      _fatNFat.text = numeroFatura;
+      _fatVOrig.text = _valorMonetario(valorTotal);
+      _fatVLiq.text = _valorMonetario(valorTotal);
+    }
+    if (_duplicatas.isEmpty) {
+      _duplicatas = [
+        NfeDuplicata(nDup: '001', dVenc: _hojeIso(), vDup: valorTotal),
+      ];
+      _dupNDup.text = '001';
+      _dupDVenc.text = _hojeIso();
+      _dupVDup.text = _valorMonetario(valorTotal);
+    }
   }
 
   Future<void> _adicionarPagamento() async {
@@ -518,7 +1012,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: GridColors.pageBackground,
       appBar: AppBar(
           backgroundColor: _red,
           foregroundColor: Colors.white,
@@ -526,58 +1020,138 @@ class _State extends State<NfeSankhyaDetailScreen> {
               style:
                   const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           actions: _isEntrada ? _actionsEntrada() : _actionsSaida()),
-      body: LayoutBuilder(builder: (context, constraints) {
-        if (constraints.maxWidth < 768) {
-          return SingleChildScrollView(
-              child: Column(children: [
-            SizedBox(height: 400, child: _cabecalho()),
-            const Divider(height: 1),
-            SizedBox(height: 400, child: _itensPanel()),
-            const Divider(height: 1),
-            SizedBox(height: 300, child: _rodape()),
-          ]));
-        }
-        return Column(children: [
-          Expanded(
-              child:
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: _cabWidth, child: _cabecalho()),
-            GestureDetector(
-              onHorizontalDragUpdate: (d) => setState(
-                  () => _cabWidth = (_cabWidth + d.delta.dx).clamp(200, 600)),
-              child: MouseRegion(
-                  cursor: SystemMouseCursors.resizeColumn,
-                  child: Container(
-                      width: 6,
-                      color: _bord,
-                      child: const Center(
-                          child: Icon(Icons.drag_indicator,
-                              size: 14, color: _grey)))),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1100),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                NfeAuthorizationStatusBanner(
+                  status: _statusVal,
+                  emitindo: _emitindo,
+                ),
+                const SizedBox(height: 16),
+                _secao(
+                  titulo: 'Dados da Nota',
+                  trailing: _btnSalvarCabecalho(),
+                  child: _camposDadosDaNota(),
+                ),
+                const SizedBox(height: 16),
+                _secao(
+                  titulo: 'Empresa e Fornecedor',
+                  child: _camposEmpresaFornecedor(),
+                ),
+                const SizedBox(height: 16),
+                _secao(
+                  titulo: 'Itens e Importação de XML',
+                  trailing: _isEntrada ? _btnImportarXml() : null,
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                            height: nfeDetailAlturaItens(_itensGrid),
+                            child: _itensPanel()),
+                        _impostosTab(),
+                      ]),
+                ),
+                const SizedBox(height: 16),
+                _secao(titulo: 'Pagamento', child: _pagamentosTab()),
+                const SizedBox(height: 16),
+                _secao(titulo: 'Totais', child: _totaisTab()),
+                if (exibeSecaoFinanceiraNoDetalheNfe(
+                    widget.item['tipoOperacao'])) ...[
+                  const SizedBox(height: 16),
+                  _secao(
+                    titulo: 'Contas a Receber',
+                    child: SizedBox(height: 400, child: _financeiroTab()),
+                  ),
+                ],
+              ],
             ),
-            Expanded(child: _itensPanel()),
-          ])),
-          GestureDetector(
-            onVerticalDragUpdate: (d) => setState(() =>
-                _rodapeHeight = (_rodapeHeight - d.delta.dy).clamp(120, 400)),
-            child: MouseRegion(
-                cursor: SystemMouseCursors.resizeRow,
-                child: Container(
-                    height: 6,
-                    color: _bord,
-                    child: const Center(
-                        child:
-                            Icon(Icons.drag_handle, size: 14, color: _grey)))),
           ),
-          SizedBox(height: _rodapeHeight, child: _rodape()),
-        ]);
-      }),
+        ),
+      ),
     );
   }
+
+  Widget _secao(
+      {required String titulo, required Widget child, Widget? trailing}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: GridColors.card,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: GridColors.borderSubtle),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          color: _green,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final tituloWidget = Text(titulo,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13));
+            if (trailing == null) return tituloWidget;
+            if (constraints.maxWidth < 640) {
+              return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    tituloWidget,
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                        scrollDirection: Axis.horizontal, child: trailing),
+                  ]);
+            }
+            return Row(children: [Expanded(child: tituloWidget), trailing]);
+          }),
+        ),
+        Padding(padding: const EdgeInsets.all(14), child: child),
+      ]),
+    );
+  }
+
+  Widget _grid(List<Widget> campos) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final double largura = constraints.maxWidth;
+      double colWidth;
+      if (largura < _kCampoMinWidth) {
+        colWidth = largura;
+      } else if ((largura - 24) / 3 >= _kCampoMinWidth) {
+        colWidth = (largura - 24) / 3;
+      } else if ((largura - 12) / 2 >= _kCampoMinWidth) {
+        colWidth = (largura - 12) / 2;
+      } else {
+        colWidth = largura;
+      }
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children:
+            campos.map((c) => SizedBox(width: colWidth, child: c)).toList(),
+      );
+    });
+  }
+
+  Widget _btnImportarXml() => SizedBox(
+      height: 26,
+      child: ElevatedButton.icon(
+          onPressed: () => _importarXml(),
+          icon: const Icon(Icons.upload_file, size: 12),
+          label: const Text('Importar XML', style: TextStyle(fontSize: 11)),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _green,
+              padding: const EdgeInsets.symmetric(horizontal: 8))));
 
   // ── AppBar Actions ────────────────────────────────────────────────────────
 
   List<Widget> _actionsSaida() => [
-        _appBarBtn(Icons.send, 'Emitir', () => _emitir()),
+        _appBarBtn(Icons.send, _emitindo ? 'Autorizando...' : 'Emitir',
+            _emitindo ? null : () => _emitir()),
         _appBarBtn(Icons.cancel_outlined, 'Cancelar', () => _cancelar()),
         _appBarBtn(Icons.print, 'DANFE', () => _imprimirDanfe()),
         _appBarBtn(Icons.code, 'XML', () => _baixarXml()),
@@ -586,12 +1160,16 @@ class _State extends State<NfeSankhyaDetailScreen> {
 
   List<Widget> _actionsEntrada() => [
         _appBarBtn(Icons.upload_file, 'Importar XML', () => _importarXml()),
-        _appBarBtn(Icons.check_circle_outline, 'Aceitar', () => _aceitar()),
+        _isRascunhoImportacao
+            ? _appBarBtn(Icons.check_circle_outline, 'Confirmar Entrada',
+                () => _confirmarEntrada())
+            : _appBarBtn(
+                Icons.check_circle_outline, 'Aceitar', () => _aceitar()),
         _appBarBtn(Icons.cancel_outlined, 'Recusar', () => _recusar()),
         const SizedBox(width: 8),
       ];
 
-  Widget _appBarBtn(IconData icon, String label, VoidCallback onTap) =>
+  Widget _appBarBtn(IconData icon, String label, VoidCallback? onTap) =>
       TextButton.icon(
         onPressed: onTap,
         icon: Icon(icon, size: 16, color: Colors.white),
@@ -605,6 +1183,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
 
   // NF08: usa POST /api/nfe/{id}/emitir (geração de XML real)
   Future<void> _emitir() async {
+    if (_emitindo) return; // evita duplo-clique disparar 2 confirmacoes/POSTs
     if (_isNovo) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Salve a NF-e antes de emitir'),
@@ -640,9 +1219,12 @@ class _State extends State<NfeSankhyaDetailScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    final payload = _payloadEmissaoOrSnack();
+    if (payload == null) return;
+    setState(() => _emitindo = true);
     try {
       // NF08: novo endpoint que gera XML real e assina digitalmente
-      final r = await TenantContext.post(ApiLinks.emitirNfe(_nfeId), {});
+      final r = await TenantContext.post(ApiLinks.emitirNfe(_nfeId), payload);
       if (!mounted) return;
       if (r.statusCode == 200 || r.statusCode == 201) {
         try {
@@ -666,7 +1248,62 @@ class _State extends State<NfeSankhyaDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Erro ao processar. Tente novamente.'),
             backgroundColor: _red));
+    } finally {
+      if (mounted) setState(() => _emitindo = false);
     }
+  }
+
+  String _finalidadeEmissao() {
+    final selected = _finalidades.firstWhere(
+      (e) => e['id']?.toString() == _finalidadeId,
+      orElse: () => {},
+    );
+    final value = selected['codigo'] ??
+        selected['descricao'] ??
+        selected['nome'] ??
+        widget.item['finalidade'] ??
+        (widget.item['nfeFinalidade'] is Map
+            ? widget.item['nfeFinalidade']['codigo'] ??
+                widget.item['nfeFinalidade']['descricao'] ??
+                widget.item['nfeFinalidade']['nome']
+            : null) ??
+        'NORMAL';
+    return value.toString();
+  }
+
+  Map<String, dynamic>? _payloadEmissaoOrSnack() {
+    final finalidade = _finalidadeEmissao();
+    final errors = NfeEmissionPayload.validate(
+      empresaId: _empresaId,
+      destinatarioId: _destinatarioId,
+      serie: _serieCtrl.text,
+      numero: _numeroCtrl.text,
+      finalidade: finalidade,
+      itens: _itens,
+    );
+    if (errors.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content:
+              Text('Campos obrigatórios para emitir: ${errors.join('; ')}'),
+          backgroundColor: _red));
+      return null;
+    }
+    return NfeEmissionPayload.build(
+      empresaId: _empresaId!,
+      destinatarioId: _destinatarioId!,
+      serie: _serieCtrl.text,
+      numero: _numeroCtrl.text,
+      finalidade: finalidade,
+      itens: _itens,
+    );
+  }
+
+  bool _permitirDownloadAutorizado(String tipo) {
+    if (NfeEmissionPayload.isAuthorized(_statusVal)) return true;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$tipo disponível somente após a NF-e autorizada.'),
+        backgroundColor: _red));
+    return false;
   }
 
   Future<void> _recarregarCabecalhoNfe() async {
@@ -727,21 +1364,27 @@ class _State extends State<NfeSankhyaDetailScreen> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
-    if (motivoCtrl.text.trim().length < 15) {
+    if (confirmed != true || !mounted) {
+      motivoCtrl.dispose();
+      return;
+    }
+    final motivo = motivoCtrl.text.trim();
+    motivoCtrl.dispose();
+    if (motivo.length < 15) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Motivo deve ter pelo menos 15 caracteres'),
           backgroundColor: _red));
       return;
     }
     try {
-      final r = await TenantContext.post(ApiLinks.cancelarNfe(_nfeId),
-          {'justificativa': motivoCtrl.text.trim()});
+      final r = await TenantContext.post(
+          ApiLinks.cancelarNfe(_nfeId), {'justificativa': motivo});
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(r.statusCode == 200
               ? 'NF-e cancelada!'
-              : 'Erro ${r.statusCode}. Tente novamente.'),
+              : NfeActionFeedback.cancelamentoErrorMessage(
+                  r.statusCode, r.body)),
           backgroundColor: r.statusCode == 200 ? _green : _red));
     } catch (e) {
       if (mounted)
@@ -752,6 +1395,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
   }
 
   Future<void> _imprimirDanfe() async {
+    if (!_permitirDownloadAutorizado('DANFE')) return;
     try {
       final r = await TenantContext.get(ApiLinks.danfeNfe(_nfeId));
       if (!mounted) return;
@@ -777,13 +1421,14 @@ class _State extends State<NfeSankhyaDetailScreen> {
   }
 
   Future<void> _baixarXml() async {
+    if (!_permitirDownloadAutorizado('XML')) return;
     try {
       final r = await TenantContext.get(ApiLinks.xmlNfe(_nfeId));
       if (!mounted) return;
       if (r.statusCode == 200) {
         await FileSaver.instance.saveFile(
           name: 'nfe_$_nfeId',
-          bytes: Uint8List.fromList(r.body.codeUnits),
+          bytes: r.bodyBytes,
           fileExtension: 'xml',
         );
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -871,6 +1516,53 @@ class _State extends State<NfeSankhyaDetailScreen> {
     }
   }
 
+  Future<void> _confirmarEntrada() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirmar NF-e Entrada',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        content: Text('Confirma a entrada da NF-e #$_nfeId?',
+            style: const TextStyle(fontSize: 13)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(GridTexts.cancel)),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: _green, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final r = await TenantContext.post(
+          ApiLinks.nfeImportacaoConfirmarEntrada(_nfeId), {});
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(r.statusCode == 200
+              ? 'NF-e Entrada confirmada!'
+              : 'Erro ${r.statusCode}'),
+          backgroundColor: r.statusCode == 200 ? _green : _red));
+      if (r.statusCode == 200) {
+        setState(() {
+          _statusVal = 'AUTORIZADA';
+          widget.item['status'] = 'AUTORIZADA';
+        });
+        await _loadContas();
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Erro ao processar. Tente novamente.'),
+            backgroundColor: _red));
+      }
+    }
+  }
+
   Future<void> _recusar() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -900,7 +1592,9 @@ class _State extends State<NfeSankhyaDetailScreen> {
           content: Text(
               r.statusCode == 200 ? 'NF-e recusada!' : 'Erro ${r.statusCode}'),
           backgroundColor: r.statusCode == 200 ? _green : _red));
-      if (r.statusCode == 200) setState(() => _statusVal = 'CANCELADA');
+      if (r.statusCode == 200) {
+        setState(() => _statusVal = NfeActionFeedback.recusaStatus);
+      }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -910,76 +1604,66 @@ class _State extends State<NfeSankhyaDetailScreen> {
   }
 
   // ── CABEÇALHO com dropdowns ──
-  Widget _cabecalho() {
-    final hasSession = AuthUtility.userInfo?.login != null;
+  Widget _btnSalvarCabecalho() => SizedBox(
+      height: 26,
+      child: ElevatedButton.icon(
+          onPressed: _salvarCabecalho,
+          icon: const Icon(Icons.save, size: 12),
+          label: const Text('Salvar', style: TextStyle(fontSize: 11)),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _green,
+              padding: const EdgeInsets.symmetric(horizontal: 8))));
 
-    return Container(
-        color: Colors.white,
-        child: Column(children: [
-          Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              color: _green,
-              child: Row(children: [
-                const Expanded(
-                    child: Text('Cabeçalho',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12))),
-                SizedBox(
-                    height: 24,
-                    child: ElevatedButton.icon(
-                        onPressed: _salvarCabecalho,
-                        icon: const Icon(Icons.save, size: 12),
-                        label: const Text('Salvar',
-                            style: TextStyle(fontSize: 11)),
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: _green,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8)))),
-              ])),
-          Expanded(
-              child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(children: [
-                    // Chave: sempre disabled (gerada na transmissão)
-                    _inpDisabled('Chave', _chaveCtrl),
-                    // Número: disabled (preenchido automaticamente pela série)
-                    _inpDisabled('Número', _numeroCtrl),
-                    // Série: dropdown para SAÍDA (auto-preenche número), input para ENTRADA
-                    _isEntrada
-                        ? _inp('Série', _serieCtrl)
-                        : _ddObjSerie('Série', _serieId, _series),
-                    // Tipo de Operação: usado para pré-preencher CFOP/CST/Alíquota ICMS no Novo Item
-                    _ddTipoOperacao(),
-                    // Status: disabled (PENDENTE no insert, muda só ao transmitir)
-                    _inpDisabledText('Status', _statusVal ?? 'PENDENTE'),
-                    _dd('Ambiente', _ambienteVal, ['HOMOLOGACAO', 'PRODUCAO'],
-                        (v) => setState(() => _ambienteVal = v)),
-                    // Empresa: disabled, vem do localstore
-                    hasSession && _empresaNome != null
-                        ? _inpDisabledText('Empresa', _empresaNome!)
-                        : _ddObj('Empresa', _empresaId, _empresas, 'nome',
-                            (v) => setState(() => _empresaId = v)),
-                    // Parceiro: disabled, vem do localstore
-                    hasSession && _parceiroNome != null
-                        ? _inpDisabledText('Parceiro', _parceiroNome!)
-                        : _ddObj('Parceiro', _parceiroId, _parceiros, 'nome',
-                            (v) => setState(() => _parceiroId = v)),
-                    // Destinatário: dropdown filtrado pelos parceiros do parceiro logado
-                    _ddObjSearch(
-                        'Destinatário',
-                        _destinatarioId,
-                        _destinatarios,
-                        'nome',
-                        (v) => setState(() => _destinatarioId = v)),
-                    _ddObj('Forma de Pagamento', _formaPagId, _formasPagamento,
-                        'descricao', (v) => setState(() => _formaPagId = v)),
-                    _ddObj('Finalidade', _finalidadeId, _finalidades,
-                        'descricao', (v) => setState(() => _finalidadeId = v)),
-                  ]))),
-        ]));
+  /// Card "Dados da Nota": identificação da NF-e. Tipo de Operação em
+  /// destaque porque controla CFOP/CST/Alíquota ICMS herdados pelos itens.
+  Widget _camposDadosDaNota() {
+    return _grid([
+      // Chave: sempre disabled (gerada na transmissão)
+      _inpDisabled('Chave', _chaveCtrl),
+      // QR code de consulta publica SEFAZ + copiar chave (card H2)
+      NfeChaveQrCard(chave: _chaveCtrl.text),
+      // Número: disabled (preenchido automaticamente pela série)
+      _inpDisabled('Número', _numeroCtrl),
+      // Série: dropdown para SAÍDA (auto-preenche número), input para ENTRADA
+      _isEntrada
+          ? _inp('Série', _serieCtrl)
+          : _ddObjSerie('Série', _serieId, _series),
+      // Tipo de Operação: usado para pré-preencher CFOP/CST/Alíquota ICMS no Novo Item
+      _ddTipoOperacao(),
+      // Status: disabled (PENDENTE no insert, muda só ao transmitir)
+      _inpDisabledText('Status', _statusVal ?? 'PENDENTE'),
+      _dd('Ambiente', _ambienteVal, ['HOMOLOGACAO', 'PRODUCAO'],
+          (v) => setState(() => _ambienteVal = v)),
+    ]);
+  }
+
+  /// Card "Empresa e Fornecedor": partes envolvidas na nota.
+  Widget _camposEmpresaFornecedor() {
+    final hasSession = AuthUtility.userInfo?.login != null;
+    return _grid([
+      // Empresa: disabled, vem do localstore
+      hasSession && _empresaNome != null
+          ? _inpDisabledText('Empresa', _empresaNome!)
+          : _ddObj('Empresa', _empresaId, _empresas, 'nome',
+              (v) => setState(() => _empresaId = v)),
+      // Parceiro: disabled, vem do localstore
+      hasSession && _parceiroNome != null
+          ? _inpDisabledText('Parceiro', _parceiroNome!)
+          : _ddObj('Parceiro', _parceiroId, _parceiros, 'nome',
+              (v) => setState(() => _parceiroId = v)),
+      // Destinatário: dropdown filtrado pelos parceiros do parceiro logado, ou disabled se for entrada
+      hasSession && _isEntrada && _destinatarioNome != null
+          ? _inpDisabledText('Destinatário', _destinatarioNome!)
+          : _ddObjSearch('Destinatário', _destinatarioId, _destinatarios,
+              'nome', (v) => setState(() => _destinatarioId = v)),
+      _ddObj('Forma de Pagamento', _formaPagId, _formasPagamento, 'descricao',
+          (v) => setState(() => _formaPagId = v)),
+      _ddObj('Finalidade', _finalidadeId, _finalidades, 'descricao',
+          (v) => setState(() => _finalidadeId = v)),
+      _ddObj('Centro de Custo', _centroCustoId, _centrosCusto, 'nome',
+          (v) => setState(() => _centroCustoId = v)),
+    ]);
   }
 
   /// Dropdown de Tipo de Operação — define CFOP/CST/Alíquota ICMS herdados pelos itens
@@ -1248,44 +1932,50 @@ class _State extends State<NfeSankhyaDetailScreen> {
   }
 
   Future<void> _salvarCabecalho() async {
-    final body = <String, dynamic>{
-      if (!_isNovo) 'id': widget.item['id'],
-      'chave': _chaveCtrl.text,
-      'numero': _numeroCtrl.text,
-      'serie': _serieCtrl.text,
-      if (_serieId != null) 'serieId': int.tryParse(_serieId!) ?? _serieId,
-      if (_statusVal != null) 'status': _statusVal,
-      if (_ambienteVal != null) 'ambiente': _ambienteVal,
-      'tipoOperacao': widget.item['tipoOperacao'] ?? 'SAIDA',
-      if (_empresaId != null)
-        'empresa': {'id': int.tryParse(_empresaId!) ?? _empresaId},
-      if (_parceiroId != null)
-        'parceiro': {'id': int.tryParse(_parceiroId!) ?? _parceiroId},
-      if (_destinatarioId != null)
-        'destinatario': {
-          'id': int.tryParse(_destinatarioId!) ?? _destinatarioId
-        },
-      if (_formaPagId != null)
-        'formaPagamento': {'id': int.tryParse(_formaPagId!) ?? _formaPagId},
-      if (_finalidadeId != null)
-        'nfeFinalidade': {'id': int.tryParse(_finalidadeId!) ?? _finalidadeId},
-      if (_tipoOperacaoId != null)
-        'nfeTipoOperacao': {
-          'id': int.tryParse(_tipoOperacaoId!) ?? _tipoOperacaoId
-        },
-      if (_empresaId != null)
-        'empresaId': int.tryParse(_empresaId!) ?? _empresaId,
-      if (_parceiroId != null)
-        'parceiroId': int.tryParse(_parceiroId!) ?? _parceiroId,
-      if (_destinatarioId != null)
-        'destinatarioId': int.tryParse(_destinatarioId!) ?? _destinatarioId,
-      if (_formaPagId != null)
-        'formaPagamentoId': int.tryParse(_formaPagId!) ?? _formaPagId,
-      if (_finalidadeId != null)
-        'nfeFinalidadeId': int.tryParse(_finalidadeId!) ?? _finalidadeId,
-      if (_tipoOperacaoId != null)
-        'nfeTipoOperacaoId': int.tryParse(_tipoOperacaoId!) ?? _tipoOperacaoId,
-    };
+    final body = _isNovo
+        ? <String, dynamic>{
+            'chave': _chaveCtrl.text,
+            'numero': _numeroCtrl.text,
+            'serie': _serieCtrl.text,
+            if (_serieId != null) 'serieId': int.tryParse(_serieId!) ?? _serieId,
+            if (_statusVal != null) 'status': _statusVal,
+            if (_ambienteVal != null) 'ambiente': _ambienteVal,
+            'tipoOperacao': widget.item['tipoOperacao'] ?? 'SAIDA',
+            if (_empresaId != null)
+              'empresa': {'id': int.tryParse(_empresaId!) ?? _empresaId},
+            if (_parceiroId != null)
+              'parceiro': {'id': int.tryParse(_parceiroId!) ?? _parceiroId},
+            if (_destinatarioId != null)
+              'destinatario': {
+                'id': int.tryParse(_destinatarioId!) ?? _destinatarioId
+              },
+            ...nfeDetailCadastroPayloadIds(
+              formaPagamentoId: _formaPagId,
+              nfeFinalidadeId: _finalidadeId,
+              centroCustoId: _centroCustoId,
+            ),
+            if (_tipoOperacaoId != null)
+              'nfeTipoOperacao': {
+                'id': int.tryParse(_tipoOperacaoId!) ?? _tipoOperacaoId
+              },
+          }
+        : <String, dynamic>{
+            if (_tipoOperacaoId != null)
+              'nfeTipoOperacaoId':
+                  int.tryParse(_tipoOperacaoId!) ?? _tipoOperacaoId,
+            ...nfeDetailCadastroPayloadIds(
+              formaPagamentoId: _formaPagId,
+              nfeFinalidadeId: _finalidadeId,
+              centroCustoId: _centroCustoId,
+            ),
+            if (widget.item['natOp'] != null) 'natOp': widget.item['natOp'],
+            if (widget.item['indFinal'] != null)
+              'indFinal': widget.item['indFinal'],
+            if (widget.item['indPres'] != null)
+              'indPres': widget.item['indPres'],
+            if (widget.item['finalidade'] != null)
+              'finalidade': widget.item['finalidade'],
+          };
     try {
       final r = _isNovo
           ? await TenantContext.post('${ApiLinks.baseUrl}/api/nfe', body)
@@ -1341,10 +2031,13 @@ class _State extends State<NfeSankhyaDetailScreen> {
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 const SizedBox(width: 8),
                 _togBtn(Icons.view_list, _itensGrid,
-                    () => setState(() => _itensGrid = true)),
+                    () => setState(() => _itensGrid = true), 'Ver como grade'),
                 const SizedBox(width: 4),
-                _togBtn(Icons.edit_note, !_itensGrid,
-                    () => setState(() => _itensGrid = false)),
+                _togBtn(
+                    Icons.edit_note,
+                    !_itensGrid,
+                    () => setState(() => _itensGrid = false),
+                    'Ver como formulário'),
                 const SizedBox(width: 8),
                 // Botão Novo abre o form customizado
                 SizedBox(
@@ -1376,21 +2069,26 @@ class _State extends State<NfeSankhyaDetailScreen> {
                 ],
                 const Spacer(),
                 if (!_itensGrid && _itens.isNotEmpty) ...[
-                  _nb(Icons.first_page, () => setState(() => _selItem = 0)),
+                  _nb(Icons.first_page, () => setState(() => _selItem = 0),
+                      'Primeiro item'),
                   _nb(
                       Icons.chevron_left,
                       () => setState(() {
                             if (_selItem > 0) _selItem--;
-                          })),
+                          }),
+                      'Item anterior'),
                   Text(' ${_selItem + 1}/${_itens.length} ',
                       style: const TextStyle(fontSize: 11)),
                   _nb(
                       Icons.chevron_right,
                       () => setState(() {
                             if (_selItem < _itens.length - 1) _selItem++;
-                          })),
-                  _nb(Icons.last_page,
-                      () => setState(() => _selItem = _itens.length - 1)),
+                          }),
+                      'Próximo item'),
+                  _nb(
+                      Icons.last_page,
+                      () => setState(() => _selItem = _itens.length - 1),
+                      'Último item'),
                 ],
               ])),
           Container(height: 1, color: _bord),
@@ -1415,6 +2113,44 @@ class _State extends State<NfeSankhyaDetailScreen> {
                               style: TextStyle(color: _grey)))
                       : _iForm())),
         ]));
+  }
+
+  Widget _itensTabelaResumo() {
+    if (_itens.isEmpty) {
+      return const Center(
+          child: Text('Nenhum item encontrado',
+              style: TextStyle(color: _grey, fontSize: 12)));
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowHeight: 34,
+          dataRowMinHeight: 32,
+          dataRowMaxHeight: 40,
+          columnSpacing: 28,
+          columns: const [
+            DataColumn(label: Text('Cod produto')),
+            DataColumn(label: Text('Nome do produto')),
+            DataColumn(label: Text('NCM')),
+            DataColumn(label: Text('Quantidade')),
+            DataColumn(label: Text('Vlr Unitario')),
+            DataColumn(label: Text('Valor Total')),
+          ],
+          rows: _itens.map((item) {
+            return DataRow(cells: [
+              DataCell(Text(_itemText(item, 'cProd', 'c_prod'))),
+              DataCell(Text(_itemText(item, 'xProd', 'x_prod'))),
+              DataCell(Text(_itemText(item, 'ncm', 'ncm'))),
+              DataCell(Text(_itemValor(item, 'qCom', 'q_com'))),
+              DataCell(Text(_itemMoeda(item, 'vUnCom', 'v_un_com'))),
+              DataCell(Text(_itemMoeda(item, 'vProd', 'v_prod'))),
+            ]);
+          }).toList(),
+        ),
+      ),
+    );
   }
 
   Widget _iForm() {
@@ -1953,14 +2689,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
   }
 
   double? _asDouble(dynamic value) {
-    if (value == null) return null;
-    if (value is num) return value.toDouble();
-    final text = value.toString().trim();
-    if (text.isEmpty) return null;
-    final normalized = text.contains(',')
-        ? text.replaceAll('.', '').replaceAll(',', '.')
-        : text;
-    return double.tryParse(normalized);
+    return nfeDetailParseDouble(value);
   }
 
   String _valorDecimal(dynamic value) {
@@ -1973,6 +2702,29 @@ class _State extends State<NfeSankhyaDetailScreen> {
   }
 
   String _valorMonetario(double value) => value.toStringAsFixed(2);
+
+  double _valorNfe() => _asDouble(_cabecalhoNfe['valorTotal']) ?? 0;
+
+  String _itemText(Map<String, dynamic> item, String camel, String snake) {
+    return item[camel]?.toString() ?? item[snake]?.toString() ?? '';
+  }
+
+  String _itemValor(Map<String, dynamic> item, String camel, String snake) {
+    final valor = _asDouble(item[camel] ?? item[snake]);
+    return valor == null ? '' : _valorDecimal(valor);
+  }
+
+  String _itemMoeda(Map<String, dynamic> item, String camel, String snake) {
+    final valor = _asDouble(item[camel] ?? item[snake]);
+    return valor == null ? '' : _valorMonetario(valor);
+  }
+
+  String _hojeIso() {
+    final now = DateTime.now();
+    final mes = now.month.toString().padLeft(2, '0');
+    final dia = now.day.toString().padLeft(2, '0');
+    return '${now.year}-$mes-$dia';
+  }
 
   void _recalcularTotalItem(Map<String, dynamic> item) {
     NfeTaxAliases.recalcularItem(item);
@@ -2168,79 +2920,47 @@ class _State extends State<NfeSankhyaDetailScreen> {
         {'id': 'T', 'nome': 'T', 'descricao': 'Tonelada'},
       ];
 
-  Widget _togBtn(IconData ic, bool on, VoidCallback cb) => InkWell(
-      onTap: cb,
-      child: Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-              color: on ? _green : Colors.transparent,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: on ? _green : _bord)),
-          child: Icon(ic, size: 16, color: on ? Colors.white : _grey)));
+  Widget _togBtn(IconData ic, bool on, VoidCallback cb, String tooltip) =>
+      Tooltip(
+          message: tooltip,
+          child: InkWell(
+              onTap: cb,
+              child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                      color: on ? _green : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: on ? _green : _bord)),
+                  child: Icon(ic,
+                      size: 16,
+                      color: on ? Colors.white : _grey,
+                      semanticLabel: tooltip))));
 
-  Widget _nb(IconData ic, VoidCallback cb) => InkWell(
-      onTap: cb,
-      child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 1),
-          child: Icon(ic, size: 18, color: _dark)));
-
-  // ── RODAPÉ ──
-  Widget _rodape() {
-    final tabs = ['Totais', 'Impostos', 'Financeiro', 'Pagamentos'];
-    return Column(children: [
-      Container(
-          color: const Color(0xFFF0F0F0),
-          child: Row(children: [
-            const SizedBox(width: 8),
-            ...tabs.asMap().entries.map((e) => _tabBtn(e.key, e.value)),
-          ])),
-      Container(height: 1, color: _bord),
-      Expanded(child: _tabContent()),
-    ]);
-  }
-
-  Widget _tabBtn(int idx, String label) {
-    final on = _tab == idx;
-    return GestureDetector(
-        onTap: () => setState(() => _tab = idx),
-        child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-                color: on ? Colors.white : Colors.transparent,
-                border: Border(
-                    bottom: BorderSide(
-                        color: on ? _red : Colors.transparent, width: 2))),
-            child: Text(label,
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: on ? FontWeight.bold : FontWeight.normal,
-                    color: on ? _red : _grey))));
-  }
-
-  Widget _tabContent() {
-    switch (_tab) {
-      case 0:
-        return _totaisTab();
-      case 1:
-        return _impostosTab();
-      case 2:
-        return _financeiroTab();
-      case 3:
-        return _pagamentosTab();
-      default:
-        return const SizedBox();
-    }
-  }
+  Widget _nb(IconData ic, VoidCallback cb, String tooltip) => Tooltip(
+      message: tooltip,
+      child: InkWell(
+          onTap: cb,
+          child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1),
+              child:
+                  Icon(ic, size: 18, color: _dark, semanticLabel: tooltip))));
 
   Widget _totaisTab() {
-    final vt = widget.item['valorTotal']?.toString() ?? '0,00';
+    final valorNota = _valorNfe();
+    final totais = nfeDetailTotaisParaExibicao(
+      valorNota: valorNota,
+      itens: _itens,
+      cabecalho: _cabecalhoNfe,
+      totalServicos: _asDouble(_cabecalhoNfe['totalServicos']) ?? 0,
+    );
     return Padding(
         padding: const EdgeInsets.all(10),
-        child: Row(children: [
-          _card('Vlr. Nota', vt),
-          _card('Total Produtos', vt),
-          _card('Total Serviços', '0,00'),
-        ]));
+        child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: totais
+                .map((t) => _card(t.key, _valorMonetario(t.value)))
+                .toList()));
   }
 
   Widget _impostosTab() {
@@ -2292,10 +3012,10 @@ class _State extends State<NfeSankhyaDetailScreen> {
                     const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             const SizedBox(width: 8),
             _togBtn(Icons.view_list, _finGrid,
-                () => setState(() => _finGrid = true)),
+                () => setState(() => _finGrid = true), 'Ver como grade'),
             const SizedBox(width: 4),
             _togBtn(Icons.edit_note, !_finGrid,
-                () => setState(() => _finGrid = false)),
+                () => setState(() => _finGrid = false), 'Ver como formulário'),
             const SizedBox(width: 8),
             SizedBox(
                 height: 24,
@@ -2309,21 +3029,26 @@ class _State extends State<NfeSankhyaDetailScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 10)))),
             const Spacer(),
             if (!_finGrid && _contas.isNotEmpty) ...[
-              _nb(Icons.first_page, () => setState(() => _selFin = 0)),
+              _nb(Icons.first_page, () => setState(() => _selFin = 0),
+                  'Primeira conta'),
               _nb(
                   Icons.chevron_left,
                   () => setState(() {
                         if (_selFin > 0) _selFin--;
-                      })),
+                      }),
+                  'Conta anterior'),
               Text(' ${_selFin + 1}/${_contas.length} ',
                   style: const TextStyle(fontSize: 11)),
               _nb(
                   Icons.chevron_right,
                   () => setState(() {
                         if (_selFin < _contas.length - 1) _selFin++;
-                      })),
-              _nb(Icons.last_page,
-                  () => setState(() => _selFin = _contas.length - 1)),
+                      }),
+                  'Próxima conta'),
+              _nb(
+                  Icons.last_page,
+                  () => setState(() => _selFin = _contas.length - 1),
+                  'Última conta'),
             ],
           ])),
       Container(height: 1, color: _bord),
@@ -2361,14 +3086,11 @@ class _State extends State<NfeSankhyaDetailScreen> {
   }
 
   Widget _fInp(String label, Map<String, dynamic> conta, String key) {
-    final ctrl = TextEditingController(text: conta[key]?.toString() ?? '');
-    ctrl.addListener(() {
-      conta[key] = ctrl.text;
-    });
     return Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: TextFormField(
-            controller: ctrl,
+            initialValue: conta[key]?.toString() ?? '',
+            onChanged: (value) => conta[key] = value,
             style: const TextStyle(fontSize: 12, color: _dark),
             decoration: InputDecoration(
                 labelText: label,
@@ -2411,12 +3133,12 @@ class _State extends State<NfeSankhyaDetailScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final valorTotal = (widget.item['valorTotal'] as num?)?.toDouble() ?? 0;
+    final valorTotal = _valorNfe();
     final totalPago = _pagamentos.fold<double>(0, (s, p) => s + p.vPag);
     final diferenca = totalPago - valorTotal;
     final okPago = diferenca.abs() <= 0.01;
 
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // ── Seção 1: Formas de Pagamento ──────────────────────────────────
@@ -2453,17 +3175,19 @@ class _State extends State<NfeSankhyaDetailScreen> {
               color: const Color(0xFFF8F8F8),
               border: Border.all(color: _bord),
               borderRadius: BorderRadius.circular(4)),
-          child: Row(children: [
+          child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
             SizedBox(
+              height: nfeDetailPagamentoTipoCampoAltura,
               width: 160,
               child: DropdownButtonFormField<String>(
                 value: _novoPagTpag,
+                isExpanded: true,
                 isDense: true,
                 decoration: const InputDecoration(
                     labelText: 'Tipo',
                     isDense: true,
                     contentPadding:
-                        EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     border: OutlineInputBorder()),
                 style: const TextStyle(fontSize: 12, color: _dark),
                 items: NfePagamento.todosCodigos
@@ -2476,18 +3200,27 @@ class _State extends State<NfeSankhyaDetailScreen> {
               ),
             ),
             const SizedBox(width: 8),
+            // Bug de producao (print: "Tipo" e "Valor (R$)" desalinhados):
+            // o dropdown "Tipo" tinha altura fixa (nfeDetailPagamentoTipoCampoAltura)
+            // mas o campo "Valor" ficava sem altura fixa, com padding vertical
+            // diferente (6 vs 8) -- a altura intrinseca do TextFormField nao
+            // batia com a do dropdown, e o Row com CrossAxisAlignment.center
+            // deslocava um em relacao ao outro. Mesma altura fixa nos dois.
             Expanded(
-                child: TextFormField(
-              controller: _novoPagVpag,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(fontSize: 12),
-              decoration: const InputDecoration(
-                  labelText: 'Valor (R\$)',
-                  isDense: true,
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  border: OutlineInputBorder()),
+                child: SizedBox(
+              height: nfeDetailPagamentoTipoCampoAltura,
+              child: TextFormField(
+                controller: _novoPagVpag,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(fontSize: 12),
+                decoration: const InputDecoration(
+                    labelText: 'Valor (R\$)',
+                    isDense: true,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    border: OutlineInputBorder()),
+              ),
             )),
             const SizedBox(width: 8),
             ElevatedButton.icon(
@@ -2670,29 +3403,6 @@ class _State extends State<NfeSankhyaDetailScreen> {
             ),
           ]),
         ),
-
-        const SizedBox(height: 16),
-        const Divider(),
-
-        // ── Botão: Gerar Contas a Pagar ───────────────────────────────────
-        SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.receipt_long),
-              label: const Text('Gerar Contas a Pagar',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: _red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12)),
-              onPressed: _duplicatas.isEmpty ? null : _gerarContasPagar,
-            )),
-        if (_duplicatas.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Text('Adicione duplicatas antes de gerar as contas.',
-                style: TextStyle(fontSize: 11, color: _grey)),
-          ),
       ]),
     );
   }

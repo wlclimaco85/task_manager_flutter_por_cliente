@@ -5,6 +5,7 @@ import '../../../widgets/generic_detail_form_screen.dart';
 import '../../../widgets/generic_grid_windows_screen.dart'
     show SecurityCheck, FieldConfigWindows, FieldType;
 import '../certificado_empresa_screen.dart';
+import '../alvara_grid_screen.dart' show WindowsAlvaraGridScreen;
 import '../login_grid_screen.dart' show WindowsLoginGridScreen;
 import '../../../web/screens/comunicado_componente_screen.dart'
     show WebComunicadoGridComponentesScreen;
@@ -29,6 +30,18 @@ class _WindowsEmpresaDetailScreenState
     extends State<WindowsEmpresaDetailScreen> {
   late Map<String, dynamic> _item;
 
+  // Mesmo padrao usado em web/empresa_detail_screen.dart e nas telas de
+  // Parceiro (web+windows): trava a construcao do form ate o pre-fetch
+  // terminar, para nao deixar a UI "piscar" com dado desatualizado e para
+  // nao mascarar falha de rede como campo "vazio de verdade". O campo
+  // 'modulosServico' e isInForm:false (nao vira multiselect no form -- os
+  // modulos de servico da Empresa sao editados via aba "Modulos de
+  // Cobranca" / EmpresaModulosTab, que ja tem seu proprio gate/catch
+  // independente), entao este pre-fetch nao corrige nenhum bug real hoje;
+  // mantido so por paridade/consistencia com o arquivo web equivalente.
+  bool _modulosCarregados = false;
+  String? _modulosErro;
+
   @override
   void initState() {
     super.initState();
@@ -49,15 +62,53 @@ class _WindowsEmpresaDetailScreenState
 
   Future<void> _preCarregarModulos() async {
     final id = _item['id'];
-    if (id == null) return;
-    final r = await NetworkCaller().getRequest(
-      '${ApiLinks.baseUrl}/api/empresa-modulo?empresaId=$id',
-    );
-    if (!r.isSuccess || r.body == null) return;
-    final raw = r.body is List ? r.body : (r.body?['data'] ?? r.body?['content'] ?? []);
-    if (raw is! List) return;
-    final ids = raw.map((e) => e['id']?.toString() ?? '').where((s) => s.isNotEmpty).join(', ');
-    if (mounted) setState(() => _item['modulosServico'] = ids);
+    if (id == null) {
+      if (mounted) setState(() => _modulosCarregados = true);
+      return;
+    }
+    try {
+      final r = await NetworkCaller().getRequest(
+        '${ApiLinks.baseUrl}/api/empresa-modulo?empresaId=$id',
+      );
+      if (!r.isSuccess || r.body == null) {
+        _modulosErro =
+            'Nao foi possivel carregar Modulo Servicos (HTTP ${r.statusCode}).';
+        return;
+      }
+      final raw = r.body is List
+          ? r.body
+          : (r.body?['data'] ?? r.body?['content'] ?? []);
+      if (raw is! List) {
+        _modulosErro = 'Resposta invalida ao carregar Modulo Servicos.';
+        return;
+      }
+      final ids = raw
+          .map((e) => e['id']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .join(', ');
+      _item['modulosServico'] = ids;
+    } catch (e) {
+      _modulosErro = 'Erro ao carregar Modulo Servicos: $e';
+    } finally {
+      if (mounted) setState(() => _modulosCarregados = true);
+      if (_modulosErro != null) _avisarErroModulos();
+    }
+  }
+
+  void _avisarErroModulos() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _modulosErro == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$_modulosErro Os modulos exibidos podem estar desatualizados.',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    });
   }
 
   Future<void> _salvarModulos(Map<String, dynamic> formData, Map<String, dynamic>? item) async {
@@ -77,6 +128,9 @@ class _WindowsEmpresaDetailScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (!_modulosCarregados) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     final id = _item['id']?.toString() ?? '';
     final empresaId = _item['id'] as int? ?? 0;
     final empresaNome =

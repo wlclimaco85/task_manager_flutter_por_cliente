@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../services/nfe_xml_import_caller.dart';
 import '../../../utils/grid_colors.dart';
+import '../../../widgets/nfe_importacoes_grid.dart';
 import '../../../widgets/nfe_xml_preview_widget.dart';
 
 class WebNfeImportXmlScreen extends StatefulWidget {
@@ -20,6 +21,12 @@ class _WebNfeImportXmlScreenState extends State<WebNfeImportXmlScreen> {
   Map<String, dynamic>? _previewData;
   bool? _sucesso;
   String? _mensagem;
+
+  // Pedido explicito do usuario: a tela precisa de uma grid padrao mostrando
+  // o que ja foi importado -- atualizada automaticamente apos cada
+  // confirmação de importação bem-sucedida.
+  final GlobalKey<NfeImportacoesGridState> _gridKey =
+      GlobalKey<NfeImportacoesGridState>();
 
   void _reset() {
     setState(() {
@@ -45,7 +52,7 @@ class _WebNfeImportXmlScreenState extends State<WebNfeImportXmlScreen> {
   }
 
   Future<void> _carregarPreview() async {
-    if (_arquivoXml == null) {
+    if (_arquivoXml?.bytes == null) {
       _mostrarSnack('Selecione um arquivo XML primeiro');
       return;
     }
@@ -74,11 +81,13 @@ class _WebNfeImportXmlScreenState extends State<WebNfeImportXmlScreen> {
     }
   }
 
-  Future<void> _confirmarImportacao() async {
+  Future<void> _confirmarImportacao(
+      List<Map<String, dynamic>> conciliacoes) async {
     setState(() => _confirmando = true);
 
     final result = await NfeXmlImportCaller.confirmar(
-        _arquivoXml!.bytes!, _arquivoXml!.name);
+        _arquivoXml!.bytes!, _arquivoXml!.name,
+        conciliacoes: conciliacoes);
 
     if (!mounted) return;
 
@@ -88,6 +97,10 @@ class _WebNfeImportXmlScreenState extends State<WebNfeImportXmlScreen> {
       _mensagem =
           result.success ? 'XML NF-e importado com sucesso!' : result.message;
     });
+
+    if (result.success) {
+      await _gridKey.currentState?.recarregar();
+    }
   }
 
   void _limpar() {
@@ -132,6 +145,8 @@ class _WebNfeImportXmlScreenState extends State<WebNfeImportXmlScreen> {
               ),
             ],
             if (_sucesso != null) _buildResultado(),
+            const SizedBox(height: 24),
+            NfeImportacoesGrid(key: _gridKey),
           ],
         ),
       ),

@@ -373,6 +373,7 @@ class _WindowsCalendarScreenState extends State<WindowsCalendarScreen> {
   // ── Colors ──────────────────────────────────────────────────────────────
   static const Color _red = GridColors.primary;
   static const Color _redLight = Color(0xFFFFEBEE);
+  static const Color _pagarAlertBackground = Color(0xFFC1121F);
   static const Color _green = GridColors.secondary;
   static const Color _greenLight = Color(0xFFE8F5E9);
   static const Color _orange = Color(0xFFE65100);
@@ -680,6 +681,11 @@ class _WindowsCalendarScreenState extends State<WindowsCalendarScreen> {
       body: Column(
         children: [
           _buildToolbar(),
+          // Pedido do usuario: tela demorava a abrir apos login sem nenhum
+          // aviso visivel de carregamento (so havia um spinner de 16px no
+          // botao de refresh, facil de nao perceber) -- parecia "travada".
+          if (_loadingMonth || _loadingDay)
+            const LinearProgressIndicator(minHeight: 3, color: _red),
           Expanded(
               child: _viewMode == 'day' ? _buildDayView() : _buildMonthView()),
         ],
@@ -1105,8 +1111,12 @@ class _WindowsCalendarScreenState extends State<WindowsCalendarScreen> {
       bgColor = _red;
       textColor = Colors.white;
     } else if (markers.hasPagar) {
-      bgColor = _redLight;
-    } else if (markers.hasReceber) {
+      bgColor = _pagarAlertBackground;
+      textColor = Colors.white;
+    } else if (isPast &&
+        (markers.hasPago || markers.hasRecebido || markers.hasTributo)) {
+      bgColor = _grey;
+    } else if (!isPast && markers.hasReceber) {
       bgColor = _greenLight;
     } else if (markers.hasPago || markers.hasRecebido || markers.hasTributo) {
       bgColor = const Color(0xFFF1F5F9);
@@ -1143,7 +1153,8 @@ class _WindowsCalendarScreenState extends State<WindowsCalendarScreen> {
               spacing: 1,
               runSpacing: 1,
               children: [
-                if (markers.hasPagar) _miniIcon(Icons.arrow_upward, _red, 11),
+                if (markers.hasPagar)
+                  _statusBadgeIcon(Icons.arrow_upward, Colors.white, 11),
                 if (markers.hasReceber)
                   _miniIcon(Icons.arrow_downward, _green, 11),
                 if (markers.hasPago) _miniIcon(Icons.check, Colors.grey, 11),
@@ -1170,6 +1181,17 @@ class _WindowsCalendarScreenState extends State<WindowsCalendarScreen> {
 
   Widget _miniIcon(IconData icon, Color color, double size) {
     return Icon(icon, color: color, size: size);
+  }
+
+  Widget _statusBadgeIcon(IconData icon, Color color, double size) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      padding: const EdgeInsets.all(1.5),
+      child: Icon(icon, color: color, size: size),
+    );
   }
 
   // ── Legend ───────────────────────────────────────────────────────────────

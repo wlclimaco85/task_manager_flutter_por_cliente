@@ -8,8 +8,12 @@ class EmpresaCaller {
     final NetworkResponse response =
         await NetworkCaller().getRequest(ApiLinks.allEmpresas);
     if (response.isSuccess && response.body != null) {
-      final List<dynamic> data = response.body!['data']['dados'] ?? [];
+      // Aceita {data: {dados: [...]}} (paginado) e {data: [...]} (lista direta).
+      final raw = response.body!['data'];
+      final List<dynamic> data =
+          raw is Map ? (raw['dados'] as List<dynamic>? ?? []) : (raw is List ? raw : []);
       return data
+          .whereType<Map>()
           .map((item) =>
               {'value': item['id'], 'label': item['nomeFantasia']?.toString() ?? ''})
           .toList();

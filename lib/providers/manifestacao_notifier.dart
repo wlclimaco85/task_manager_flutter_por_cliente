@@ -23,8 +23,22 @@ class ManifestacaoNotifier extends ChangeNotifier {
     ListarPendentesFunc? listarPendentes,
     RegistrarManifestacaoFunc? registrarManifestacao,
   })  : _listarPendentes = listarPendentes ?? ManifestacaoCaller.listarPendentes,
-        _registrarManifestacao = registrarManifestacao ??
-            ManifestacaoCaller.registrarManifestacao;
+        _registrarManifestacao =
+            registrarManifestacao ?? _registrarPeloCaller;
+
+  /// Adaptador para o contrato real do backend (POST /api/fiscal/manifestacao
+  /// com { nfeChave, tipoEvento, justificativa }). [tipo] deve ser um valor de
+  /// [ManifestacaoTipoEvento] (CIENCIA, CONFIRMACAO, DESCONHECIMENTO, NAO_REALIZADA).
+  static Future<ManifestacaoResult> _registrarPeloCaller({
+    required String chave,
+    required String tipo,
+    String? justificativa,
+  }) =>
+      ManifestacaoCaller.registrarManifestacao(
+        nfeChave: chave,
+        tipoEvento: tipo,
+        justificativa: justificativa,
+      );
 
   ManifestacaoModel? get manifestacao => _manifestacao;
   bool get isLoading => _isLoading;

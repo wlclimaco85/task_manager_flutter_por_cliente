@@ -4,6 +4,7 @@ import '../../../services/network_caller.dart';
 import '../../../widgets/generic_detail_form_screen.dart';
 import '../../../widgets/generic_grid_windows_screen.dart'
     show SecurityCheck, FieldConfigWindows, FieldType;
+import '../alvara_grid_screen.dart' show WebAlvaraGridScreen;
 import '../certificado_empresa_screen.dart';
 import '../login_grid_screen.dart' show WebLoginGridScreen;
 import '../comunicado_componente_screen.dart'
@@ -24,6 +25,17 @@ class WebEmpresaDetailScreen extends StatefulWidget {
 class _WebEmpresaDetailScreenState extends State<WebEmpresaDetailScreen> {
   late Map<String, dynamic> _item;
 
+  // WR-03 (code review, mesmo bug do Parceiro): GenericDetailFormScreen le
+  // _item UMA UNICA VEZ (guardado por _initialized) para preencher os chips
+  // do multiselect. _preCarregarModulos() e assincrono e antes preenchia
+  // _item bem depois desse init ja ter rodado, entao o valor buscado do
+  // backend chegava tarde demais e o campo 'modulosServico' nunca refletia
+  // o dado real. Trava a construcao do form ate o fetch terminar.
+  bool _modulosCarregados = false;
+
+  // WR-01: falha de rede nao pode virar spinner preso nem falha silenciosa.
+  String? _modulosErro;
+
   @override
   void initState() {
     super.initState();
@@ -33,15 +45,54 @@ class _WebEmpresaDetailScreenState extends State<WebEmpresaDetailScreen> {
 
   Future<void> _preCarregarModulos() async {
     final id = _item['id'];
-    if (id == null) return;
-    final r = await NetworkCaller().getRequest(
-      '${ApiLinks.baseUrl}/api/empresa-modulo?empresaId=$id',
-    );
-    if (!r.isSuccess || r.body == null) return;
-    final raw = r.body is List ? r.body : (r.body?['data'] ?? r.body?['content'] ?? []);
-    if (raw is! List) return;
-    final ids = raw.map((e) => e['id']?.toString() ?? '').where((s) => s.isNotEmpty).join(', ');
-    if (mounted) setState(() => _item['modulosServico'] = ids);
+    if (id == null) {
+      if (mounted) setState(() => _modulosCarregados = true);
+      return;
+    }
+    try {
+      final r = await NetworkCaller().getRequest(
+        '${ApiLinks.baseUrl}/api/empresa-modulo?empresaId=$id',
+      );
+      if (!r.isSuccess || r.body == null) {
+        _modulosErro =
+            'Nao foi possivel carregar Modulo Servicos (HTTP ${r.statusCode}).';
+        return;
+      }
+      final raw = r.body is List
+          ? r.body
+          : (r.body?['data'] ?? r.body?['content'] ?? []);
+      if (raw is! List) {
+        _modulosErro = 'Resposta invalida ao carregar Modulo Servicos.';
+        return;
+      }
+      final ids = raw
+          .map((e) => e['id']?.toString() ?? '')
+          .where((s) => s.isNotEmpty)
+          .join(', ');
+      _item['modulosServico'] = ids;
+    } catch (e) {
+      // Bug documentado no CLAUDE.md (spinner preso sem erro visivel).
+      _modulosErro = 'Erro ao carregar Modulo Servicos: $e';
+    } finally {
+      if (mounted) setState(() => _modulosCarregados = true);
+      if (_modulosErro != null) _avisarErroModulos();
+    }
+  }
+
+  void _avisarErroModulos() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _modulosErro == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$_modulosErro Os modulos exibidos podem estar desatualizados.',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    });
   }
 
   static Future<List<Map<String, dynamic>>> _loadTiposParceiro() async {
@@ -117,6 +168,9 @@ class _WebEmpresaDetailScreenState extends State<WebEmpresaDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_modulosCarregados) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     final id = _item['id']?.toString() ?? '';
     final empresaId = _item['id'] as int? ?? 0;
     final empresaNome = _item['nome']?.toString() ?? _item['razaoSocial']?.toString() ?? 'Empresa';

@@ -18,6 +18,28 @@ class ManifestacaoResult {
   });
 }
 
+/// Tipos de evento aceitos pelo backend real (ManifestacaoDestinatarioServiceImpl.TIPOS_VALIDOS).
+/// Não confundir com o vocabulário do card original (aceitar/recusar/parcial) —
+/// esses valores não existem no backend, os oficiais são os eventos SEFAZ abaixo.
+class ManifestacaoTipoEvento {
+  static const String ciencia = 'CIENCIA';
+  static const String confirmacao = 'CONFIRMACAO';
+  static const String desconhecimento = 'DESCONHECIMENTO';
+  static const String naoRealizada = 'NAO_REALIZADA';
+
+  static const List<String> valores = [
+    ciencia,
+    confirmacao,
+    desconhecimento,
+    naoRealizada,
+  ];
+
+  /// Espelha ManifestacaoDestinatarioServiceImpl.EXIGE_JUSTIFICATIVA no backend.
+  static bool exigeJustificativa(String tipoEvento) {
+    return tipoEvento == confirmacao || tipoEvento == naoRealizada;
+  }
+}
+
 class ManifestacaoCaller {
   static Future<ManifestacaoResult> listarPendentes() async {
     try {
@@ -81,15 +103,21 @@ class ManifestacaoCaller {
     }
   }
 
+  /// Registra manifestação de destinatário para a NFe [nfeChave] (44 dígitos).
+  ///
+  /// Contrato real do backend (ManifestacaoDestinatarioController):
+  /// POST /api/fiscal/manifestacao com body { nfeChave, tipoEvento, justificativa }.
+  /// [tipoEvento] deve ser um dos valores aceitos pelo backend:
+  /// CIENCIA, CONFIRMACAO, DESCONHECIMENTO, NAO_REALIZADA.
   static Future<ManifestacaoResult> registrarManifestacao({
-    required String chave,
-    required String tipo,
+    required String nfeChave,
+    required String tipoEvento,
     String? justificativa,
   }) async {
     try {
       final body = <String, dynamic>{
-        'chave': chave,
-        'tipo': tipo,
+        'nfeChave': nfeChave,
+        'tipoEvento': tipoEvento,
       };
       if (justificativa != null && justificativa.isNotEmpty) {
         body['justificativa'] = justificativa;

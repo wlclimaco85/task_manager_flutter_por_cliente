@@ -56,10 +56,26 @@ class _ObservacaoTextfieldState extends State<ObservacaoTextfield> {
   void initState() {
     super.initState();
     _focusNode = FocusNode();
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  /// Contador ao vivo: reconstroi quando o texto muda.
+  void _onTextChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(covariant ObservacaoTextfield oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onTextChanged);
+      widget.controller.addListener(_onTextChanged);
+    }
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onTextChanged);
     _focusNode.dispose();
     super.dispose();
   }

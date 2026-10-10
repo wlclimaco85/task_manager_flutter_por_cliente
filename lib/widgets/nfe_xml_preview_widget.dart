@@ -2,9 +2,36 @@ import 'package:flutter/material.dart';
 import '../utils/grid_colors.dart';
 import '../utils/grid_texts.dart';
 
-class NfeXmlPreviewWidget extends StatelessWidget {
+/// Escolha de conciliacao de produto pra UM item, feita pelo usuario antes
+/// de confirmar a importacao. Serializado pro backend como
+/// ConciliacaoItemDTO (POST .../importacao-xml/confirmar, campo
+/// itensConciliacao).
+class ConciliacaoEscolha {
+  final String produtoCodigo;
+  int? produtoId;
+  bool criarNovoProduto;
+
+  ConciliacaoEscolha({
+    required this.produtoCodigo,
+    this.produtoId,
+    this.criarNovoProduto = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'produtoCodigo': produtoCodigo,
+        if (produtoId != null) 'produtoId': produtoId,
+        'criarNovoProduto': criarNovoProduto,
+      };
+}
+
+class NfeXmlPreviewWidget extends StatefulWidget {
   final Map<String, dynamic> data;
-  final VoidCallback onConfirm;
+  // Bug de producao: pra cada item importado, o usuario precisa poder
+  // escolher usar um produto ja cadastrado (a tela ja sugere quando o NCM
+  // bate, so precisa aprovar) ou cadastrar um produto novo pre-preenchido
+  // com os dados da nota -- antes disso, o item importava sem NENHUM
+  // vinculo de produto, sem o usuario nem saber que essa opcao existia.
+  final void Function(List<Map<String, dynamic>> conciliacoes) onConfirm;
   final VoidCallback onCancel;
   final bool confirming;
 
@@ -15,6 +42,17 @@ class NfeXmlPreviewWidget extends StatelessWidget {
     required this.onCancel,
     this.confirming = false,
   });
+
+  @override
+  State<NfeXmlPreviewWidget> createState() => _NfeXmlPreviewWidgetState();
+}
+
+class _NfeXmlPreviewWidgetState extends State<NfeXmlPreviewWidget> {
+  // Chave = produtoCodigo (cProd) do item -- unico identificador estavel
+  // disponivel antes da nota ser confirmada (item ainda nao tem id).
+  final Map<String, ConciliacaoEscolha> _escolhas = {};
+
+  Map<String, dynamic> get data => widget.data;
 
   String? _get(String key) => data[key]?.toString();
   String? _getNested(String outer, String inner) {
@@ -38,17 +76,35 @@ class NfeXmlPreviewWidget extends StatelessWidget {
     return [];
   }
 
+  // Bug encontrado no proprio desenvolvimento deste widget: usar
+  // `escolha.produtoId ??= sugeridoId` dentro do build() reatribuia a
+  // sugestao TODA VEZ que o widget reconstruia (ex.: apos o proprio
+  // setState do checkbox), fazendo o "desmarcar" do usuario ser desfeito no
+  // frame seguinte. O default so pode ser aplicado UMA VEZ, na criacao da
+  // escolha (primeira vez que o item e visto), nunca em rebuilds
+  // posteriores.
+  ConciliacaoEscolha _escolhaDoItem(String cProd, {int? produtoSugeridoId}) {
+    final jaExistia = _escolhas.containsKey(cProd);
+    final escolha = _escolhas.putIfAbsent(
+        cProd, () => ConciliacaoEscolha(produtoCodigo: cProd));
+    if (!jaExistia && produtoSugeridoId != null) {
+      escolha.produtoId = produtoSugeridoId;
+    }
+    return escolha;
+  }
+
   @override
   Widget build(BuildContext context) {
     final chave = _get('chave') ?? '-';
     final numero = _get('numero') ?? _get('nNF') ?? '-';
     final serie = _get('serie') ?? '-';
     final chaveExiste = _chaveExiste();
-    final emitente = _getNested('emitente', 'xNome') ??
+    final emitente = _get('emitenteNome') ??
+        _getNested('emitente', 'xNome') ??
         _getNested('emitente', 'nome') ??
         '-';
-    final dhEmi = _get('dhEmi') ?? _get('dataEmissao') ?? '-';
-    final vTotal = _get('vNF') ?? _get('vTotal') ?? _get('total') ?? '-';
+    final dhEmi = _get('dataEmissao') ?? _get('dhEmi') ?? '-';
+    final vTotal = _get('valorTotal') ?? _get('vNF') ?? _get('total') ?? '-';
     final itens = _getItens();
 
     return Card(
@@ -115,6 +171,13 @@ class NfeXmlPreviewWidget extends StatelessWidget {
                 'Itens da Nota',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
+              const SizedBox(height: 4),
+              const Text(
+                'Pra cada item, use o produto sugerido (quando o NCM já bate '
+                'com algo do seu catálogo), escolha outro ou cadastre um '
+                'produto novo já pré-preenchido com os dados da nota.',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
               const SizedBox(height: 8),
               _buildTabelaItens(itens),
             ],
@@ -128,8 +191,11 @@ class NfeXmlPreviewWidget extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 28, vertical: 14),
                   ),
-                  onPressed: confirming ? null : onConfirm,
-                  icon: confirming
+                  onPressed: widget.confirming
+                      ? null
+                      : () => widget.onConfirm(
+                          _escolhas.values.map((e) => e.toJson()).toList()),
+                  icon: widget.confirming
                       ? const SizedBox(
                           width: 18,
                           height: 18,
@@ -137,12 +203,13 @@ class NfeXmlPreviewWidget extends StatelessWidget {
                               strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.check_circle),
-                  label: Text(
-                      confirming ? 'Importando...' : 'Confirmar Importação'),
+                  label: Text(widget.confirming
+                      ? 'Importando...'
+                      : 'Confirmar Importação'),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
-                  onPressed: confirming ? null : onCancel,
+                  onPressed: widget.confirming ? null : widget.onCancel,
                   icon: const Icon(Icons.cancel_outlined),
                   label: const Text(GridTexts.cancel),
                 ),
@@ -186,36 +253,99 @@ class NfeXmlPreviewWidget extends StatelessWidget {
           DataColumn(
               label: Text('Total',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+          DataColumn(
+              label: Text('Conciliação de Produto',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
         ],
         rows: itens.asMap().entries.map((entry) {
           final i = entry.value;
           final idx = entry.key + 1;
+          // Bug de producao: essa tabela nunca mostrava o nome do produto
+          // (coluna sempre "-") porque procurava por chaves de XML bruto
+          // (xProd/produto/NCM maiusculo/etc.) em vez dos nomes reais que o
+          // backend manda (NfeImportacaoItemDTO): produtoDescricao, ncm,
+          // cfop, cst, quantidade, valorUnitario, total.
           return DataRow(cells: [
             DataCell(Text('$idx', style: const TextStyle(fontSize: 12))),
-            DataCell(Text(_itemGet(i, 'xProd') ?? _itemGet(i, 'produto') ?? '-',
+            DataCell(Text(_itemGet(i, 'produtoDescricao') ?? '-',
                 style: const TextStyle(fontSize: 12))),
-            DataCell(Text(_itemGet(i, 'NCM') ?? _itemGet(i, 'ncm') ?? '-',
+            DataCell(Text(_itemGet(i, 'ncm') ?? '-',
                 style: const TextStyle(fontSize: 12))),
-            DataCell(Text(_itemGet(i, 'CFOP') ?? _itemGet(i, 'cfop') ?? '-',
+            DataCell(Text(_itemGet(i, 'cfop') ?? '-',
                 style: const TextStyle(fontSize: 12))),
-            DataCell(Text(_itemGet(i, 'CST') ?? _itemGet(i, 'cst') ?? '-',
+            DataCell(Text(_itemGet(i, 'cst') ?? _itemGet(i, 'csosn') ?? '-',
                 style: const TextStyle(fontSize: 12))),
-            DataCell(Text(
-                _itemGet(i, 'qTrib') ??
-                    _itemGet(i, 'qCom') ??
-                    _itemGet(i, 'quantidade') ??
-                    '-',
+            DataCell(Text(_itemGet(i, 'quantidade') ?? '-',
                 style: const TextStyle(fontSize: 12))),
-            DataCell(Text(
-                _itemGet(i, 'vUnTrib') ??
-                    _itemGet(i, 'vUnCom') ??
-                    _itemGet(i, 'valorUnitario') ??
-                    '-',
+            DataCell(Text(_itemGet(i, 'valorUnitario') ?? '-',
                 style: const TextStyle(fontSize: 12))),
-            DataCell(Text(_itemGet(i, 'vProd') ?? _itemGet(i, 'total') ?? '-',
+            DataCell(Text(_itemGet(i, 'total') ?? '-',
                 style: const TextStyle(fontSize: 12))),
+            DataCell(_buildConciliacaoCelula(i)),
           ]);
         }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildConciliacaoCelula(dynamic item) {
+    final cProd = _itemGet(item, 'produtoCodigo');
+    if (cProd == null || cProd.isEmpty) {
+      return const Text('-', style: TextStyle(fontSize: 12));
+    }
+    final sugeridoIdStr = _itemGet(item, 'produtoSugeridoId');
+    final sugeridoNome = _itemGet(item, 'produtoSugeridoNome');
+    final sugeridoId =
+        sugeridoIdStr != null ? int.tryParse(sugeridoIdStr) : null;
+    final escolha =
+        _escolhaDoItem(cProd, produtoSugeridoId: sugeridoId);
+
+    if (sugeridoId != null) {
+      // Item tem sugestao automatica (NCM bateu com produto ja cadastrado
+      // nesta empresa) -- pre-marcada, usuario so precisa aprovar ou
+      // recusar (default aplicado uma unica vez em _escolhaDoItem, nunca
+      // reaplicado em rebuilds -- ver comentario la).
+      final usandoSugestao = escolha.produtoId == sugeridoId;
+      return SizedBox(
+        width: 220,
+        child: CheckboxListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          value: usandoSugestao,
+          title: Text(
+            'Usar produto já cadastrado:\n$sugeridoNome',
+            style: const TextStyle(fontSize: 11),
+          ),
+          onChanged: (marcado) {
+            setState(() {
+              escolha.produtoId = marcado == true ? sugeridoId : null;
+              escolha.criarNovoProduto = false;
+            });
+          },
+        ),
+      );
+    }
+
+    // Sem sugestao automatica: oferece cadastrar produto novo, pre-
+    // preenchido com os dados do proprio item da nota (nome, codigo, ncm,
+    // cfop, preco) -- o backend faz esse pre-preenchimento ao confirmar.
+    return SizedBox(
+      width: 220,
+      child: CheckboxListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        controlAffinity: ListTileControlAffinity.leading,
+        value: escolha.criarNovoProduto,
+        title: const Text(
+          'Cadastrar como produto novo',
+          style: TextStyle(fontSize: 11),
+        ),
+        onChanged: (marcado) {
+          setState(() {
+            escolha.criarNovoProduto = marcado == true;
+          });
+        },
       ),
     );
   }
@@ -223,20 +353,6 @@ class NfeXmlPreviewWidget extends StatelessWidget {
   String? _itemGet(dynamic item, String key) {
     if (item is Map) return item[key]?.toString();
     return null;
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
-          color: GridColors.secondary,
-        ),
-      ),
-    );
   }
 
   Widget _buildField(String label, String value) {
