@@ -34,7 +34,8 @@ class NfceProvider extends ChangeNotifier {
   double _descontoGeral = 0;
   double get descontoGeral => _descontoGeral;
   set descontoGeral(double v) {
-    _descontoGeral = v;
+    final maximo = subtotal - _carrinho.fold(0.0, (s, i) => s + i.desconto);
+    _descontoGeral = v < 0 ? 0 : (v > maximo ? (maximo < 0 ? 0 : maximo) : v);
     notifyListeners();
   }
 
@@ -117,9 +118,12 @@ class NfceProvider extends ChangeNotifier {
     final venda = VendaNfceModel(
       empresaId: empresaId,
       itens: _carrinho,
-      pagamentos: _pagamentos,
+      // Sem pagamento informado, assume dinheiro pelo total (NFC-e exige ao menos um detPag, rejeicao 215).
+      pagamentos: _pagamentos.isNotEmpty
+          ? _pagamentos
+          : [PagamentoModel(formaPagamento: 'DINHEIRO', valor: total)],
       clienteCpfCnpj: clienteCpfCnpj,
-      desconto: _descontoGeral,
+      desconto: descontoTotal,
     );
 
     return venda.toJson();

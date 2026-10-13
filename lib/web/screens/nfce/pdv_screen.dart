@@ -43,11 +43,17 @@ class _PdvScreenState extends State<PdvScreen> {
 
   String _formaPagamentoSelecionada = 'DINHEIRO';
   final TextEditingController _valorPagtoCtrl = TextEditingController();
+  final TextEditingController _descontoCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _provider.addListener(() {
+      if (_provider.descontoGeral == 0 &&
+          (double.tryParse(_descontoCtrl.text.replaceAll(',', '.')) ?? 0) != 0 &&
+          _provider.carrinho.isEmpty) {
+        _descontoCtrl.clear();
+      }
       if (mounted) setState(() {});
     });
     _buscaCtrl.addListener(_onBuscaChanged);
@@ -61,6 +67,7 @@ class _PdvScreenState extends State<PdvScreen> {
     _scrollBuscaCtrl.dispose();
     _clienteCtrl.dispose();
     _valorPagtoCtrl.dispose();
+    _descontoCtrl.dispose();
     _provider.dispose();
     super.dispose();
   }
@@ -503,6 +510,21 @@ class _PdvScreenState extends State<PdvScreen> {
               if (_provider.pagamentos.isNotEmpty)
                 _ResumoCampo(label: 'Troco', valor: _provider.troco, cor: Colors.blue),
             ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: TextField(
+            controller: _descontoCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+            decoration: const InputDecoration(
+              labelText: 'Desconto (R\$)',
+              border: OutlineInputBorder(),
+              suffixIcon: Icon(Icons.local_offer_outlined),
+            ),
+            onChanged: (texto) => _provider.descontoGeral =
+                double.tryParse(texto.replaceAll(',', '.')) ?? 0,
           ),
         ),
         Padding(
