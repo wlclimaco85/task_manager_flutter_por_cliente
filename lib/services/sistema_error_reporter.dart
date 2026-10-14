@@ -11,6 +11,9 @@ class SistemaErrorReporter {
   SistemaErrorReporter._();
   static final SistemaErrorReporter instance = SistemaErrorReporter._();
 
+  /// App de origem enviado ao backend (LoginEnum). O backend ainda forca o tipo do login da sessao.
+  static const String appTipo = 'APP_CONTA_PROPRIA';
+
   http.Client _client = http.Client();
   final List<Map<String, dynamic>> _buffer = [];
   Timer? _timerEnvio;
@@ -73,6 +76,7 @@ class SistemaErrorReporter {
       'parceiroId': parceiroId ?? TenantContext.parceiroId,
       'versaoApp': kIsWeb ? 'Web' : defaultTargetPlatform.name,
       'ambiente': kReleaseMode ? 'prod' : 'dev',
+      'appTipo': appTipo,
     };
 
     _buffer.add(payload);
