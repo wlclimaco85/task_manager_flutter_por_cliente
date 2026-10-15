@@ -109,6 +109,7 @@ import '../../widgets/internal_tab_strip.dart';
 import '../../models/open_tab.dart';
 import './alvara_grid_screen.dart';
 import './fornecedor_grid_screen.dart';
+import './modulo_tela_grid_screen.dart';
 import './nfce/pdv_screen.dart';
 import './nfce/config_fiscal_screen.dart';
 import '../../windows/screens/reserva_estoque_screen.dart';
@@ -614,6 +615,7 @@ class _WebBottomNavBarScreenState extends State<WebBottomNavBarScreen> {
       CnabRemessaScreen(), // 202: Remessa EDI
       WebNfseSerieGridScreen(hasPermission: (p) => true), // 203: NfseSerie
       const WebNfseImportXmlScreen(), // 204: NfseImportXml
+      const WebModuloTelaGridScreen(), // 205: Telas por Módulo
     ];
   }
 

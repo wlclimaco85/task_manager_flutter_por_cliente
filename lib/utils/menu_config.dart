@@ -689,6 +689,11 @@ class MenuConfig {
             label: 'Sessões',
             icon: FontAwesomeIcons.userClock,
             screenIndex: 186),
+        MenuItem(
+            id: 'modulo_telas',
+            label: 'Telas por Módulo',
+            icon: FontAwesomeIcons.layerGroup,
+            screenIndex: 205),
       ],
     ),
     MenuGroup(

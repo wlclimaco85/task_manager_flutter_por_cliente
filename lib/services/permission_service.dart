@@ -223,6 +223,7 @@ class PermissionService {
     'permissoes': 'Permissoes',
     'teste_endpoints': 'Teste',
     'query_builder': 'QueryBuilder',
+    'modulo_telas': 'ModuloServicoTela',
 
     // App Academia
     'academia': 'Academia',
