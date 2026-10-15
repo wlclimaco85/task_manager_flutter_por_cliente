@@ -1,20 +1,965 @@
-import 'package:flutter/material.dart';
-import '../../../../web/screens/nfce/pdv_screen.dart' as web;
-import '../../../../widgets/user_banners.dart';
+import 'dart:async';
+import '../../../utils/app_snackbar.dart';
 
-class MobilePdvScreen extends StatelessWidget {
-  const MobilePdvScreen({super.key});
+import 'package:flutter/material.dart';
+import '../../../utils/grid_colors.dart';
+import 'package:flutter/services.dart';
+
+import '../../../models/nfce/item_venda_model.dart';
+import '../../../models/nfce_model.dart';
+import '../../../services/nfce_provider.dart';
+import '../../../services/nfce_service.dart';
+import '../../../utils/tenant_context.dart';
+import '../../../widgets/nfce/nfce_notice_banner.dart';
+import 'config_fiscal_screen.dart';
+import 'nfce_finalizacao_screen.dart';
+
+import '../../../widgets/nfce/produto_pdv_search_dialog.dart';
+
+/// Tela principal de venda / PDV NFC-e.
+/// Funciona em web, windows e mobile (layout responsivo).
+class PdvScreen extends StatefulWidget {
+  final NfceModel? nfce;
+  const PdvScreen({super.key, this.nfce});
+
+  @override
+  State<PdvScreen> createState() => _PdvScreenState();
+}
+
+class _PdvScreenState extends State<PdvScreen> {
+  final NfceProvider _provider = NfceProvider();
+  final NfceService _service = NfceService();
+
+  bool get _isReadOnly =>
+      widget.nfce != null &&
+      (widget.nfce!.statusSefaz.toUpperCase() == 'AUTORIZADA' ||
+          widget.nfce!.statusSefaz.toUpperCase() == 'CONTINGENCIA');
+
+  final TextEditingController _buscaCtrl = TextEditingController();
+  final ScrollController _scrollBuscaCtrl = ScrollController();
+  Timer? _debounce;
+  List<Map<String, dynamic>> _resultadosBusca = [];
+  bool _buscando = false;
+  bool _carregandoMais = false;
+  int _searchPage = 0;
+  bool _isLastPage = false;
+  int _searchToken = 0;
+
+  final TextEditingController _clienteCtrl = TextEditingController();
+  String? _erroCliente;
+
+  String _formaPagamentoSelecionada = 'DINHEIRO';
+  final TextEditingController _valorPagtoCtrl = TextEditingController();
+  final TextEditingController _descontoCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _provider.addListener(() {
+      if (_provider.descontoGeral == 0 &&
+          (double.tryParse(_descontoCtrl.text.replaceAll(',', '.')) ?? 0) != 0 &&
+          _provider.carrinho.isEmpty) {
+        _descontoCtrl.clear();
+      }
+      if (mounted) setState(() {});
+    });
+    _buscaCtrl.addListener(_onBuscaChanged);
+    _scrollBuscaCtrl.addListener(_onScrollBusca);
+
+    if (widget.nfce != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _carregarDadosNfceExistente(widget.nfce!.id);
+      });
+    }
+  }
+
+  Future<void> _carregarDadosNfceExistente(int nfceId) async {
+    setState(() => _buscando = true);
+    try {
+      final res = await _service.buscarNfcePorId(nfceId);
+      if (!mounted) return;
+      final itensRaw = res['itens'] as List? ?? [];
+      _provider.limparCarrinho();
+      for (final it in itensRaw) {
+        final m = Map<String, dynamic>.from(it as Map);
+        final item = ItemVendaModel(
+          produtoId: (m['produtoId'] ?? m['id'] ?? 0) as int,
+          nomeProduto: (m['nome'] ?? m['descricao'] ?? 'Produto').toString(),
+          codigoProduto: m['codigo']?.toString(),
+          precoUnitario: ((m['preco'] ?? m['valorUnitario'] ?? 0) as num).toDouble(),
+          quantidade: ((m['quantidade'] ?? 1) as num).toInt(),
+          desconto: ((m['desconto'] ?? 0) as num).toDouble(),
+        );
+        _provider.adicionarItemModel(item);
+      }
+      final desc = (res['desconto'] as num?)?.toDouble() ?? 0;
+      if (desc > 0) {
+        _provider.descontoGeral = desc;
+        _descontoCtrl.text = desc.toStringAsFixed(2);
+      }
+      final cpf = res['clienteCpf']?.toString() ?? '';
+      if (cpf.isNotEmpty) {
+        _clienteCtrl.text = cpf;
+        _provider.clienteCpfCnpj = cpf;
+      }
+      final pagtosRaw = res['pagamentos'] as List? ?? [];
+      for (final pg in pagtosRaw) {
+        final m = Map<String, dynamic>.from(pg as Map);
+        final forma = (m['formaPagamento'] ?? 'DINHEIRO').toString();
+        final valor = ((m['valor'] ?? 0) as num).toDouble();
+        _provider.adicionarPagamento(forma, valor);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackbar.error(context, 'Erro ao carregar itens da NFC-e: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _buscando = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _buscaCtrl.dispose();
+    _scrollBuscaCtrl.dispose();
+    _clienteCtrl.dispose();
+    _valorPagtoCtrl.dispose();
+    _descontoCtrl.dispose();
+    _provider.dispose();
+    super.dispose();
+  }
+
+  void _onScrollBusca() {
+    if (_buscando || _carregandoMais || _isLastPage) return;
+    if (!_scrollBuscaCtrl.hasClients) return;
+    if (_scrollBuscaCtrl.position.pixels >= _scrollBuscaCtrl.position.maxScrollExtent - 80) {
+      _carregarMaisProdutos();
+    }
+  }
+
+  void _onBuscaChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), _buscarProdutos);
+  }
+
+  Future<void> _buscarProdutos() async {
+    final q = _buscaCtrl.text.trim();
+    if (q.length < 2) {
+      setState(() {
+        _resultadosBusca = [];
+        _searchPage = 0;
+        _isLastPage = false;
+      });
+      return;
+    }
+    final empresaId = TenantContext.empresaId ?? 0;
+    final token = ++_searchToken;
+    setState(() {
+      _buscando = true;
+      _searchPage = 0;
+      _isLastPage = false;
+    });
+    try {
+      final res = await _service.buscarProdutosPaginado(
+        query: q,
+        empresaId: empresaId,
+        page: 0,
+        tamanho: 20,
+      );
+      if (!mounted || token != _searchToken) return;
+      final itens = res.itens.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      setState(() {
+        _resultadosBusca = itens;
+        _isLastPage = res.isLast;
+      });
+    } catch (e) {
+      if (mounted) AppSnackbar.error(context, e is NfceException ? e.message : 'Falha ao buscar produtos.');
+      if (mounted && token == _searchToken) {
+        setState(() {
+          _resultadosBusca = [];
+          _isLastPage = true;
+        });
+      }
+    } finally {
+      if (mounted && token == _searchToken) setState(() => _buscando = false);
+    }
+  }
+
+  Future<void> _carregarMaisProdutos() async {
+    final q = _buscaCtrl.text.trim();
+    if (q.length < 2 || _isLastPage || _carregandoMais) return;
+    final empresaId = TenantContext.empresaId ?? 0;
+    final token = ++_searchToken;
+    final nextPage = _searchPage + 1;
+    setState(() => _carregandoMais = true);
+    try {
+      final res = await _service.buscarProdutosPaginado(
+        query: q,
+        empresaId: empresaId,
+        page: nextPage,
+        tamanho: 20,
+      );
+      if (!mounted || token != _searchToken) return;
+      final novos = res.itens.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      setState(() {
+        _resultadosBusca.addAll(novos);
+        _searchPage = nextPage;
+        _isLastPage = res.isLast;
+      });
+    } catch (_) {
+      // Ignora falha de página subsequente
+    } finally {
+      if (mounted && token == _searchToken) setState(() => _carregandoMais = false);
+    }
+  }
+
+  Future<void> _abrirDialogBuscaProdutos() async {
+    final produto = await ProdutoPdvSearchDialog.show(context);
+    if (produto != null && mounted) {
+      _provider.adicionarItem(produto);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${produto['nome']} adicionado ao carrinho.'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
+  bool _validarCpfCnpj(String valor) {
+    final digits = valor.replaceAll(RegExp(r'\D'), '');
+    return digits.length == 11 || digits.length == 14 || digits.isEmpty;
+  }
+
+  void _adicionarPagamento() {
+    final valor = double.tryParse(_valorPagtoCtrl.text.replaceAll(',', '.')) ?? 0;
+    if (valor <= 0) return;
+    _provider.adicionarPagamento(_formaPagamentoSelecionada, valor);
+    _valorPagtoCtrl.clear();
+  }
+
+  Future<void> _emitirNfce() async {
+    final cpfCnpj = _clienteCtrl.text.trim();
+    if (cpfCnpj.isNotEmpty && !_validarCpfCnpj(cpfCnpj)) {
+      setState(() => _erroCliente = 'CPF/CNPJ inválido');
+      return;
+    }
+    setState(() => _erroCliente = null);
+    _provider.clienteCpfCnpj = cpfCnpj.isEmpty ? null : cpfCnpj;
+
+    if (_provider.carrinho.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Adicione pelo menos um produto ao carrinho.')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NfceFinalizacaoScreen(provider: _provider),
+      ),
+    );
+  }
+
+  Widget _buildNoticeBanner() {
+    if (widget.nfce != null) {
+      final isLocked = _isReadOnly;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isLocked ? const Color(0xFFF1F5F9) : const Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isLocked ? const Color(0xFFCBD5E1) : const Color(0xFFFCD34D),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isLocked ? Icons.lock : Icons.edit_note,
+                color: isLocked ? const Color(0xFF475569) : const Color(0xFFD97706),
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isLocked
+                          ? 'Cupom NFC-e em modo somente leitura (Status: ${widget.nfce!.statusSefaz})'
+                          : 'Cupom NFC-e em edição (Status: ${widget.nfce!.statusSefaz})',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isLocked ? const Color(0xFF1E293B) : const Color(0xFF92400E),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isLocked
+                          ? 'Este cupom já está ${widget.nfce!.statusSefaz.toLowerCase()} junto à SEFAZ. O botão emitir está desabilitado e nenhuma alteração é permitida.'
+                          : 'Status permite alteração. Você pode modificar itens, desconto, pagamentos e reemitir.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isLocked ? const Color(0xFF64748B) : const Color(0xFFB45309),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final empresaId = TenantContext.empresaId;
+    final isConfigured = empresaId != null;
+    final backgroundColor = isConfigured ? const Color(0xFFEAF4FF) : const Color(0xFFFFF3CD);
+    final borderColor = isConfigured ? const Color(0xFFB6D4FE) : const Color(0xFFFFD54F);
+    final textColor = isConfigured ? const Color(0xFF0B5CAD) : const Color(0xFF7A4B00);
+    final title = isConfigured ? 'Configuração NFC-e' : 'Configuração fiscal pendente';
+    final message = isConfigured
+        ? 'Confirme UF, ambiente, CSC, certificado e saúde da SEFAZ na configuração fiscal antes de emitir. Cancelamento e inutilização já fazem parte do fluxo fiscal atual.'
+        : 'Nenhuma empresa foi identificada para este usuário. Verifique o vínculo da conta e configure a NFC-e antes de emitir.';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: NfceNoticeBanner(
+        icon: isConfigured ? Icons.info_outline : Icons.warning_amber_rounded,
+        backgroundColor: backgroundColor,
+        borderColor: borderColor,
+        textColor: textColor,
+        title: title,
+        message: message,
+        trailing: TextButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ConfigFiscalScreen()),
+            );
+          },
+          style: TextButton.styleFrom(foregroundColor: textColor),
+          child: const Text('Abrir configuração'),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResumoFiscalCard() {
+    final faltando = _provider.total - _provider.totalPago;
+    final pagamentosValidos = _provider.pagamentos.isNotEmpty && faltando <= 0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Pronto para os eventos fiscais',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: GridColors.secondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _StatusChip(
+                    label: _provider.carrinho.isEmpty ? 'Sem itens' : '${_provider.carrinho.length} item(ns)',
+                    color: _provider.carrinho.isEmpty ? Colors.orange : Colors.green,
+                  ),
+                  _StatusChip(
+                    label: pagamentosValidos ? 'Pagamento coberto' : 'Pagamento pendente',
+                    color: pagamentosValidos ? Colors.green : Colors.orange,
+                  ),
+                  _StatusChip(
+                    label: _clienteCtrl.text.trim().isEmpty ? 'Consumidor não identificado' : 'CPF/CNPJ informado',
+                    color: Colors.blueGrey,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                pagamentosValidos
+                    ? 'A venda já pode seguir para emissão. Se a SEFAZ ficar indisponível, o fluxo de contingência local será acionado e a regularização ficará na fila.'
+                    : 'Revise itens e pagamento antes da emissão para evitar rejeições e retrabalho no cancelamento.',
+                style: const TextStyle(height: 1.35),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      appBar: UserBannerAppBar(
-        screenTitle: 'PDV NFC-e',
-        showFilterButton: false,
-        showBackButton: true,
+    final isWide = MediaQuery.of(context).size.width > 720;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.nfce != null
+            ? 'PDV / NFC-e #${widget.nfce!.numero ?? widget.nfce!.id} (${widget.nfce!.statusSefaz})'
+            : 'PDV / NFC-e'),
+        backgroundColor: GridColors.primary,
+        foregroundColor: Colors.white,
+        actions: [
+          if (TenantContext.empresaId != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Center(
+                child: Text(
+                  'Empresa: ${TenantContext.empresaId}',
+                  style: const TextStyle(fontSize: 13, color: Colors.white70),
+                ),
+              ),
+            ),
+        ],
       ),
-      body: SafeArea(
-        child: web.PdvScreen(),
+      body: Column(
+        children: [
+          _buildNoticeBanner(),
+          const SizedBox(height: 12),
+          _buildResumoFiscalCard(),
+          Expanded(child: isWide ? _buildWideLayout(isWide) : _buildNarrowLayout(isWide)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWideLayout(bool isWide) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(flex: 5, child: _buildPainelBusca(isWide)),
+        const VerticalDivider(width: 1),
+        Expanded(flex: 4, child: _buildPainelCarrinho()),
+      ],
+    );
+  }
+
+  Widget _buildNarrowLayout(bool isWide) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.search), text: 'Produtos'),
+              Tab(icon: Icon(Icons.shopping_cart_checkout), text: 'Carrinho / Emitir NFC-e'),
+            ],
+            labelColor: GridColors.secondary,
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [_buildPainelBusca(isWide), _buildPainelCarrinho()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPainelBusca(bool isWide) {
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _buscaCtrl,
+                      enabled: !_isReadOnly,
+                      decoration: InputDecoration(
+                        labelText: _isReadOnly
+                            ? 'Busca desabilitada (cupom em modo somente leitura)'
+                            : 'Buscar produto por nome ou código',
+                        prefixIcon: _buscando
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            : const Icon(Icons.search),
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 54,
+                    child: ElevatedButton.icon(
+                      onPressed: _isReadOnly ? null : _abrirDialogBuscaProdutos,
+                      icon: const Icon(Icons.search, size: 20),
+                      label: const Text('Buscar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: GridColors.secondary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _resultadosBusca.isEmpty && _buscaCtrl.text.trim().length >= 2 && !_buscando
+                    ? const Center(child: Text('Nenhum produto encontrado.'))
+                    : ListView.builder(
+                        controller: _scrollBuscaCtrl,
+                        itemCount: _resultadosBusca.length + (_carregandoMais ? 1 : 0),
+                        itemBuilder: (_, i) {
+                          if (i >= _resultadosBusca.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                            );
+                          }
+                          final p = _resultadosBusca[i];
+                          final preco = (p['preco'] ?? p['precoVenda'] ?? 0).toDouble();
+                          return ListTile(
+                            leading: const Icon(Icons.inventory_2_outlined),
+                            title: Text(p['nome']?.toString() ?? '—'),
+                            subtitle: Text('${p['codigo'] ?? ''} — R\$ ${preco.toStringAsFixed(2)}'),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.add_circle, color: GridColors.secondary),
+                              onPressed: _isReadOnly
+                                  ? null
+                                  : () {
+                                      _provider.adicionarItem(p);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('${p['nome']} adicionado ao carrinho.'),
+                                          duration: const Duration(seconds: 1),
+                                        ),
+                                      );
+                                    },
+                            ),
+                            onTap: _isReadOnly ? null : () => _provider.adicionarItem(p),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+        if (!isWide && _provider.carrinho.isNotEmpty)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: Builder(
+              builder: (ctx) {
+                return FloatingActionButton.extended(
+                  onPressed: () {
+                    final tabCtrl = DefaultTabController.maybeOf(ctx);
+                    if (tabCtrl != null) {
+                      tabCtrl.animateTo(1);
+                    }
+                  },
+                  icon: const Icon(Icons.shopping_cart_checkout),
+                  label: Text('Finalizar (${_provider.carrinho.length})'),
+                  backgroundColor: GridColors.secondary,
+                  foregroundColor: Colors.white,
+                );
+              }
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPainelCarrinho() {
+    return Column(
+      children: [
+        Expanded(
+          child: _provider.carrinho.isEmpty
+              ? const Center(
+                  child: Text('Carrinho vazio', style: TextStyle(color: Colors.grey)),
+                )
+              : ListView.builder(
+                  itemCount: _provider.carrinho.length,
+                  itemBuilder: (_, i) => _ItemCarrinhoTile(
+                    item: _provider.carrinho[i],
+                    isReadOnly: _isReadOnly,
+                    onRemover: () => _provider.removerItem(i),
+                    onDecrementar: () => _provider.atualizarQuantidade(i, _provider.carrinho[i].quantidade - 1),
+                    onIncrementar: () => _provider.atualizarQuantidade(i, _provider.carrinho[i].quantidade + 1),
+                  ),
+                ),
+        ),
+        const Divider(),
+        Flexible(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ResumoCampo(label: 'Subtotal', valor: _provider.subtotal, cor: Colors.black87),
+                      _ResumoCampo(label: 'Desconto', valor: _provider.descontoTotal, cor: Colors.orange),
+                      _ResumoCampo(
+                        label: 'TOTAL',
+                        valor: _provider.total,
+                        cor: GridColors.secondary,
+                        bold: true,
+                      ),
+                      if (_provider.pagamentos.isNotEmpty)
+                        _ResumoCampo(label: 'Troco', valor: _provider.troco, cor: Colors.blue),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: TextField(
+                    controller: _descontoCtrl,
+                    enabled: !_isReadOnly,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                    decoration: const InputDecoration(
+                      labelText: 'Desconto (R\$)',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.local_offer_outlined),
+                    ),
+                    onChanged: (texto) => _provider.descontoGeral =
+                        double.tryParse(texto.replaceAll(',', '.')) ?? 0,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: TextField(
+                    controller: _clienteCtrl,
+                    enabled: !_isReadOnly,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'CPF/CNPJ do cliente (opcional)',
+                      border: const OutlineInputBorder(),
+                      errorText: _erroCliente,
+                      suffixIcon: const Icon(Icons.person_outline),
+                    ),
+                  ),
+                ),
+                _PainelPagamento(
+                  formasSelecionadas: _provider.pagamentos,
+                  formaSelecionada: _formaPagamentoSelecionada,
+                  valorCtrl: _valorPagtoCtrl,
+                  isReadOnly: _isReadOnly,
+                  onFormaChanged: (f) => setState(() => _formaPagamentoSelecionada = f),
+                  onAdicionarPagamento: _adicionarPagamento,
+                  onRemoverPagamento: (i) => _provider.removerPagamento(i),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _isReadOnly
+                              ? null
+                              : () => showDialog(
+                                  context: context,
+                                  builder: (_) => AlertDialog(
+                                    title: const Text('Cancelar venda?'),
+                                    content: const Text('O carrinho será limpo. Confirma?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('Não'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          _provider.limparCarrinho();
+                                          Navigator.pop(context);
+                                        },
+                                        child: const Text('Sim'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                          child: const Text('CANCELAR'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.receipt_long),
+                          label: _provider.emProcessamento
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text(_isReadOnly ? 'EMISSÃO BLOQUEADA' : 'EMITIR NFC-e'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: GridColors.secondary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: (_isReadOnly || _provider.emProcessamento) ? null : _emitirNfce,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ItemCarrinhoTile extends StatelessWidget {
+  final ItemVendaModel item;
+  final bool isReadOnly;
+  final VoidCallback onRemover;
+  final VoidCallback onDecrementar;
+  final VoidCallback onIncrementar;
+
+  const _ItemCarrinhoTile({
+    required this.item,
+    this.isReadOnly = false,
+    required this.onRemover,
+    required this.onDecrementar,
+    required this.onIncrementar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      title: Text(item.nomeProduto, style: const TextStyle(fontSize: 13)),
+      subtitle: Text('R\$ ${item.precoUnitario.toStringAsFixed(2)} un.'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isReadOnly)
+            IconButton(
+              icon: const Icon(Icons.remove_circle_outline, size: 20),
+              onPressed: onDecrementar,
+            ),
+          Text(
+            isReadOnly ? 'Qtd: ${item.quantidade}' : '${item.quantidade}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          if (!isReadOnly)
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, size: 20),
+              onPressed: onIncrementar,
+            ),
+          const SizedBox(width: 8),
+          Text(
+            'R\$ ${item.subtotal.toStringAsFixed(2)}',
+            style: const TextStyle(fontWeight: FontWeight.w600, color: GridColors.secondary),
+          ),
+          if (!isReadOnly)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+              onPressed: onRemover,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResumoCampo extends StatelessWidget {
+  final String label;
+  final double valor;
+  final Color cor;
+  final bool bold;
+
+  const _ResumoCampo({
+    required this.label,
+    required this.valor,
+    required this.cor,
+    this.bold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: cor,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              fontSize: bold ? 16 : 14,
+            ),
+          ),
+          Text(
+            'R\$ ${valor.toStringAsFixed(2)}',
+            style: TextStyle(
+              color: cor,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              fontSize: bold ? 16 : 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PainelPagamento extends StatelessWidget {
+  final List<PagamentoModel> formasSelecionadas;
+  final String formaSelecionada;
+  final TextEditingController valorCtrl;
+  final ValueChanged<String> onFormaChanged;
+  final VoidCallback onAdicionarPagamento;
+  final ValueChanged<int> onRemoverPagamento;
+  final bool isReadOnly;
+
+  static const _formas = [
+    ('DINHEIRO', 'Dinheiro'),
+    ('CARTAO_CREDITO', 'Cartão Crédito'),
+    ('CARTAO_DEBITO', 'Cartão Débito'),
+    ('PIX', 'PIX'),
+    ('OUTRO', 'Outro'),
+  ];
+
+  const _PainelPagamento({
+    required this.formasSelecionadas,
+    required this.formaSelecionada,
+    required this.valorCtrl,
+    required this.onFormaChanged,
+    required this.onAdicionarPagamento,
+    required this.onRemoverPagamento,
+    this.isReadOnly = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Pagamento:', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          if (!isReadOnly) ...[
+            Wrap(
+              spacing: 6,
+              children: _formas
+                  .map(
+                    (f) => ChoiceChip(
+                      label: Text(f.$2, style: const TextStyle(fontSize: 12)),
+                      selected: formaSelecionada == f.$1,
+                      onSelected: (_) => onFormaChanged(f.$1),
+                      selectedColor: GridColors.secondary,
+                      labelStyle: TextStyle(
+                        color: formaSelecionada == f.$1 ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: valorCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Valor',
+                      prefixText: 'R\$ ',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: onAdicionarPagamento,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: GridColors.secondary,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('+ Adicionar'),
+                ),
+              ],
+            ),
+          ],
+          if (formasSelecionadas.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            ...formasSelecionadas.asMap().entries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${e.value.formaPagamento}: R\$ ${e.value.valor.toStringAsFixed(2)}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                        if (!isReadOnly)
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 16),
+                            onPressed: () => onRemoverPagamento(e.key),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _StatusChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
       ),
     );
   }

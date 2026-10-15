@@ -63,6 +63,16 @@ class NfceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void adicionarItemModel(ItemVendaModel item) {
+    final existente = _carrinho.indexWhere((i) => i.produtoId == item.produtoId && item.produtoId != 0);
+    if (existente >= 0) {
+      _carrinho[existente].quantidade += item.quantidade;
+    } else {
+      _carrinho.add(item);
+    }
+    notifyListeners();
+  }
+
   void removerItem(int index) {
     if (index >= 0 && index < _carrinho.length) {
       _carrinho.removeAt(index);

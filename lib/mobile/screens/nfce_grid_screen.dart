@@ -1,4 +1,4 @@
-﻿import 'package:file_saver/file_saver.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 
 import '../../customization/dynamic_grid_dynamic_screen.dart';
@@ -52,6 +52,17 @@ class _MobileNfceGridScreenState extends State<MobileNfceGridScreen> {
 
   List<CustomAction> _buildCustomActions(BuildContext context) {
     return [
+      CustomAction(
+        label: 'Editar cupom / PDV',
+        icon: Icons.edit_note,
+        onPressed: (ctx, item) {
+          final nfce = NfceModel.fromJson(item);
+          Navigator.push(
+            ctx,
+            MaterialPageRoute(builder: (_) => PdvScreen(nfce: nfce)),
+          );
+        },
+      ),
       CustomAction(
         label: 'Consultar status',
         icon: Icons.manage_search,

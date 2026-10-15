@@ -1184,6 +1184,8 @@ class ApiLinks {
   // NFC-e / PDV (Card 8)
   static String emitirNfce(int vendaId) =>
       '$_baseUrlNew/api/v1/vendas/$vendaId/emitir-nfce';
+  static String nfceBuscarPorId(int nfceId) =>
+      '$_baseUrlNew/api/v1/nfce/$nfceId';
   static String nfceStatus(int nfceId) =>
       '$_baseUrlNew/api/v1/nfce/$nfceId/status';
   static String nfceDanfe(int nfceId) =>

@@ -35,6 +35,28 @@ class NfceService {
     );
   }
 
+  Future<Map<String, dynamic>> buscarNfcePorId(int nfceId) async {
+    final url = ApiLinks.nfceBuscarPorId(nfceId);
+    final response = await http.get(
+      Uri.parse(TenantContext.applyToUrl(url)),
+      headers: TenantContext.headers,
+    );
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body);
+      if (body is Map<String, dynamic>) {
+        if (body.containsKey('data') && body['data'] is Map<String, dynamic>) {
+          return body['data'] as Map<String, dynamic>;
+        }
+        return body;
+      }
+      return <String, dynamic>{};
+    }
+    throw NfceException(
+      _extractErrorMessage(response, 'Falha ao buscar detalhes do cupom NFC-e'),
+      statusCode: response.statusCode,
+    );
+  }
+
   Future<NfceStatusModel> consultarStatus(int nfceId) async {
     final url = ApiLinks.nfceStatus(nfceId);
     final response = await http.get(

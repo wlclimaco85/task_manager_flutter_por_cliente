@@ -26,6 +26,12 @@ class NfceModel {
   final String? protocoloEpec;
   final DateTime? dataEpec;
   final String? modelo;
+  final double? valorTotalIcms;
+  final double? valorTotalPis;
+  final double? valorTotalCofins;
+  final double? valorTotalIss;
+  final double? valorTotalCbs;
+  final double? valorTotalNbs;
 
   const NfceModel({
     required this.id,
@@ -55,6 +61,12 @@ class NfceModel {
     this.protocoloEpec,
     this.dataEpec,
     this.modelo,
+    this.valorTotalIcms,
+    this.valorTotalPis,
+    this.valorTotalCofins,
+    this.valorTotalIss,
+    this.valorTotalCbs,
+    this.valorTotalNbs,
   });
 
   factory NfceModel.fromJson(Map<String, dynamic> json) {
@@ -86,6 +98,12 @@ class NfceModel {
       protocoloEpec: json['protocoloEpec']?.toString(),
       dataEpec: json['dataEpec'] != null ? DateTime.tryParse(json['dataEpec'].toString()) : null,
       modelo: json['modelo']?.toString(),
+      valorTotalIcms: _toDouble(json['valorTotalIcms']),
+      valorTotalPis: _toDouble(json['valorTotalPis']),
+      valorTotalCofins: _toDouble(json['valorTotalCofins']),
+      valorTotalIss: _toDouble(json['valorTotalIss']),
+      valorTotalCbs: _toDouble(json['valorTotalCbs']),
+      valorTotalNbs: _toDouble(json['valorTotalNbs']),
     );
   }
 
@@ -118,6 +136,12 @@ class NfceModel {
       if (protocoloEpec != null) 'protocoloEpec': protocoloEpec,
       if (dataEpec != null) 'dataEpec': dataEpec?.toIso8601String(),
       if (modelo != null) 'modelo': modelo,
+      if (valorTotalIcms != null) 'valorTotalIcms': valorTotalIcms,
+      if (valorTotalPis != null) 'valorTotalPis': valorTotalPis,
+      if (valorTotalCofins != null) 'valorTotalCofins': valorTotalCofins,
+      if (valorTotalIss != null) 'valorTotalIss': valorTotalIss,
+      if (valorTotalCbs != null) 'valorTotalCbs': valorTotalCbs,
+      if (valorTotalNbs != null) 'valorTotalNbs': valorTotalNbs,
     };
   }
 
@@ -137,4 +161,12 @@ class NfceModel {
     final text = value?.toString().toLowerCase();
     return text == 'true' || text == '1' || text == 'sim';
   }
+
+  static double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
 }
+

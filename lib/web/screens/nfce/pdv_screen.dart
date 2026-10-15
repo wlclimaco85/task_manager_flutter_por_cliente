@@ -6,6 +6,7 @@ import '../../../utils/grid_colors.dart';
 import 'package:flutter/services.dart';
 
 import '../../../models/nfce/item_venda_model.dart';
+import '../../../models/nfce_model.dart';
 import '../../../services/nfce_provider.dart';
 import '../../../services/nfce_service.dart';
 import '../../../utils/tenant_context.dart';
@@ -18,7 +19,8 @@ import '../../../widgets/nfce/produto_pdv_search_dialog.dart';
 /// Tela principal de venda / PDV NFC-e.
 /// Funciona em web, windows e mobile (layout responsivo).
 class PdvScreen extends StatefulWidget {
-  const PdvScreen({super.key});
+  final NfceModel? nfce;
+  const PdvScreen({super.key, this.nfce});
 
   @override
   State<PdvScreen> createState() => _PdvScreenState();
@@ -27,6 +29,11 @@ class PdvScreen extends StatefulWidget {
 class _PdvScreenState extends State<PdvScreen> {
   final NfceProvider _provider = NfceProvider();
   final NfceService _service = NfceService();
+
+  bool get _isReadOnly =>
+      widget.nfce != null &&
+      (widget.nfce!.statusSefaz.toUpperCase() == 'AUTORIZADA' ||
+          widget.nfce!.statusSefaz.toUpperCase() == 'CONTINGENCIA');
 
   final TextEditingController _buscaCtrl = TextEditingController();
   final ScrollController _scrollBuscaCtrl = ScrollController();
@@ -58,6 +65,57 @@ class _PdvScreenState extends State<PdvScreen> {
     });
     _buscaCtrl.addListener(_onBuscaChanged);
     _scrollBuscaCtrl.addListener(_onScrollBusca);
+
+    if (widget.nfce != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _carregarDadosNfceExistente(widget.nfce!.id);
+      });
+    }
+  }
+
+  Future<void> _carregarDadosNfceExistente(int nfceId) async {
+    setState(() => _buscando = true);
+    try {
+      final res = await _service.buscarNfcePorId(nfceId);
+      if (!mounted) return;
+      final itensRaw = res['itens'] as List? ?? [];
+      _provider.limparCarrinho();
+      for (final it in itensRaw) {
+        final m = Map<String, dynamic>.from(it as Map);
+        final item = ItemVendaModel(
+          produtoId: (m['produtoId'] ?? m['id'] ?? 0) as int,
+          nomeProduto: (m['nome'] ?? m['descricao'] ?? 'Produto').toString(),
+          codigoProduto: m['codigo']?.toString(),
+          precoUnitario: ((m['preco'] ?? m['valorUnitario'] ?? 0) as num).toDouble(),
+          quantidade: ((m['quantidade'] ?? 1) as num).toInt(),
+          desconto: ((m['desconto'] ?? 0) as num).toDouble(),
+        );
+        _provider.adicionarItemModel(item);
+      }
+      final desc = (res['desconto'] as num?)?.toDouble() ?? 0;
+      if (desc > 0) {
+        _provider.descontoGeral = desc;
+        _descontoCtrl.text = desc.toStringAsFixed(2);
+      }
+      final cpf = res['clienteCpf']?.toString() ?? '';
+      if (cpf.isNotEmpty) {
+        _clienteCtrl.text = cpf;
+        _provider.clienteCpfCnpj = cpf;
+      }
+      final pagtosRaw = res['pagamentos'] as List? ?? [];
+      for (final pg in pagtosRaw) {
+        final m = Map<String, dynamic>.from(pg as Map);
+        final forma = (m['formaPagamento'] ?? 'DINHEIRO').toString();
+        final valor = ((m['valor'] ?? 0) as num).toDouble();
+        _provider.adicionarPagamento(forma, valor);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppSnackbar.error(context, 'Erro ao carregar itens da NFC-e: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _buscando = false);
+    }
   }
 
   @override
@@ -206,6 +264,58 @@ class _PdvScreenState extends State<PdvScreen> {
   }
 
   Widget _buildNoticeBanner() {
+    if (widget.nfce != null) {
+      final isLocked = _isReadOnly;
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isLocked ? const Color(0xFFF1F5F9) : const Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isLocked ? const Color(0xFFCBD5E1) : const Color(0xFFFCD34D),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isLocked ? Icons.lock : Icons.edit_note,
+                color: isLocked ? const Color(0xFF475569) : const Color(0xFFD97706),
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isLocked
+                          ? 'Cupom NFC-e em modo somente leitura (Status: ${widget.nfce!.statusSefaz})'
+                          : 'Cupom NFC-e em edição (Status: ${widget.nfce!.statusSefaz})',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isLocked ? const Color(0xFF1E293B) : const Color(0xFF92400E),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isLocked
+                          ? 'Este cupom já está ${widget.nfce!.statusSefaz.toLowerCase()} junto à SEFAZ. O botão emitir está desabilitado e nenhuma alteração é permitida.'
+                          : 'Status permite alteração. Você pode modificar itens, desconto, pagamentos e reemitir.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isLocked ? const Color(0xFF64748B) : const Color(0xFFB45309),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final empresaId = TenantContext.empresaId;
     final isConfigured = empresaId != null;
     final backgroundColor = isConfigured ? const Color(0xFFEAF4FF) : const Color(0xFFFFF3CD);
@@ -297,7 +407,9 @@ class _PdvScreenState extends State<PdvScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PDV / NFC-e'),
+        title: Text(widget.nfce != null
+            ? 'PDV / NFC-e #${widget.nfce!.numero ?? widget.nfce!.id} (${widget.nfce!.statusSefaz})'
+            : 'PDV / NFC-e'),
         backgroundColor: GridColors.primary,
         foregroundColor: Colors.white,
         actions: [
@@ -370,8 +482,11 @@ class _PdvScreenState extends State<PdvScreen> {
                   Expanded(
                     child: TextField(
                       controller: _buscaCtrl,
+                      enabled: !_isReadOnly,
                       decoration: InputDecoration(
-                        labelText: 'Buscar produto por nome ou código',
+                        labelText: _isReadOnly
+                            ? 'Busca desabilitada (cupom em modo somente leitura)'
+                            : 'Buscar produto por nome ou código',
                         prefixIcon: _buscando
                             ? const Padding(
                                 padding: EdgeInsets.all(12),
@@ -390,7 +505,7 @@ class _PdvScreenState extends State<PdvScreen> {
                   SizedBox(
                     height: 54,
                     child: ElevatedButton.icon(
-                      onPressed: _abrirDialogBuscaProdutos,
+                      onPressed: _isReadOnly ? null : _abrirDialogBuscaProdutos,
                       icon: const Icon(Icons.search, size: 20),
                       label: const Text('Buscar'),
                       style: ElevatedButton.styleFrom(
@@ -432,17 +547,19 @@ class _PdvScreenState extends State<PdvScreen> {
                             subtitle: Text('${p['codigo'] ?? ''} — R\$ ${preco.toStringAsFixed(2)}'),
                             trailing: IconButton(
                               icon: const Icon(Icons.add_circle, color: GridColors.secondary),
-                              onPressed: () {
-                                _provider.adicionarItem(p);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('${p['nome']} adicionado ao carrinho.'),
-                                    duration: const Duration(seconds: 1),
-                                  ),
-                                );
-                              },
+                              onPressed: _isReadOnly
+                                  ? null
+                                  : () {
+                                      _provider.adicionarItem(p);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('${p['nome']} adicionado ao carrinho.'),
+                                          duration: const Duration(seconds: 1),
+                                        ),
+                                      );
+                                    },
                             ),
-                            onTap: () => _provider.adicionarItem(p),
+                            onTap: _isReadOnly ? null : () => _provider.adicionarItem(p),
                           );
                         },
                       ),
@@ -487,6 +604,7 @@ class _PdvScreenState extends State<PdvScreen> {
                   itemCount: _provider.carrinho.length,
                   itemBuilder: (_, i) => _ItemCarrinhoTile(
                     item: _provider.carrinho[i],
+                    isReadOnly: _isReadOnly,
                     onRemover: () => _provider.removerItem(i),
                     onDecrementar: () => _provider.atualizarQuantidade(i, _provider.carrinho[i].quantidade - 1),
                     onIncrementar: () => _provider.atualizarQuantidade(i, _provider.carrinho[i].quantidade + 1),
@@ -494,111 +612,125 @@ class _PdvScreenState extends State<PdvScreen> {
                 ),
         ),
         const Divider(),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _ResumoCampo(label: 'Subtotal', valor: _provider.subtotal, cor: Colors.black87),
-              _ResumoCampo(label: 'Desconto', valor: _provider.descontoTotal, cor: Colors.orange),
-              _ResumoCampo(
-                label: 'TOTAL',
-                valor: _provider.total,
-                cor: GridColors.secondary,
-                bold: true,
-              ),
-              if (_provider.pagamentos.isNotEmpty)
-                _ResumoCampo(label: 'Troco', valor: _provider.troco, cor: Colors.blue),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: TextField(
-            controller: _descontoCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-            decoration: const InputDecoration(
-              labelText: 'Desconto (R\$)',
-              border: OutlineInputBorder(),
-              suffixIcon: Icon(Icons.local_offer_outlined),
-            ),
-            onChanged: (texto) => _provider.descontoGeral =
-                double.tryParse(texto.replaceAll(',', '.')) ?? 0,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: TextField(
-            controller: _clienteCtrl,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-              labelText: 'CPF/CNPJ do cliente (opcional)',
-              border: const OutlineInputBorder(),
-              errorText: _erroCliente,
-              suffixIcon: const Icon(Icons.person_outline),
-            ),
-          ),
-        ),
-        _PainelPagamento(
-          formasSelecionadas: _provider.pagamentos,
-          formaSelecionada: _formaPagamentoSelecionada,
-          valorCtrl: _valorPagtoCtrl,
-          onFormaChanged: (f) => setState(() => _formaPagamentoSelecionada = f),
-          onAdicionarPagamento: _adicionarPagamento,
-          onRemoverPagamento: (i) => _provider.removerPagamento(i),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Cancelar venda?'),
-                      content: const Text('O carrinho será limpo. Confirma?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Não'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            _provider.limparCarrinho();
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Sim'),
-                        ),
-                      ],
+        Flexible(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ResumoCampo(label: 'Subtotal', valor: _provider.subtotal, cor: Colors.black87),
+                      _ResumoCampo(label: 'Desconto', valor: _provider.descontoTotal, cor: Colors.orange),
+                      _ResumoCampo(
+                        label: 'TOTAL',
+                        valor: _provider.total,
+                        cor: GridColors.secondary,
+                        bold: true,
+                      ),
+                      if (_provider.pagamentos.isNotEmpty)
+                        _ResumoCampo(label: 'Troco', valor: _provider.troco, cor: Colors.blue),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: TextField(
+                    controller: _descontoCtrl,
+                    enabled: !_isReadOnly,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                    decoration: const InputDecoration(
+                      labelText: 'Desconto (R\$)',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.local_offer_outlined),
+                    ),
+                    onChanged: (texto) => _provider.descontoGeral =
+                        double.tryParse(texto.replaceAll(',', '.')) ?? 0,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: TextField(
+                    controller: _clienteCtrl,
+                    enabled: !_isReadOnly,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'CPF/CNPJ do cliente (opcional)',
+                      border: const OutlineInputBorder(),
+                      errorText: _erroCliente,
+                      suffixIcon: const Icon(Icons.person_outline),
                     ),
                   ),
-                  child: const Text('CANCELAR'),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.receipt_long),
-                  label: _provider.emProcessamento
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('EMITIR NFC-e'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: GridColors.secondary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                _PainelPagamento(
+                  formasSelecionadas: _provider.pagamentos,
+                  formaSelecionada: _formaPagamentoSelecionada,
+                  valorCtrl: _valorPagtoCtrl,
+                  isReadOnly: _isReadOnly,
+                  onFormaChanged: (f) => setState(() => _formaPagamentoSelecionada = f),
+                  onAdicionarPagamento: _adicionarPagamento,
+                  onRemoverPagamento: (i) => _provider.removerPagamento(i),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _isReadOnly
+                              ? null
+                              : () => showDialog(
+                                  context: context,
+                                  builder: (_) => AlertDialog(
+                                    title: const Text('Cancelar venda?'),
+                                    content: const Text('O carrinho será limpo. Confirma?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('Não'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          _provider.limparCarrinho();
+                                          Navigator.pop(context);
+                                        },
+                                        child: const Text('Sim'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                          child: const Text('CANCELAR'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.receipt_long),
+                          label: _provider.emProcessamento
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text(_isReadOnly ? 'EMISSÃO BLOQUEADA' : 'EMITIR NFC-e'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: GridColors.secondary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: (_isReadOnly || _provider.emProcessamento) ? null : _emitirNfce,
+                        ),
+                      ),
+                    ],
                   ),
-                  onPressed: _provider.emProcessamento ? null : _emitirNfce,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
@@ -608,12 +740,14 @@ class _PdvScreenState extends State<PdvScreen> {
 
 class _ItemCarrinhoTile extends StatelessWidget {
   final ItemVendaModel item;
+  final bool isReadOnly;
   final VoidCallback onRemover;
   final VoidCallback onDecrementar;
   final VoidCallback onIncrementar;
 
   const _ItemCarrinhoTile({
     required this.item,
+    this.isReadOnly = false,
     required this.onRemover,
     required this.onDecrementar,
     required this.onIncrementar,
@@ -628,23 +762,30 @@ class _ItemCarrinhoTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline, size: 20),
-            onPressed: onDecrementar,
+          if (!isReadOnly)
+            IconButton(
+              icon: const Icon(Icons.remove_circle_outline, size: 20),
+              onPressed: onDecrementar,
+            ),
+          Text(
+            isReadOnly ? 'Qtd: ${item.quantidade}' : '${item.quantidade}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          Text('${item.quantidade}', style: const TextStyle(fontWeight: FontWeight.bold)),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline, size: 20),
-            onPressed: onIncrementar,
-          ),
+          if (!isReadOnly)
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, size: 20),
+              onPressed: onIncrementar,
+            ),
+          const SizedBox(width: 8),
           Text(
             'R\$ ${item.subtotal.toStringAsFixed(2)}',
             style: const TextStyle(fontWeight: FontWeight.w600, color: GridColors.secondary),
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
-            onPressed: onRemover,
-          ),
+          if (!isReadOnly)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 20, color: Colors.red),
+              onPressed: onRemover,
+            ),
         ],
       ),
     );
@@ -700,6 +841,7 @@ class _PainelPagamento extends StatelessWidget {
   final ValueChanged<String> onFormaChanged;
   final VoidCallback onAdicionarPagamento;
   final ValueChanged<int> onRemoverPagamento;
+  final bool isReadOnly;
 
   static const _formas = [
     ('DINHEIRO', 'Dinheiro'),
@@ -716,6 +858,7 @@ class _PainelPagamento extends StatelessWidget {
     required this.onFormaChanged,
     required this.onAdicionarPagamento,
     required this.onRemoverPagamento,
+    this.isReadOnly = false,
   });
 
   @override
@@ -727,48 +870,50 @@ class _PainelPagamento extends StatelessWidget {
         children: [
           const Text('Pagamento:', style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            children: _formas
-                .map(
-                  (f) => ChoiceChip(
-                    label: Text(f.$2, style: const TextStyle(fontSize: 12)),
-                    selected: formaSelecionada == f.$1,
-                    onSelected: (_) => onFormaChanged(f.$1),
-                    selectedColor: GridColors.secondary,
-                    labelStyle: TextStyle(
-                      color: formaSelecionada == f.$1 ? Colors.white : Colors.black87,
+          if (!isReadOnly) ...[
+            Wrap(
+              spacing: 6,
+              children: _formas
+                  .map(
+                    (f) => ChoiceChip(
+                      label: Text(f.$2, style: const TextStyle(fontSize: 12)),
+                      selected: formaSelecionada == f.$1,
+                      onSelected: (_) => onFormaChanged(f.$1),
+                      selectedColor: GridColors.secondary,
+                      labelStyle: TextStyle(
+                        color: formaSelecionada == f.$1 ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: valorCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Valor',
+                      prefixText: 'R\$ ',
+                      isDense: true,
+                      border: OutlineInputBorder(),
                     ),
                   ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: valorCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Valor',
-                    prefixText: 'R\$ ',
-                    isDense: true,
-                    border: OutlineInputBorder(),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: onAdicionarPagamento,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: GridColors.secondary,
+                    foregroundColor: Colors.white,
                   ),
+                  child: const Text('+ Adicionar'),
                 ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: onAdicionarPagamento,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: GridColors.secondary,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('+ Adicionar'),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           if (formasSelecionadas.isNotEmpty) ...[
             const SizedBox(height: 6),
             ...formasSelecionadas.asMap().entries.map(
@@ -782,10 +927,11 @@ class _PainelPagamento extends StatelessWidget {
                             style: const TextStyle(fontSize: 12),
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 16),
-                          onPressed: () => onRemoverPagamento(e.key),
-                        ),
+                        if (!isReadOnly)
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 16),
+                            onPressed: () => onRemoverPagamento(e.key),
+                          ),
                       ],
                     ),
                   ),
