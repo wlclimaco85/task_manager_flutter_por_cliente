@@ -97,7 +97,9 @@ class _BoletoViewerContentState extends State<BoletoViewerContent> {
         headers: {if (token != null) 'Authorization': 'Bearer $token'},
       );
       if (resp.statusCode != 200) {
-        throw Exception('Erro ao baixar (${resp.statusCode})');
+        throw Exception(resp.statusCode == 404
+            ? 'O arquivo deste boleto não está mais no servidor. Anexe o boleto novamente.'
+            : 'Erro ao baixar (${resp.statusCode})');
       }
       if (kIsWeb) {
         // Web: navegador ja trata download nativo via link; aqui usamos o
