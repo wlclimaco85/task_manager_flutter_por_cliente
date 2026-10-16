@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 
+import '../helpers/download_helper.dart';
 import '../models/anexo_financeiro_model.dart';
 import '../services/anexo_financeiro_service.dart';
 import '../utils/grid_colors.dart';
@@ -118,6 +119,11 @@ class _AnexoFinanceiroWidgetState extends State<AnexoFinanceiroWidget> {
     setState(() => _carregando = true);
     try {
       final bytes = await _service.download(anexo.id!, empresaId: widget.empresaId);
+      if (kIsWeb) {
+        await downloadBytes(bytes, anexo.fileName, mimeType: anexo.contentType ?? 'application/octet-stream');
+        if (mounted) _snackbar('Download iniciado', sucesso: true);
+        return;
+      }
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/${anexo.fileName}');
       await file.writeAsBytes(bytes);

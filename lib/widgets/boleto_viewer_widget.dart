@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import '../helpers/download_helper.dart';
 import '../models/auth_utility.dart';
 import '../utils/api_links.dart';
 import '../utils/grid_colors.dart';
@@ -104,6 +105,7 @@ class _BoletoViewerContentState extends State<BoletoViewerContent> {
       if (kIsWeb) {
         // Web: navegador ja trata download nativo via link; aqui usamos o
         // mesmo padrao ja usado em outros lugares do app (abrir bytes).
+        await downloadBytes(resp.bodyBytes, widget.fileName, mimeType: 'application/pdf');
         _mostrarSnack('Download iniciado.');
       } else if (Platform.isAndroid || Platform.isIOS) {
         // Mobile: nao adianta gravar em pasta temporaria invisivel — abre o

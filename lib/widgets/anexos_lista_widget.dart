@@ -1,4 +1,6 @@
 // lib/widgets/anexos_lista_widget.dart
+import 'package:flutter/foundation.dart' show kIsWeb;
+import '../helpers/download_helper.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -82,6 +84,11 @@ class _AnexosListaWidgetState extends State<AnexosListaWidget> {
     setState(() { _loading = true; });
     try {
       final bytes = await _service.download(anexo.id!);
+      if (kIsWeb) {
+        await downloadBytes(bytes, anexo.fileName, mimeType: anexo.contentType ?? 'application/octet-stream');
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download iniciado')));
+        return;
+      }
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/${anexo.fileName}');
       await file.writeAsBytes(bytes);
