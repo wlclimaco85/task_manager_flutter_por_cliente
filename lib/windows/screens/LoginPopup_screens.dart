@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:task_manager_flutter/utils/acesso_app_info.dart';
 import '../../../models/network_response.dart';
 import '../../services/network_caller.dart';
 import '../../windows/screens/ForgotPasswordScreen_screens.dart';
@@ -30,6 +31,7 @@ class _WindowsLoginPopupState extends State<WindowsLoginPopup> {
     Map<String, dynamic> requestBody = {
       "email": username,
       "password": password,
+      ...await dadosDeAcessoLogin(),
     };
 
     try {
