@@ -20,7 +20,7 @@ import 'utils/security_matrix.dart';
 import 'utils/app_logger.dart';
 import 'utils/boot_recovery.dart';
 import 'core/theme/zen_theme.dart';
-import 'web/screens/bottom_navbar_screen.dart';
+import 'web/screens/web_home_responsiva.dart';
 
 
 
@@ -193,7 +193,7 @@ class TaskManagerApp extends StatelessWidget {
       home = const _BootLoadingScreen();
     } else if (loggedIn!) {
       if (kIsWeb) {
-        home = const WebBottomNavBarScreen();
+        home = const WebHomeResponsiva();
       } else if (defaultTargetPlatform == TargetPlatform.windows) {
         home = const WindowsBottomNavBarScreen();
       } else {

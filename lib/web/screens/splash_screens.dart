@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../models/auth_utility.dart';
 import '../../auth_screens/login_screen.dart';
-import '../../web/screens/bottom_navbar_screen.dart';
+import '../../web/screens/web_home_responsiva.dart';
 import '../../../utils/assets_utils.dart';
 import '../../../widgets/screen_background.dart';
 
@@ -35,7 +35,7 @@ class _WebSplashScreenState extends State<WebSplashScreen> {
           context,
           MaterialPageRoute(
               builder: (context) => loggedIn
-                  ? const WebBottomNavBarScreen()
+                  ? const WebHomeResponsiva()
                   : const LoginScreen()),
           (route) => false,
         );
