@@ -62,7 +62,7 @@ class QueryBuilderCaller {
   static Future<Map<String, dynamic>> executarQuery(
     String sql, {
     int pagina = 1,
-    int tamanhoPagina = 50,
+    int tamanhoPagina = 0,
   }) async {
     try {
       final body = {

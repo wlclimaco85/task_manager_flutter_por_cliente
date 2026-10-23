@@ -46,6 +46,8 @@ class _QueryBuilderWindowScreenState extends State<QueryBuilderWindowScreen> {
   bool _arvoreExpandida = true;
 
   final TextEditingController _sqlController = TextEditingController();
+  final ScrollController _verticalScrollController = ScrollController();
+  final ScrollController _horizontalScrollController = ScrollController();
   List<Map<String, dynamic>> _colunasResultado = [];
   List<List<dynamic>> _linhasResultado = [];
   String? _mensagemErro;
@@ -64,6 +66,8 @@ class _QueryBuilderWindowScreenState extends State<QueryBuilderWindowScreen> {
   @override
   void dispose() {
     _sqlController.dispose();
+    _verticalScrollController.dispose();
+    _horizontalScrollController.dispose();
     super.dispose();
   }
 
@@ -1034,10 +1038,29 @@ class _QueryBuilderWindowScreenState extends State<QueryBuilderWindowScreen> {
   }
 
   Widget _buildDataTable() {
-    return SingleChildScrollView(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Scrollbar(
+          controller: _horizontalScrollController,
+          thumbVisibility: true,
+          trackVisibility: true,
+          notificationPredicate: (notif) => notif.metrics.axis == Axis.horizontal,
+          child: Scrollbar(
+            controller: _verticalScrollController,
+            thumbVisibility: true,
+            trackVisibility: true,
+            notificationPredicate: (notif) => notif.metrics.axis == Axis.vertical,
+            child: SingleChildScrollView(
+              controller: _horizontalScrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: SingleChildScrollView(
+                  controller: _verticalScrollController,
+                  scrollDirection: Axis.vertical,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: DataTable(
           headingRowColor: WidgetStateProperty.all(GridColors.gridHeader),
           dataRowColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.hovered)) {
@@ -1116,6 +1139,11 @@ class _QueryBuilderWindowScreenState extends State<QueryBuilderWindowScreen> {
           }),
         ),
       ),
+    ),
+  ),
+),
+);
+      },
     );
   }
 
