@@ -10,6 +10,7 @@ import '../login_grid_screen.dart' show WebLoginGridScreen;
 import '../comunicado_componente_screen.dart'
     show WebComunicadoGridComponentesScreen;
 import 'empresa_modulos_tab.dart';
+import '../../../widgets/smtp_config_tab.dart';
 
 import '../../../widgets/finance/cnab_config_screen.dart';
 class WebEmpresaDetailScreen extends StatefulWidget {
@@ -308,6 +309,17 @@ class _WebEmpresaDetailScreenState extends State<WebEmpresaDetailScreen> {
           telaNome: 'comunicado',
           extraParams: {'empId': id},
           transformFormData: WebComunicadoGridComponentesScreen.transformFormData,
+        ),
+        RelatedGridTab(
+          title: 'POP/Mail',
+          icon: Icons.mail_outline,
+          customWidget: empresaId > 0
+              ? SmtpConfigTab(
+                  scope: SmtpConfigScope.empresa,
+                  id: empresaId,
+                  nome: empresaNome,
+                )
+              : const Center(child: Text('ID da empresa não disponível')),
         ),
         RelatedGridTab(
           title: 'Certificado Digital',
