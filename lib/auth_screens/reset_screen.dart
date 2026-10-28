@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../models/network_response.dart';
-import '../../services/network_caller.dart';
-import '../../../utils/api_links.dart';
+import '../services/recuperacao_senha_service.dart';
 
 import '../auth_screens/login_screen.dart';
 import '../../../widgets/custom_password_text_field.dart';
@@ -29,23 +27,25 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final GlobalKey<FormState> _resetFormKey = GlobalKey<FormState>();
 
   Future<void> resetPassword() async {
+    if (!RecuperacaoSenhaService.senhaValida(_passwordTEController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('A senha precisa ter pelo menos 8 caracteres, com letras e números.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
     _isLoading = true;
     if (mounted) {
       setState(() {});
     }
 
-    Map<String, dynamic> resetForm = {
-      'email': widget.email,
-      'otp': widget.otp,
-      'password': _passwordTEController.text,
-    };
-    NetworkResponse response = await NetworkCaller()
-        .postRequest(ApiLinks.recoverResetPassword, resetForm);
+    final resultado = await RecuperacaoSenhaService.redefinirSenha(
+        widget.email, widget.otp, _passwordTEController.text);
     _isLoading = false;
     if (mounted) {
       setState(() {});
     }
-    if (response.isSuccess) {
+    if (resultado.ok) {
       if (mounted) {
         Navigator.pushAndRemoveUntil(
             context,
@@ -55,8 +55,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Please enter valid password"),
+          SnackBar(
+            content: Text(resultado.mensagem),
             backgroundColor: Colors.red,
           ),
         );
@@ -78,14 +78,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Set your password",
+                  "Defina sua nova senha",
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(
                   height: 2,
                 ),
                 Text(
-                  'Minimum length is 8 characters with number and character combination',
+                  'Mínimo de 8 caracteres, com letras e números',
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
@@ -96,7 +96,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 ),
                 CustomPasswordTextFormField(
                   controller: _passwordTEController,
-                  hintText: "Password",
+                  hintText: "Nova senha",
                   textInputType: TextInputType.text,
                 ),
                 const SizedBox(
@@ -105,14 +105,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 CustomPasswordTextFormField(
                   validator: (String? value) {
                     if (value?.isEmpty ?? true) {
-                      return "Please enter confirm password";
+                      return "Confirme a nova senha";
                     } else if ((value ?? '') != _passwordTEController.text) {
-                      return "Password does not match";
+                      return "As senhas não conferem";
                     }
                     return null;
                   },
                   controller: _confirmPasswordTEController,
-                  hintText: "Confirm Password",
+                  hintText: "Confirmar nova senha",
                   textInputType: TextInputType.text,
                 ),
                 const SizedBox(
@@ -134,7 +134,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text("please enter valid password"),
+                              content: Text("A senha precisa ter pelo menos 8 caracteres, com letras e números."),
                               backgroundColor: Colors.red,
                             ),
                           );

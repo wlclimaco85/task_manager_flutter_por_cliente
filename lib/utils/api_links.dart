@@ -109,11 +109,6 @@ class ApiLinks {
   static String get matarSessoesOciosas =>
       '$_baseUrlNew/api/sessoes/matar-ociosas';
 
-  static String recoverVerifyEmail(String email) =>
-      '$_baseUrl/RecoverVerifyEmail/$email';
-  static String recoverVerifyOTP(String email, String otp) =>
-      '$_baseUrl/RecoverVerifyOTP/$email/$otp';
-  static String recoverResetPassword = '$_baseUrl/RecoverResetPass';
 
   static String createTask = '$_baseUrl/createTask';
   static String newTaskStatus = '$_baseUrl/listTaskByStatus/New';

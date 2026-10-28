@@ -1,9 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import '../../../models/network_response.dart';
-import '../../services/network_caller.dart';
-import '../../../utils/api_links.dart';
+import '../services/recuperacao_senha_service.dart';
 import '../auth_screens/otp_varification.dart';
 import '../../../widgets/custom_text_form_field.dart';
 import '../../../widgets/screen_background.dart';
@@ -30,14 +28,14 @@ class _EmailVarificationScreeenState extends State<EmailVarificationScreeen> {
       setState(() {});
     }
 
-    final NetworkResponse response =
-        await NetworkCaller().getRequest(ApiLinks.recoverVerifyEmail(email));
+    final resultado =
+        await RecuperacaoSenhaService.solicitarCodigo(email);
 
     _isLoading = false;
     if (mounted) {
       setState(() {});
     }
-    if (response.isSuccess) {
+    if (resultado.ok) {
       Navigator.push(
           context,
           MaterialPageRoute(
@@ -46,8 +44,8 @@ class _EmailVarificationScreeenState extends State<EmailVarificationScreeen> {
                   )));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please enter valid email address"),
+        SnackBar(
+          content: Text(resultado.mensagem),
           backgroundColor: Colors.red,
         ),
       );
@@ -76,14 +74,14 @@ class _EmailVarificationScreeenState extends State<EmailVarificationScreeen> {
                   height: 80,
                 ),
                 Text(
-                  "Your Email Address",
+                  "Seu e-mail",
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(
                   height: 5,
                 ),
                 Text(
-                  "Please enter your email address to receive a verification code",
+                  "Informe seu e-mail para receber um código de verificação",
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey,
                       ),
@@ -96,12 +94,12 @@ class _EmailVarificationScreeenState extends State<EmailVarificationScreeen> {
                         if ((value ?? '').isEmpty ||
                             !RegExp(r'^[\w-.]+@([\w-]+\.)+\w{2,5}')
                                 .hasMatch(value ?? '')) {
-                          return "please Enter your correct Email";
+                          return "Informe um e-mail válido";
                         } else {
                           return null;
                         }
                       },
-                      hintText: "Email",
+                      hintText: "E-mail",
                       controller: _emailTEController,
                       textInputType: TextInputType.emailAddress,
                     )),
@@ -130,11 +128,11 @@ class _EmailVarificationScreeenState extends State<EmailVarificationScreeen> {
                   height: 20,
                 ),
                 SignUpButton(
-                  text: "Have An Account?",
+                  text: "Já tem conta?",
                   onPresse: () {
                     Navigator.pop(context);
                   },
-                  buttonText: 'Sign In',
+                  buttonText: 'Entrar',
                 ),
               ],
             ),
