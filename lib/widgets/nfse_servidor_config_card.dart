@@ -172,7 +172,9 @@ class _NfseServidorConfigCardState extends State<NfseServidorConfigCard> {
         final msg = body['message'] ?? body['mensagem'] ?? body['error'];
         if (msg != null && msg.toString().isNotEmpty) return msg.toString();
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.i.warn('[NFSE-SERVIDOR] resposta de erro ilegivel (HTTP $status): $e');
+    }
     return 'Falha ao salvar (HTTP $status).';
   }
 
