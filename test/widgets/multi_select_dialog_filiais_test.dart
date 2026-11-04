@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:task_manager_flutter_por_cliente/widgets/generic_detail_form_screen.dart';
+import 'package:task_manager_flutter/widgets/generic_detail_form_screen.dart';
 
 void main() {
   testWidgets('popup de filiais filtra por busca e permite marcar varios',
