@@ -13,6 +13,7 @@ import '../../../utils/tenant_context.dart';
 import '../../../widgets/automacao_fiscal_screen.dart';
 import '../../../widgets/importacao_sintegra_card.dart';
 import '../../../widgets/importacao_sped_card.dart';
+import '../../../widgets/nfse_servidor_config_card.dart';
 import '../../../widgets/searchable_dropdown.dart';
 import 'defaults_importacao_screen.dart';
 
@@ -187,6 +188,10 @@ class _ConfiguracoesSistemaScreenState
                 color: _primary,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                     builder: (_) => const DefaultsImportacaoScreen()))),
+          ]),
+          const SizedBox(height: 20),
+          _section('Servidor NFS-e', Icons.dns_outlined, [
+            NfseServidorConfigCard(baseUrl: ApiLinks.baseUrl),
           ]),
           const SizedBox(height: 20),
           if (_resultados.isNotEmpty) _buildResultados(),
