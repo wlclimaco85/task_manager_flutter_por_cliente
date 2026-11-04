@@ -42,6 +42,14 @@ analyzer:
     unused_label: ignore
     unused_local_variable: ignore
     use_build_context_synchronously: ignore
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   rules:
