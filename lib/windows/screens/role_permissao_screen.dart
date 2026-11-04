@@ -373,21 +373,21 @@ class _RolePermissaoScreenState extends State<RolePermissaoScreen> {
     final grupos = RolePermissionCatalog.groups(query: _busca);
     final rows = <TableRow>[
       TableRow(
-        decoration: BoxDecoration(color: GridColors.primary.withOpacity(0.1)),
+        decoration: BoxDecoration(color: GridColors.primary.withOpacity(0.12)),
         children: [
           _cell('Tela', bold: true),
-          _cell('Ver', bold: true),
-          _cell('Inserir', bold: true),
-          _cell('Editar', bold: true),
-          _cell('Deletar', bold: true),
-          _cell('Baixar', bold: true),
+          _cell('Ver', bold: true, align: TextAlign.center),
+          _cell('Inserir', bold: true, align: TextAlign.center),
+          _cell('Editar', bold: true, align: TextAlign.center),
+          _cell('Deletar', bold: true, align: TextAlign.center),
+          _cell('Baixar', bold: true, align: TextAlign.center),
         ],
       ),
     ];
 
     for (final grupo in grupos) {
       rows.add(TableRow(
-        decoration: BoxDecoration(color: GridColors.primary.withOpacity(0.06)),
+        decoration: BoxDecoration(color: GridColors.primary.withOpacity(0.08)),
         children: [
           _groupCell(grupo),
           const SizedBox(),
@@ -398,9 +398,15 @@ class _RolePermissaoScreenState extends State<RolePermissaoScreen> {
         ],
       ));
 
+      int rowIndex = 0;
       for (final tela in grupo.entries) {
         final p = _permissaoDe(tela);
+        final isOdd = rowIndex % 2 == 1;
+        rowIndex++;
+        final rowColor = isOdd ? const Color(0xFFEAEFF5) : Colors.white;
+
         rows.add(TableRow(
+          decoration: BoxDecoration(color: rowColor),
           children: [
             _cell(tela.label),
             _check(
@@ -435,23 +441,24 @@ class _RolePermissaoScreenState extends State<RolePermissaoScreen> {
       child: Table(
         columnWidths: const {
           0: FlexColumnWidth(2),
-          1: FixedColumnWidth(60),
-          2: FixedColumnWidth(60),
-          3: FixedColumnWidth(60),
-          4: FixedColumnWidth(60),
-          5: FixedColumnWidth(60),
+          1: FixedColumnWidth(70),
+          2: FixedColumnWidth(70),
+          3: FixedColumnWidth(70),
+          4: FixedColumnWidth(75),
+          5: FixedColumnWidth(70),
         },
-        border: TableBorder.all(color: Colors.grey.shade300),
+        border: TableBorder.all(color: Colors.grey.shade300, width: 0.8),
         children: rows,
       ),
     );
   }
 
-  Widget _cell(String text, {bool bold = false}) {
+  Widget _cell(String text, {bool bold = false, TextAlign align = TextAlign.left}) {
     return Padding(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Text(
         text,
+        textAlign: align,
         style:
             TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal),
       ),
