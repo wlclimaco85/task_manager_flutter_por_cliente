@@ -2257,12 +2257,14 @@ class _MultiSelectDialog extends StatefulWidget {
   final String valueField;
   final String displayField;
   final List<dynamic> initialSelected;
+  final String? subtitleField;
   const _MultiSelectDialog(
       {required this.title,
       required this.options,
       required this.valueField,
       required this.displayField,
-      required this.initialSelected});
+      required this.initialSelected,
+      this.subtitleField});
   @override
   State<_MultiSelectDialog> createState() => _MultiSelectDialogState();
 }
@@ -2367,8 +2369,16 @@ class _MultiSelectDialogState extends State<_MultiSelectDialog> {
               final val = opt[widget.valueField];
               final label =
                   opt[widget.displayField]?.toString() ?? val.toString();
+              final sub = widget.subtitleField == null
+                  ? ''
+                  : (opt[widget.subtitleField]?.toString().trim() ?? '');
               return CheckboxListTile(
                 title: Text(label, style: const TextStyle(fontSize: 14)),
+                subtitle: sub.isEmpty
+                    ? null
+                    : Text(sub,
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade600)),
                 value: _isSel(val),
                 activeColor: GridColors.primary,
                 checkColor: Colors.white,
@@ -2404,6 +2414,30 @@ class _MultiSelectDialogState extends State<_MultiSelectDialog> {
       ),
     );
   }
+}
+
+/// Abre o popup de seleção múltipla com busca (o mesmo usado nos campos
+/// multiselect dos forms). Retorna os valores marcados ou `null` se cancelado.
+Future<List<dynamic>?> showMultiSelectDialog(
+  BuildContext context, {
+  required String title,
+  required List<Map<String, dynamic>> options,
+  String valueField = 'id',
+  String displayField = 'label',
+  String? subtitleField,
+  List<dynamic> initialSelected = const [],
+}) {
+  return showDialog<List<dynamic>>(
+    context: context,
+    builder: (_) => _MultiSelectDialog(
+      title: title,
+      options: options,
+      valueField: valueField,
+      displayField: displayField,
+      subtitleField: subtitleField,
+      initialSelected: initialSelected,
+    ),
+  );
 }
 
 /// Helper puro para resolução de visibilidade de campos com suporte a overrides.
