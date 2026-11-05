@@ -8,6 +8,7 @@ import '../../../models/conta_receber_model.dart';
 import '../../../utils/api_links.dart';
 import '../../../utils/grid_colors.dart';
 import '../../../utils/tenant_context.dart';
+import '../../../utils/mensalidade_referencia_filtro.dart';
 import '../../../widgets/finance/billing_charge_dialog.dart';
 import '../../../widgets/boleto_importacao_lote_screen.dart';
 import '../../../widgets/generic_grid_windows_screen.dart'
@@ -58,6 +59,8 @@ class _WebContaReceberGridScreenState extends State<WebContaReceberGridScreen> {
   DateTime? _dataFim;
   int? _parceiroId;
   String _tipoFilter = 'Todos';
+  int? _refMes;
+  int? _refAno;
   final _statusOptions = [
     'Todos',
     'ABERTA',
@@ -85,6 +88,10 @@ class _WebContaReceberGridScreenState extends State<WebContaReceberGridScreen> {
       params['categoriaFinanceiraId'] =
           widget.categoriaFinanceiraIdFixa.toString();
     }
+    if (widget.categoriaFinanceiraIdFixa != null) {
+      params.addAll(MensalidadeReferenciaFiltro.paramsVencimento(
+          mes: _refMes, ano: _refAno));
+    }
     return params;
   }
 
@@ -95,6 +102,8 @@ class _WebContaReceberGridScreenState extends State<WebContaReceberGridScreen> {
       _dataFim = null;
       _parceiroId = null;
       _tipoFilter = 'Todos';
+      _refMes = null;
+      _refAno = null;
       _gridKey = UniqueKey();
     });
   }
@@ -239,6 +248,7 @@ class _WebContaReceberGridScreenState extends State<WebContaReceberGridScreen> {
             ),
           ),
           const SizedBox(width: 12),
+          if (widget.categoriaFinanceiraIdFixa == null) ...[
           const Text('Período:',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
           InkWell(
@@ -303,6 +313,14 @@ class _WebContaReceberGridScreenState extends State<WebContaReceberGridScreen> {
               onChanged: (v) => setState(() => _tipoFilter = v!),
             ),
           ),
+          ] else ...[
+            MensalidadeReferenciaAnoFiltros(
+              mes: _refMes,
+              ano: _refAno,
+              onMesChanged: (v) => setState(() => _refMes = v),
+              onAnoChanged: (v) => setState(() => _refAno = v),
+            ),
+          ],
           const SizedBox(width: 8),
           SizedBox(
             height: 36,

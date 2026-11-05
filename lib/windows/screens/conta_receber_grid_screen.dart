@@ -11,6 +11,7 @@ import '../../../utils/dropdown_helpers.dart';
 import '../../../models/auth_utility.dart';
 import '../../../utils/grid_colors.dart';
 import '../../../utils/tenant_context.dart';
+import '../../../utils/mensalidade_referencia_filtro.dart';
 import '../../../utils/grid_texts.dart';
 import '../../../widgets/finance/billing_charge_dialog.dart';
 import '../../../widgets/boleto_importacao_lote_screen.dart';
@@ -54,6 +55,8 @@ class _WindowsContaReceberGridScreenState
   DateTime? _dataFim;
   int? _parceiroId;
   String _tipoFilter = GridTexts.all;
+  int? _refMes;
+  int? _refAno;
   final _statusOptions = [
     GridTexts.all,
     GridTexts.accountStatusOpen,
@@ -84,6 +87,10 @@ class _WindowsContaReceberGridScreenState
       params['categoriaFinanceiraId'] =
           widget.categoriaFinanceiraIdFixa.toString();
     }
+    if (widget.categoriaFinanceiraIdFixa != null) {
+      params.addAll(MensalidadeReferenciaFiltro.paramsVencimento(
+          mes: _refMes, ano: _refAno));
+    }
     return params;
   }
 
@@ -94,6 +101,8 @@ class _WindowsContaReceberGridScreenState
       _dataFim = null;
       _parceiroId = null;
       _tipoFilter = GridTexts.all;
+      _refMes = null;
+      _refAno = null;
       _gridKey = UniqueKey();
     });
   }
@@ -214,6 +223,7 @@ class _WindowsContaReceberGridScreenState
               ),
             ),
             const SizedBox(width: 12),
+            if (widget.categoriaFinanceiraIdFixa == null) ...[
             const Text(GridTexts.periodLabel,
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
             InkWell(
@@ -277,6 +287,14 @@ class _WindowsContaReceberGridScreenState
                 onChanged: (v) => setState(() => _tipoFilter = v!),
               ),
             ),
+            ] else ...[
+              MensalidadeReferenciaAnoFiltros(
+                mes: _refMes,
+                ano: _refAno,
+                onMesChanged: (v) => setState(() => _refMes = v),
+                onAnoChanged: (v) => setState(() => _refAno = v),
+              ),
+            ],
             const SizedBox(width: 8),
             SizedBox(
               height: 36,
