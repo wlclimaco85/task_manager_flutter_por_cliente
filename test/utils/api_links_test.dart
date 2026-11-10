@@ -6,6 +6,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:task_manager_flutter/utils/api_links.dart';
 
+// Mesmos valores do ApiLinks: o build define a base. Padrao = Railway na raiz.
+const String _backend = String.fromEnvironment('BACKEND_URL',
+    defaultValue: 'https://appacademia-production-be7e.up.railway.app');
+const String _contextPath = String.fromEnvironment('BACKEND_CONTEXT_PATH', defaultValue: '');
+// Testes de backend local so rodam com o dart-define local (ver instrucao no skip).
+final String? _pularLocal = (_backend == 'http://127.0.0.1:9001' && _contextPath == '/boletobancos')
+    ? null
+    : 'requer --dart-define=BACKEND_URL=http://127.0.0.1:9001 --dart-define=BACKEND_CONTEXT_PATH=/boletobancos';
+
 void main() {
   group('ApiLinks — Contas a Pagar', () {
     test('allContasPagar contém /api/conta_pagar (underscore, singular)', () {
@@ -16,8 +25,8 @@ void main() {
       expect(ApiLinks.allContasPagar, isNot(contains('/api/contas-pagar')));
     });
 
-    test('allContasPagar contém o context-path /boletobancos', () {
-      expect(ApiLinks.allContasPagar, contains('/boletobancos'));
+    test('allContasPagar parte da base configurada (backend + context-path)', () {
+      expect(ApiLinks.allContasPagar, startsWith(ApiLinks.baseUrl));
     });
 
     test('createContaPagar usa /api/conta_pagar', () {
@@ -54,8 +63,8 @@ void main() {
       expect(ApiLinks.allContasReceber, isNot(contains('/api/contas-receber')));
     });
 
-    test('allContasReceber contém o context-path /boletobancos', () {
-      expect(ApiLinks.allContasReceber, contains('/boletobancos'));
+    test('allContasReceber parte da base configurada (backend + context-path)', () {
+      expect(ApiLinks.allContasReceber, startsWith(ApiLinks.baseUrl));
     });
 
     test('createContaReceber usa /api/conta_receber', () {
@@ -99,16 +108,16 @@ void main() {
       expect(ApiLinks.importacaoPreview, contains('/api/importacao/preview'));
     });
 
-    test('importacaoContaPagar contém o context-path /boletobancos', () {
-      expect(ApiLinks.importacaoContaPagar, contains('/boletobancos'));
+    test('importacaoContaPagar parte da base configurada', () {
+      expect(ApiLinks.importacaoContaPagar, startsWith(ApiLinks.baseUrl));
     });
 
-    test('importacaoContaReceber contém o context-path /boletobancos', () {
-      expect(ApiLinks.importacaoContaReceber, contains('/boletobancos'));
+    test('importacaoContaReceber parte da base configurada', () {
+      expect(ApiLinks.importacaoContaReceber, startsWith(ApiLinks.baseUrl));
     });
 
-    test('importacaoPreview contém o context-path /boletobancos', () {
-      expect(ApiLinks.importacaoPreview, contains('/boletobancos'));
+    test('importacaoPreview parte da base configurada', () {
+      expect(ApiLinks.importacaoPreview, startsWith(ApiLinks.baseUrl));
     });
   });
 
@@ -125,21 +134,25 @@ void main() {
       expect(ApiLinks.importacaoContaReceber, contains('conta-receber'));
     });
 
-    test('baseUrl expõe _baseUrlNew (contém /boletobancos)', () {
-      expect(ApiLinks.baseUrl, contains('/boletobancos'));
+    test('baseUrl expõe backend + context-path configurados', () {
+      expect(ApiLinks.baseUrl, equals('$_backend$_contextPath'));
     });
 
-    test('baseUrl local usa backend dev em 9001 com context-path', () {
+    test('baseUrl local usa backend dev em 9001 com context-path', skip: _pularLocal, () {
       expect(ApiLinks.baseUrl, equals('http://127.0.0.1:9001/boletobancos'));
       expect(ApiLinks.baseUrl, isNot(contains(':8080')));
     });
 
     test('login aponta para o endpoint POST /rest/auth/login correto', () {
+      expect(ApiLinks.login, equals('$_backend$_contextPath/rest/auth/login'));
+      expect(ApiLinks.login, isNot(contains(':8080')));
+    });
+
+    test('login local usa backend dev em 9001 com context-path', skip: _pularLocal, () {
       expect(
         ApiLinks.login,
         equals('http://127.0.0.1:9001/boletobancos/rest/auth/login'),
       );
-      expect(ApiLinks.login, isNot(contains(':8080')));
     });
   });
 
@@ -228,10 +241,10 @@ void main() {
   });
 
   group('ApiLinks — Limpar Base de Produção (Preservar Empresas 1 e 20001)', () {
-    test('limparBasePreservarEmpresas aponta para /api/admin/limpar-base-preservar-empresas com context-path', () {
+    test('limparBasePreservarEmpresas aponta para /api/admin/limpar-base-preservar-empresas sob a base', () {
       expect(ApiLinks.limparBasePreservarEmpresas,
           contains('/api/admin/limpar-base-preservar-empresas'));
-      expect(ApiLinks.limparBasePreservarEmpresas, contains('/boletobancos'));
+      expect(ApiLinks.limparBasePreservarEmpresas, startsWith(ApiLinks.baseUrl));
       expect(Uri.parse(ApiLinks.limparBasePreservarEmpresas).hasAuthority, isTrue);
     });
   });

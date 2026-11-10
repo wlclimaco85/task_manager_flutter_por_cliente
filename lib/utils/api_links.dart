@@ -11,7 +11,7 @@ class ApiLinks {
   // (_baseIp em diante) sendo final.
   static const String _backendUrl = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'http://127.0.0.1:9001',
+    defaultValue: 'https://appacademia-production-be7e.up.railway.app',
   );
 
   // Context-path do backend: server.servlet.context-path=/boletobancos em
@@ -36,9 +36,12 @@ class ApiLinks {
   //
   // String.fromEnvironment SO funciona como const constructor (mesmo motivo
   // de _backendUrl acima) — manter const, nunca converter para final.
+  // Railway atende na raiz: /boletobancos/... devolve 308 para /... e o app
+  // não seguia esse redirect (aparecia 308 na tela). Para backend local
+  // (ex.: 127.0.0.1:9001) passe --dart-define=BACKEND_CONTEXT_PATH=/boletobancos.
   static const String _backendContextPath = String.fromEnvironment(
     'BACKEND_CONTEXT_PATH',
-    defaultValue: '/boletobancos',
+    defaultValue: '',
   );
   static final String _baseIp = '$_backendUrl$_backendContextPath';
 
