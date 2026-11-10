@@ -14,6 +14,7 @@ import '../utils/api_links.dart';
 import '../utils/app_logger.dart';
 import '../utils/grid_colors.dart';
 import '../utils/tenant_context.dart';
+import '../services/consulta_cnpj_service.dart';
 import '../windows/dialogs/fornecedor_form_dialog.dart';
 import 'nfce/nfce_notice_banner.dart';
 
@@ -942,28 +943,8 @@ class _AutomacaoFiscalScreenState extends State<AutomacaoFiscalScreen> {
 
       // 3. Fallback direto se chamadas locais falharem
       if (dadosReceita == null && cnpj.length == 14) {
-        final directResp = await NetworkCaller()
-            .getRequest('https://www.receitaws.com.br/v1/cnpj/$cnpj');
-        if (directResp.isSuccess &&
-            directResp.body != null &&
-            directResp.body is Map) {
-          final b = directResp.body as Map;
-          if (b['status'] == 'OK' || b['nome'] != null) {
-            dadosReceita = {
-              'nome': b['nome'],
-              'nomeFantasia': b['fantasia'],
-              'logradouro': b['logradouro'],
-              'numero': b['numero'],
-              'complemento': b['complemento'],
-              'bairro': b['bairro'],
-              'municipio': b['municipio'],
-              'uf': b['uf'],
-              'cep': b['cep'],
-              'telefone': b['telefone'],
-              'email': b['email'],
-            };
-          }
-        }
+        // API publica SEM credenciais (ReceitaWS -> BrasilAPI): o NetworkCaller enviaria o token do usuario.
+        dadosReceita = await ConsultaCnpjService.consultarPublico(cnpj);
       }
     } catch (e) {
       AppLogger.i.warn('[AutomacaoFiscal] Erro ao consultar ReceitaWS: $e');

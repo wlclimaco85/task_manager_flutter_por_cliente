@@ -4,6 +4,7 @@ import '../../../services/fornecedor_service.dart';
 import '../../../utils/api_links.dart';
 import '../../../utils/grid_colors.dart';
 import '../../../utils/grid_texts.dart';
+import '../../services/consulta_cep_service.dart';
 import '../../services/network_caller.dart';
 
 class FornecedorFormDialog extends StatefulWidget {
@@ -189,11 +190,9 @@ class _FornecedorFormDialogState extends State<FornecedorFormDialog> {
     }
     setState(() => _buscandoCep = true);
     try {
-      final response = await NetworkCaller().getRequest(
-        'https://viacep.com.br/ws/$cep/json/',
-      );
-      if (response.isSuccess && response.body != null) {
-        final d = response.body as Map<String, dynamic>;
+      // Consulta publica SEM credenciais (ViaCEP -> BrasilAPI): ver ConsultaCepService.
+      final d = await ConsultaCepService.consultar(cep);
+      if (d != null) {
         if (d['erro'] == true) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
