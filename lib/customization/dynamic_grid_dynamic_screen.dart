@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 
 import '../models/auth_utility.dart';
 import '../models/telas_model.dart';
+import '../services/acao_java_service.dart';
 import '../services/auth_service.dart';
 import '../services/network_caller.dart';
 import '../services/tela_caller.dart';
 import '../utils/api_links.dart';
 import '../utils/app_logger.dart';
+import '../widgets/acao_java_dialog.dart';
 import '../widgets/generic_detail_form_screen.dart';
 import 'generic_grid/grid_models.dart';
 import 'generic_grid/grid_page.dart';
@@ -120,11 +122,40 @@ class _DynamicGridDynamicScreenState extends State<DynamicGridDynamicScreen> {
   late Future<TelaConfig> _telaFuture;
   late TelaService _telaService;
 
+  /// Acoes Java cadastradas para esta tela (Dicionario de Dados); viram botoes por registro.
+  List<AcaoJava> _acoesJava = const [];
+
   @override
   void initState() {
     super.initState();
     _telaService = TelaService(networkCaller: NetworkCaller());
     _telaFuture = _loadTelaConfig();
+    _carregarAcoesJava();
+  }
+
+  Future<void> _carregarAcoesJava() async {
+    try {
+      final acoes = await AcaoJavaService().listarAtivas(widget.telaNome);
+      if (mounted && acoes.isNotEmpty) setState(() => _acoesJava = acoes);
+    } catch (e) {
+      // Nao derruba a tela: apenas nao mostra os botoes extras.
+      AppLogger.i.warn('DynamicGridDynamicScreen: acoes Java de ${widget.telaNome} indisponiveis: $e');
+    }
+  }
+
+  List<CustomAction> Function()? _customActionsComJava(String idField) {
+    if (_acoesJava.isEmpty) return widget.customActions;
+    return () => [
+          ...?widget.customActions?.call(),
+          for (final a in _acoesJava)
+            CustomAction(
+              icon: iconeAcaoJava(a.icon),
+              label: a.label,
+              onPressed: (context, item) {
+                executarAcaoJava(context, a, [item], idField: idField);
+              },
+            ),
+        ];
   }
 
   Future<TelaConfig> _loadTelaConfig() async {
@@ -926,7 +957,7 @@ class _DynamicGridDynamicScreenState extends State<DynamicGridDynamicScreen> {
               additionalFormData: widget.additionalFormData,
               dynamicAdditionalFormData: widget.dynamicAdditionalFormData,
               transformFormData: widget.transformFormData,
-              customActions: widget.customActions,
+              customActions: _customActionsComJava(tela.idFieldName),
               headerActions: widget.headerActions,
               serverActions: serverActions,
             );

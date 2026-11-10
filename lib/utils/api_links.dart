@@ -1218,6 +1218,28 @@ class ApiLinks {
       '$_baseUrlNew/api/transporte/veiculos';
   static String transporteVeiculo(String id) =>
       '$_baseUrlNew/api/transporte/veiculos/$id';
+  // Acoes e eventos Java + Modulo Java (plataforma low-code)
+  static String get modulosJava => '$_baseUrlNew/api/modulos-java';
+  static String moduloJava(String id) => '$_baseUrlNew/api/modulos-java/$id';
+  static String moduloJavaArquivos(String id) =>
+      '$_baseUrlNew/api/modulos-java/$id/arquivos';
+  static String moduloJavaArquivo(String id, String arquivoId) =>
+      '$_baseUrlNew/api/modulos-java/$id/arquivos/$arquivoId';
+  static String get acoesJava => '$_baseUrlNew/api/acoes-java';
+  static String acaoJava(String id) => '$_baseUrlNew/api/acoes-java/$id';
+  static String acaoJavaExecutar(String id) =>
+      '$_baseUrlNew/api/acoes-java/$id/executar';
+  static String acoesJavaDaTela(String tela) =>
+      '$_baseUrlNew/api/acoes-java?tela=${Uri.encodeQueryComponent(tela)}';
+  static String acoesJavaAdmin(String tela) =>
+      '$_baseUrlNew/api/acoes-java/admin?tela=${Uri.encodeQueryComponent(tela)}';
+  static String get eventosTabelaRaiz => '$_baseUrlNew/api/eventos-tabela';
+  static String eventoTabela(String id) =>
+      '$_baseUrlNew/api/eventos-tabela/$id';
+  static String eventosTabela(String tabela) =>
+      '$_baseUrlNew/api/eventos-tabela?tabela=${Uri.encodeQueryComponent(tabela)}';
+  static String moduloJavaClasses(String id) =>
+      '$_baseUrlNew/api/modulos-java/$id/classes';
   static String get transporteConfig =>
       '$_baseUrlNew/api/transporte/config';
   static String get allTransporteMotoristas =>

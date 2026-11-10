@@ -1,4 +1,6 @@
 // lib/data/customization/dynamic_grid_windows_screen.dart
+import '../services/acao_java_service.dart';
+import '../widgets/acao_java_dialog.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../utils/financial_account_form_rules.dart';
@@ -113,6 +115,9 @@ class DynamicGridWindowsScreenState<T>
   late Future<TelaConfig> _telaFuture;
   final GlobalKey<GenericGridScreenState<T>> _gridKey = GlobalKey();
 
+  /// Acoes Java cadastradas para esta tela no Dicionario de Dados (viram itens do menu "Acoes").
+  List<AcaoJava> _acoesJava = const [];
+
   void showColumnSettings() => _gridKey.currentState?.showColumnSettings();
   void exportCsv() => _gridKey.currentState?.exportCsv();
   void showHelp() => _gridKey.currentState?.showHelp();
@@ -122,6 +127,33 @@ class DynamicGridWindowsScreenState<T>
   void initState() {
     super.initState();
     _telaFuture = _loadTela();
+    _carregarAcoesJava();
+  }
+
+  Future<void> _carregarAcoesJava() async {
+    try {
+      final acoes = await AcaoJavaService().listarAtivas(widget.telaNome);
+      if (mounted && acoes.isNotEmpty) setState(() => _acoesJava = acoes);
+    } catch (e) {
+      // Falha ao buscar as acoes nao pode derrubar a tela: so deixa de mostrar os botoes extras.
+      AppLogger.i.warn('DynamicGridWindowsScreen: acoes Java de ${widget.telaNome} indisponiveis: $e');
+    }
+  }
+
+  List<BulkAction<T>>? _bulkActionsComJava(String idField) {
+    if (_acoesJava.isEmpty) return widget.bulkActions;
+    return [
+      ...?widget.bulkActions,
+      for (final a in _acoesJava)
+        BulkAction<T>(
+          icon: iconeAcaoJava(a.icon),
+          label: a.label,
+          onPressed: (context, itens) async {
+            final linhas = itens.map(widget.toJson).toList();
+            await executarAcaoJava(context, a, linhas, idField: idField);
+          },
+        ),
+    ];
   }
 
   Future<TelaConfig> _loadTela() async {
@@ -552,7 +584,7 @@ class DynamicGridWindowsScreenState<T>
           additionalFormData: widget.additionalFormData,
           transformFormData: widget.transformFormData,
           customActions: widget.customActions,
-          bulkActions: widget.bulkActions,
+          bulkActions: _bulkActionsComJava(tela.idFieldName),
           showAppBar: widget.showAppBar,
           headerActions: widget.headerActions,
           helpTelaNome: tela.nome,
