@@ -132,6 +132,25 @@ void main() {
     expect(corpo(tomadorPapel: 3, tomadorOutro: outro)['tomador'], {'papel': 3});
   });
 
+  test('IBS/CBS: sem CST e cClassTrib o grupo nao vai; com eles leva so codigos e aliquotas', () {
+    expect(montarIbsCbsCte(), isNull);
+    expect(montarIbsCbsCte(cst: ' ', cClassTrib: ''), isNull);
+    expect(
+        montarIbsCbsCte(
+            cst: '000', cClassTrib: '000001', pIbsUf: 0.1, pIbsMun: 0, pCbs: 0.9),
+        {
+          'cst': '000',
+          'cClassTrib': '000001',
+          'pIbsUf': 0.1,
+          'pIbsMun': 0,
+          'pCbs': 0.9,
+        });
+    expect(montarIbsCbsCte(cst: '000', cClassTrib: '000001', baseCalculo: 100)!['baseCalculo'],
+        100);
+    // aliquotas vazias viram 0 (o backend valida as faixas)
+    expect(montarIbsCbsCte(cst: '000', cClassTrib: '000001')!['pCbs'], 0);
+  });
+
   test('ICMS: 00 leva base, aliquota e valor; isento so o CST; SN vira CST 90 + simplesNacional', () {
     expect(montarIcmsCte(cst: '00', baseCalculo: 1500, aliquota: 12, valor: 180), {
       'cst': '00',

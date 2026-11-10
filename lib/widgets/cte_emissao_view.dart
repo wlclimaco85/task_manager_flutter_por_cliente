@@ -189,6 +189,29 @@ Map<String, dynamic> montarIcmsCte({
   };
 }
 
+/// IBS/CBS (opcional): sem CST e cClassTrib o grupo nao e enviado. Os valores
+/// sao calculados pelo backend (base x aliquota); aqui vao so os codigos e aliquotas.
+Map<String, dynamic>? montarIbsCbsCte({
+  String? cst,
+  String? cClassTrib,
+  num? baseCalculo,
+  num? pIbsUf,
+  num? pIbsMun,
+  num? pCbs,
+}) {
+  final c = _limpoCte(cst);
+  final k = _limpoCte(cClassTrib);
+  if (c == null && k == null) return null;
+  return {
+    'cst': _soDigitosCte(c ?? ''),
+    'cClassTrib': _soDigitosCte(k ?? ''),
+    if (baseCalculo != null) 'baseCalculo': baseCalculo,
+    'pIbsUf': pIbsUf ?? 0,
+    'pIbsMun': pIbsMun ?? 0,
+    'pCbs': pCbs ?? 0,
+  };
+}
+
 Map<String, dynamic> montarComponenteCte(String nome, num valor) =>
     {'nome': nome.trim(), 'valor': valor};
 
@@ -224,6 +247,7 @@ Map<String, dynamic> montarCorpoEmissaoCte({
   required num valorPrestacao,
   required List<Map<String, dynamic>> componentes,
   required Map<String, dynamic> icms,
+  Map<String, dynamic>? ibsCbs,
   num? valorCarga,
   String? produtoPredominante,
   String unidade = '01',
@@ -255,6 +279,7 @@ Map<String, dynamic> montarCorpoEmissaoCte({
       'valorPrestacao': valorPrestacao,
       'componentes': componentes,
       'icms': icms,
+      if (ibsCbs != null) 'ibsCbs': ibsCbs,
       if (tipoCte != kCteTipoComplemento) 'carga': {
         'valor': valorCarga!,
         'produtoPredominante': produtoPredominante!.trim(),
@@ -877,6 +902,12 @@ class _CteFormDialogState extends State<_CteFormDialog> {
   final _icmsBase = TextEditingController();
   final _icmsAliq = TextEditingController();
   final _icmsValor = TextEditingController();
+  final _ibsCst = TextEditingController();
+  final _ibsClass = TextEditingController();
+  final _ibsBase = TextEditingController();
+  final _ibsUf = TextEditingController();
+  final _ibsMun = TextEditingController();
+  final _cbs = TextEditingController();
   final _cargaValor = TextEditingController();
   final _produto = TextEditingController();
   final _tipoMedida = TextEditingController(text: 'PESO BRUTO');
@@ -909,7 +940,8 @@ class _CteFormDialogState extends State<_CteFormDialog> {
   @override
   void dispose() {
     for (final c in [_serie, _cfop, _natureza, _origIbge, _origNome, _destIbge,
-        _destNome, _valor, _icmsBase, _icmsAliq, _icmsValor, _cargaValor,
+        _destNome, _valor, _icmsBase, _icmsAliq, _icmsValor, _ibsCst, _ibsClass,
+        _ibsBase, _ibsUf, _ibsMun, _cbs, _cargaValor,
         _produto, _tipoMedida, _quantidade, _chaves, _refs, _rntrc, _info]) {
       c.dispose();
     }
@@ -934,6 +966,21 @@ class _CteFormDialogState extends State<_CteFormDialog> {
   String? _numeroObrigatorio(String? v) {
     final n = _numero(v ?? '');
     return (n == null || n < 0) ? 'Valor inválido' : null;
+  }
+
+  bool get _ibsInformado =>
+      _ibsCst.text.trim().isNotEmpty || _ibsClass.text.trim().isNotEmpty;
+
+  String? _ibsCstValidador(String? v) {
+    if (!_ibsInformado) return null;
+    return RegExp(r'^\d{3}$').hasMatch((v ?? '').trim()) ? null : '3 dígitos';
+  }
+
+  String? _ibsClassValidador(String? v) {
+    if (!_ibsInformado) return null;
+    final k = (v ?? '').trim();
+    if (!RegExp(r'^\d{6}$').hasMatch(k)) return '6 dígitos';
+    return k.startsWith(_ibsCst.text.trim()) ? null : 'Deve iniciar pelo CST';
   }
 
   Widget _campo(String rotulo, TextEditingController c,
@@ -1054,6 +1101,14 @@ class _CteFormDialogState extends State<_CteFormDialog> {
           baseCalculo: _numero(_icmsBase.text),
           aliquota: _numero(_icmsAliq.text),
           valor: _numero(_icmsValor.text),
+        ),
+        ibsCbs: montarIbsCbsCte(
+          cst: _ibsCst.text,
+          cClassTrib: _ibsClass.text,
+          baseCalculo: _numero(_ibsBase.text),
+          pIbsUf: _numero(_ibsUf.text),
+          pIbsMun: _numero(_ibsMun.text),
+          pCbs: _numero(_cbs.text),
         ),
         valorCarga:
             _tipoCte == kCteTipoComplemento ? null : _numero(_cargaValor.text),
@@ -1291,6 +1346,22 @@ class _CteFormDialogState extends State<_CteFormDialog> {
                     _campo('Valor do ICMS', _icmsValor,
                         teclado: TextInputType.number, validator: _numeroObrigatorio),
                   ],
+                ]),
+                _secao('IBS/CBS (opcional)'),
+                const Text(
+                    'Informe só se o CT-e deve levar IBS/CBS. CST e cClassTrib '
+                    'conforme a tabela oficial (ex.: 2026 teste: IBS UF 0,10% e CBS 0,90%). '
+                    'Os valores são calculados sobre a base (vazia = valor da prestação).',
+                    style: TextStyle(fontSize: 12)),
+                Wrap(spacing: 8, runSpacing: 4, children: [
+                  _campo('CST (3 dígitos)', _ibsCst, largura: 120, validator: _ibsCstValidador),
+                  _campo('cClassTrib (6 dígitos)', _ibsClass,
+                      largura: 170, validator: _ibsClassValidador),
+                  _campo('Base de cálculo', _ibsBase, teclado: TextInputType.number),
+                  _campo('IBS UF (%)', _ibsUf, largura: 110, teclado: TextInputType.number),
+                  _campo('IBS Município (%)', _ibsMun,
+                      largura: 140, teclado: TextInputType.number),
+                  _campo('CBS (%)', _cbs, largura: 100, teclado: TextInputType.number),
                 ]),
                 if (_tipoCte != kCteTipoComplemento) ...[
                 _secao('Carga'),
