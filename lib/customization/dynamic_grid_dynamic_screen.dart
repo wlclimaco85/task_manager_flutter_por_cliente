@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../models/auth_utility.dart';
 import '../models/telas_model.dart';
 import '../services/acao_java_service.dart';
+import '../services/dicionario_campo_service.dart';
+import '../utils/tela_personalizacao.dart';
 import '../services/auth_service.dart';
 import '../services/network_caller.dart';
 import '../services/tela_caller.dart';
@@ -129,7 +131,7 @@ class _DynamicGridDynamicScreenState extends State<DynamicGridDynamicScreen> {
   void initState() {
     super.initState();
     _telaService = TelaService(networkCaller: NetworkCaller());
-    _telaFuture = _loadTelaConfig();
+    _telaFuture = _loadTelaConfigPersonalizada();
     _carregarAcoesJava();
   }
 
@@ -158,7 +160,10 @@ class _DynamicGridDynamicScreenState extends State<DynamicGridDynamicScreen> {
         ];
   }
 
-  Future<TelaConfig> _loadTelaConfig() async {
+  Future<TelaConfig> _loadTelaConfigPersonalizada() async => telaComPersonalizacao(
+      await _loadTelaConfig(), (n) => DicionarioCampoService().personalizacao(n));
+
+Future<TelaConfig> _loadTelaConfig() async {
     L.i('[DynamicMobileGrid] carregando tela: ${widget.telaNome}');
     try {
       final userInfo = AuthUtility.userInfo;
@@ -870,7 +875,7 @@ class _DynamicGridDynamicScreenState extends State<DynamicGridDynamicScreen> {
                         const SizedBox(height: 16),
                         ElevatedButton.icon(
                           onPressed: () =>
-                              setState(() => _telaFuture = _loadTelaConfig()),
+                              setState(() => _telaFuture = _loadTelaConfigPersonalizada()),
                           icon: const Icon(Icons.refresh),
                           label: const Text('Tentar novamente'),
                         ),

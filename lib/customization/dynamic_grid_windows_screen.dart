@@ -1,5 +1,7 @@
 // lib/data/customization/dynamic_grid_windows_screen.dart
 import '../services/acao_java_service.dart';
+import '../services/dicionario_campo_service.dart';
+import '../utils/tela_personalizacao.dart';
 import '../widgets/acao_java_dialog.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -126,7 +128,7 @@ class DynamicGridWindowsScreenState<T>
   @override
   void initState() {
     super.initState();
-    _telaFuture = _loadTela();
+    _telaFuture = _loadTelaPersonalizada();
     _carregarAcoesJava();
   }
 
@@ -156,7 +158,10 @@ class DynamicGridWindowsScreenState<T>
     ];
   }
 
-  Future<TelaConfig> _loadTela() async {
+  Future<TelaConfig> _loadTelaPersonalizada() async => telaComPersonalizacao(
+      await _loadTela(), (n) => DicionarioCampoService().personalizacao(n));
+
+Future<TelaConfig> _loadTela() async {
     // Tenta até 5 vezes com delay crescente antes de desistir
     const maxTentativas = 5;
     for (int i = 1; i <= maxTentativas; i++) {
@@ -531,7 +536,7 @@ class DynamicGridWindowsScreenState<T>
                       icon: const Icon(Icons.refresh),
                       label: const Text('Tentar novamente'),
                       onPressed: () => setState(() {
-                        _telaFuture = _loadTela();
+                        _telaFuture = _loadTelaPersonalizada();
                       }),
                     ),
                   ],
