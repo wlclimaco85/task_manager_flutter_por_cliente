@@ -15,6 +15,7 @@ import '../../../utils/mensalidade_referencia_filtro.dart';
 import '../../../utils/grid_texts.dart';
 import '../../../widgets/finance/billing_charge_dialog.dart';
 import '../../../widgets/boleto_importacao_lote_screen.dart';
+import '../../../widgets/importacao_boleto_pdf.dart';
 import '../../../widgets/generic_grid_windows_screen.dart'
     show CustomAction, FieldConfigWindows, FieldType;
 import '../../../windows/screens/baixa_dialog_receber.dart';
@@ -109,6 +110,20 @@ class _WindowsContaReceberGridScreenState
 
   void _applyFilters() {
     setState(() => _gridKey = UniqueKey());
+  }
+
+  bool _importandoPdf = false;
+
+  /// Importar Boleto (PDF) de contas a receber: popup de conferencia e geracao do titulo com o PDF anexado.
+  Future<void> _importarBoletoPdf() async {
+    if (_importandoPdf) return;
+    setState(() => _importandoPdf = true);
+    try {
+      final criada = await importarBoletoPdf(context, receber: true);
+      if (criada && mounted) setState(() => _gridKey = UniqueKey());
+    } finally {
+      if (mounted) setState(() => _importandoPdf = false);
+    }
   }
 
   Future<void> _importarBoleto() async {
@@ -519,6 +534,28 @@ class _WindowsContaReceberGridScreenState
                       )
                     : const Icon(Icons.upload_file, size: 18),
                 label: const Text('Importar Retorno CSV'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: GridColors.secondary,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  side: const BorderSide(color: GridColors.divider),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6)),
+                ),
+              ),
+              // Importar Boleto (PDF) unitario: le o PDF, mostra o popup de conferencia (cliente = pagador,
+              // valor, vencimento e tipo) e gera a conta a receber com o boleto anexado.
+              OutlinedButton.icon(
+                onPressed: _importandoPdf ? null : _importarBoletoPdf,
+                icon: _importandoPdf
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: GridColors.secondary),
+                      )
+                    : const Icon(Icons.upload_file, size: 18),
+                label: const Text('Importar Boleto'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: GridColors.secondary,
                   padding:

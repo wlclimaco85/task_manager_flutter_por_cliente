@@ -84,10 +84,15 @@ double? valorDeTexto(String texto) {
 }
 
 class BoletoPdfCaller {
-  static Future<BoletoPreview> preview(Uint8List bytes, String nome) async {
+  static Future<BoletoPreview> preview(Uint8List bytes, String nome,
+      {bool receber = false}) async {
     final empresaId = TenantContext.empresaId;
     if (empresaId == null) throw Exception('Empresa não identificada na sessão.');
-    final req = http.MultipartRequest('POST', Uri.parse(ApiLinks.boletoPdfPreview));
+    final req = http.MultipartRequest(
+        'POST',
+        Uri.parse(receber
+            ? ApiLinks.boletoReceberPdfPreview
+            : ApiLinks.boletoPdfPreview));
     req.headers.addAll(TenantContext.headers);
     req.fields['empresaId'] = empresaId.toString();
     req.files.add(http.MultipartFile.fromBytes('pdf', bytes,
@@ -101,8 +106,13 @@ class BoletoPdfCaller {
   }
 
   static Future<void> importar(
-      Uint8List bytes, String nome, Map<String, dynamic> dados) async {
-    final req = http.MultipartRequest('POST', Uri.parse(ApiLinks.boletoPdfImportar));
+      Uint8List bytes, String nome, Map<String, dynamic> dados,
+      {bool receber = false}) async {
+    final req = http.MultipartRequest(
+        'POST',
+        Uri.parse(receber
+            ? ApiLinks.boletoReceberPdfImportar
+            : ApiLinks.boletoPdfImportar));
     req.headers.addAll(TenantContext.headers);
     req.files.add(http.MultipartFile.fromBytes('pdf', bytes,
         filename: nome, contentType: http_parser.MediaType('application', 'pdf')));
@@ -127,8 +137,8 @@ class BoletoPdfCaller {
 
 /// Fluxo "Importar Boleto" (PDF): escolhe o arquivo, mostra os dados lidos para conferencia (cliente, valor,
 /// vencimento e tipo tributo/honorarios/outros) e, ao confirmar, gera a conta a pagar com o PDF anexado.
-/// Retorna true quando a conta foi criada.
-Future<bool> importarBoletoPdf(BuildContext context) async {
+/// Retorna true quando a conta foi criada. [receber] = conta a receber (cliente = pagador do boleto).
+Future<bool> importarBoletoPdf(BuildContext context, {bool receber = false}) async {
   final picked = await FilePicker.pickFiles(
     type: FileType.custom,
     allowedExtensions: const ['pdf'],
@@ -155,7 +165,7 @@ Future<bool> importarBoletoPdf(BuildContext context) async {
       content: Text('Lendo o boleto...'), duration: Duration(seconds: 30)));
   BoletoPreview preview;
   try {
-    preview = await BoletoPdfCaller.preview(bytes, file.name);
+    preview = await BoletoPdfCaller.preview(bytes, file.name, receber: receber);
   } catch (e) {
     AppLogger.i.warn('[BOLETO-PDF] preview falhou para ${file.name}: $e');
     messenger.hideCurrentSnackBar();
@@ -170,13 +180,20 @@ Future<bool> importarBoletoPdf(BuildContext context) async {
   final dados = await showDialog<Map<String, dynamic>>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => BoletoConfirmacaoDialog(nomeArquivo: file.name, preview: preview),
+    builder: (_) => BoletoConfirmacaoDialog(
+        nomeArquivo: file.name, preview: preview, receber: receber),
   );
   if (dados == null || !context.mounted) return false;
 
   try {
-    await BoletoPdfCaller.importar(bytes, file.name, dados);
-    if (context.mounted) _snack(context, 'Conta a pagar gerada e boleto anexado.');
+    await BoletoPdfCaller.importar(bytes, file.name, dados, receber: receber);
+    if (context.mounted) {
+      _snack(
+          context,
+          receber
+              ? 'Conta a receber gerada e boleto anexado.'
+              : 'Conta a pagar gerada e boleto anexado.');
+    }
     return true;
   } catch (e) {
     AppLogger.i.warn('[BOLETO-PDF] importação falhou para ${file.name}: $e');
@@ -198,8 +215,14 @@ void _snack(BuildContext context, String msg, {bool erro = false}) {
 class BoletoConfirmacaoDialog extends StatefulWidget {
   final String nomeArquivo;
   final BoletoPreview preview;
+
+  /// Conta a receber: o cliente e o pagador do boleto.
+  final bool receber;
   const BoletoConfirmacaoDialog(
-      {super.key, required this.nomeArquivo, required this.preview});
+      {super.key,
+      required this.nomeArquivo,
+      required this.preview,
+      this.receber = false});
 
   @override
   State<BoletoConfirmacaoDialog> createState() => _BoletoConfirmacaoDialogState();
@@ -311,7 +334,8 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
                 ),
               ],
               const SizedBox(height: 12),
-              const Text('Cliente', style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(widget.receber ? 'Cliente (pagador)' : 'Cliente',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               Row(children: [
                 Expanded(

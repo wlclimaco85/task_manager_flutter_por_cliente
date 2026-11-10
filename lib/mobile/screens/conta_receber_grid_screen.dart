@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../utils/api_links.dart';
+import '../../../utils/grid_colors.dart';
 import '../../../utils/tenant_context.dart';
+import '../../../widgets/importacao_boleto_pdf.dart';
 import '../../customization/generic_grid_card.dart';
 import '../../../models/conta_receber_model.dart';
 import '../../../widgets/anexo_financeiro_widget.dart';
@@ -12,7 +14,8 @@ import '../screens/parcelar_receber_dialog.dart';
 import '../screens/recorrencia_receber_dialog.dart';
 import '../screens/renegociacao_receber_dialog.dart';
 
-class ContaReceberGridScreen extends StatelessWidget {
+/// Contas a Receber (mobile): grid + botao de Importar Boleto (PDF) com popup de conferencia.
+class ContaReceberGridScreen extends StatefulWidget {
   final SecurityCheck hasPermission;
   final VoidCallback? onUserBannerTapped;
   // Fix card #453: filtro fixo de categoria financeira (tela Mensalidades).
@@ -20,6 +23,75 @@ class ContaReceberGridScreen extends StatelessWidget {
   final String? tituloOverride;
 
   const ContaReceberGridScreen({
+    super.key,
+    required this.hasPermission,
+    this.onUserBannerTapped,
+    this.categoriaFinanceiraIdFixa,
+    this.tituloOverride,
+  });
+
+  @override
+  State<ContaReceberGridScreen> createState() => _ContaReceberGridScreenState();
+}
+
+class _ContaReceberGridScreenState extends State<ContaReceberGridScreen> {
+  bool _importando = false;
+  Key _gridKey = UniqueKey();
+
+  Future<void> _importarBoletoPdf() async {
+    if (_importando) return;
+    setState(() => _importando = true);
+    try {
+      final criada = await importarBoletoPdf(context, receber: true);
+      if (criada && mounted) setState(() => _gridKey = UniqueKey());
+    } finally {
+      if (mounted) setState(() => _importando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        _ContaReceberGridCorpo(
+          key: _gridKey,
+          hasPermission: widget.hasPermission,
+          onUserBannerTapped: widget.onUserBannerTapped,
+          categoriaFinanceiraIdFixa: widget.categoriaFinanceiraIdFixa,
+          tituloOverride: widget.tituloOverride,
+        ),
+        if (widget.hasPermission('create'))
+          Positioned(
+            bottom: 88,
+            right: 16,
+            child: FloatingActionButton.small(
+              heroTag: 'fab_import_boleto_conta_receber',
+              tooltip: 'Importar boleto (PDF)',
+              backgroundColor: GridColors.primary,
+              onPressed: _importando ? null : _importarBoletoPdf,
+              child: _importando
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.upload_file, color: Colors.white, size: 20),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ContaReceberGridCorpo extends StatelessWidget {
+  final SecurityCheck hasPermission;
+  final VoidCallback? onUserBannerTapped;
+  // Fix card #453: filtro fixo de categoria financeira (tela Mensalidades).
+  final int? categoriaFinanceiraIdFixa;
+  final String? tituloOverride;
+
+  const _ContaReceberGridCorpo({
     super.key,
     required this.hasPermission,
     this.onUserBannerTapped,

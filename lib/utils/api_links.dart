@@ -370,6 +370,11 @@ class ApiLinks {
   static String get boletoPdfPreview => '$_baseUrlNew/api/boletos/preview';
   static String get boletoPdfImportar =>
       '$_baseUrlNew/api/boletos/importar-boleto';
+  // Idem para contas a receber (o cliente e o pagador do boleto)
+  static String get boletoReceberPdfPreview =>
+      '$_baseUrlNew/api/boletos/preview-receber';
+  static String get boletoReceberPdfImportar =>
+      '$_baseUrlNew/api/boletos/importar-boleto-receber';
   static String get importacaoPreview => '$_baseUrlNew/api/importacao/preview';
 
   // Contas a Pagar

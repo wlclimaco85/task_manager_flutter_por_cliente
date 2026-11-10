@@ -157,4 +157,50 @@ void main() {
         find.widgetWithText(FilledButton, 'Confirmar e gerar conta'));
     expect(botao.onPressed, isNull);
   });
+  testWidgets('conta a receber: rotulo Cliente (pagador) e Honorarios sugerido marcado',
+      (tester) async {
+    AuthUtility.userInfo = LoginModel(
+      token: 't',
+      login: Login(id: 1, empresa: Empresa(id: 10)),
+    );
+    Map<String, dynamic>? resultado;
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (ctx) => TextButton(
+          onPressed: () async {
+            resultado = await showDialog<Map<String, dynamic>>(
+              context: ctx,
+              builder: (_) => BoletoConfirmacaoDialog(
+                nomeArquivo: 'b.pdf',
+                receber: true,
+                preview: BoletoPreview(
+                  tipoDocumento: 'BOLETO_FORNECEDOR',
+                  valor: 1500,
+                  vencimento: DateTime(2026, 12, 10),
+                  parceiroId: 7,
+                  parceiroNome: 'Cliente Pagador',
+                  tipoSugerido: kBoletoTipoHonorarios,
+                ),
+              ),
+            );
+          },
+          child: const Text('abrir'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cliente (pagador)'), findsOneWidget);
+    expect(find.text('Cliente Pagador'), findsOneWidget);
+    final checks =
+        tester.widgetList<CheckboxListTile>(find.byType(CheckboxListTile)).toList();
+    expect(checks.map((c) => c.value), [false, true, false]); // Honorarios marcado
+
+    await tester.tap(find.text('Confirmar e gerar conta'));
+    await tester.pumpAndSettle();
+    expect(resultado!['tipo'], 'HONORARIOS');
+    expect(resultado!['parceiroId'], 7);
+    expect(resultado!['valor'], 1500);
+  });
 }

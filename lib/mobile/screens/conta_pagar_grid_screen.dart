@@ -167,7 +167,7 @@ class _ContaPagarGridScreenState extends State<ContaPagarGridScreen> {
           right: 16,
           child: FloatingActionButton.small(
             heroTag: 'fab_import_conta_pagar',
-            tooltip: 'Importar extrato (CSV/REM/RET)',
+            tooltip: 'Importar boleto (PDF)',
             backgroundColor: GridColors.primary,
             onPressed: _importing ? null : _importarBoleto,
             child: _importing
