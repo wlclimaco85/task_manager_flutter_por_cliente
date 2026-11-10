@@ -1,9 +1,6 @@
 // conta_pagar_grid_screen.dart
 import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../utils/dropdown_helpers.dart';
 import '../../../models/auth_utility.dart';
@@ -21,6 +18,7 @@ import '../../../windows/dialogs/parcelar_conta_dialog.dart';
 import '../../../windows/dialogs/recorrencia_conta_dialog.dart';
 import '../../../windows/dialogs/renegociacao_conta_dialog.dart';
 import '../../../widgets/anexo_financeiro_widget.dart';
+import '../../../widgets/importacao_boleto_pdf.dart';
 import '../../../services/baixa_caller.dart';
 import '../../../widgets/finance/financeiro_parceiro_field_rules.dart';
 import 'package:http/http.dart' as http;
@@ -88,55 +86,14 @@ class _WindowsContaPagarGridScreenState
     setState(() => _gridKey = UniqueKey());
   }
 
+  /// Importar Boleto: le o PDF, mostra os dados para conferencia (cliente, valor, vencimento e tipo)
+  /// e, ao confirmar, gera a conta a pagar com o boleto anexado.
   Future<void> _importarBoleto() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv', 'rem', 'ret', 'txt'],
-      withData: true,
-    );
-    if (result == null || !mounted) return;
-
-    final file = result.files.first;
-    Uint8List? bytes = file.bytes;
-    if (bytes == null && file.path != null) {
-      bytes = await File(file.path!).readAsBytes();
-    }
-    if (bytes == null) {
-      _snack(GridTexts.fileReadError, error: true);
-      return;
-    }
-
+    if (_importing) return;
     setState(() => _importing = true);
     try {
-      final importUrl = TenantContext.empresaId == null
-          ? ApiLinks.importacaoContaPagar
-          : '${ApiLinks.importacaoContaPagar}?empId=${TenantContext.empresaId}';
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse(importUrl),
-      );
-      request.headers.addAll(TenantContext.headers);
-      request.files.add(
-        http.MultipartFile.fromBytes('arquivo', bytes, filename: file.name),
-      );
-      if (TenantContext.empresaId != null) {
-        request.fields['empId'] = TenantContext.empresaId.toString();
-        request.fields['empresaId'] = TenantContext.empresaId.toString();
-      }
-
-      final response = await request.send();
-      final body = await response.stream.bytesToString();
-
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        final data = jsonDecode(body);
-        final importados = data['importados'] ?? data['count'] ?? '?';
-        _snack(GridTexts.importCompletedCount(importados));
-      } else {
-        _snack(GridTexts.errorWithStatus(response.statusCode), error: true);
-      }
-    } catch (e) {
-      if (mounted) _snack(GridTexts.genericError(e.toString()), error: true);
+      final criada = await importarBoletoPdf(context);
+      if (criada && mounted) setState(() => _gridKey = UniqueKey());
     } finally {
       if (mounted) setState(() => _importing = false);
     }

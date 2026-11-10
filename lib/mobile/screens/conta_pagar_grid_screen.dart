@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../utils/api_links.dart';
@@ -10,6 +7,7 @@ import '../../../utils/security_matrix.dart';
 import '../../customization/generic_grid_card.dart';
 import '../../../models/conta_pagar_model.dart';
 import '../../../widgets/anexo_financeiro_widget.dart';
+import '../../../widgets/importacao_boleto_pdf.dart';
 import '../screens/baixa_dialog.dart';
 import '../screens/desfazer_baixa_dialog.dart';
 import '../screens/parcelar_conta_dialog.dart';
@@ -32,6 +30,7 @@ class ContaPagarGridScreen extends StatefulWidget {
 
 class _ContaPagarGridScreenState extends State<ContaPagarGridScreen> {
   bool _importing = false;
+  Key _gridKey = UniqueKey();
 
   bool get _isFinanceiroLimitado =>
       !ModuloAccess.isModuloContratado('Financeiro') &&
@@ -67,6 +66,7 @@ class _ContaPagarGridScreenState extends State<ContaPagarGridScreen> {
             if (_isFinanceiroLimitado) _buildBannerLimitado(),
             Expanded(
               child: GenericMobileGridScreen<ContaPagar>(
+          key: _gridKey,
           title: "Contas a Pagar",
           fetchEndpoint: ApiLinks.allContasPagar,
           createEndpoint: ApiLinks.createContaPagar,
@@ -186,52 +186,14 @@ class _ContaPagarGridScreenState extends State<ContaPagarGridScreen> {
     );
   }
 
+  /// Importar Boleto: le o PDF, mostra os dados para conferencia (cliente, valor, vencimento e tipo)
+  /// e, ao confirmar, gera a conta a pagar com o boleto anexado.
   Future<void> _importarBoleto() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['csv', 'rem', 'ret', 'txt'],
-      withData: true,
-    );
-    if (result == null || !mounted) return;
-
-    final file = result.files.first;
-    var bytes = file.bytes;
-    if (bytes == null && file.path != null) {
-      bytes = await File(file.path!).readAsBytes();
-    }
-    if (bytes == null) {
-      _snack('Nao foi possivel ler o arquivo', error: true);
-      return;
-    }
-
+    if (_importing) return;
     setState(() => _importing = true);
     try {
-      final importUrl = TenantContext.empresaId == null
-          ? ApiLinks.importacaoContaPagar
-          : '${ApiLinks.importacaoContaPagar}?empId=${TenantContext.empresaId}';
-      final request = http.MultipartRequest('POST', Uri.parse(importUrl));
-      request.headers.addAll(TenantContext.headers);
-      request.files.add(
-        http.MultipartFile.fromBytes('arquivo', bytes, filename: file.name),
-      );
-      if (TenantContext.empresaId != null) {
-        request.fields['empId'] = TenantContext.empresaId.toString();
-        request.fields['empresaId'] = TenantContext.empresaId.toString();
-      }
-
-      final response = await request.send();
-      final body = await response.stream.bytesToString();
-
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        final data = jsonDecode(body);
-        final importados = data['importados'] ?? data['count'] ?? '?';
-        _snack('Importacao concluida: $importados registros');
-      } else {
-        _snack('Erro ao importar: status ${response.statusCode}', error: true);
-      }
-    } catch (e) {
-      if (mounted) _snack('Erro: $e', error: true);
+      final criada = await importarBoletoPdf(context);
+      if (criada && mounted) setState(() => _gridKey = UniqueKey());
     } finally {
       if (mounted) setState(() => _importing = false);
     }

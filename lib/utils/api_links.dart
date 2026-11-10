@@ -366,6 +366,10 @@ class ApiLinks {
   static String get importacaoContaReceber =>
       '$_baseUrlNew/api/importacao/conta-receber';
   static String get importacaoBoletos => '$_baseUrlNew/api/importacao/boletos';
+  // Importacao de boleto em PDF (pre-visualizacao + geracao da conta a pagar com o PDF anexado)
+  static String get boletoPdfPreview => '$_baseUrlNew/api/boletos/preview';
+  static String get boletoPdfImportar =>
+      '$_baseUrlNew/api/boletos/importar-boleto';
   static String get importacaoPreview => '$_baseUrlNew/api/importacao/preview';
 
   // Contas a Pagar
