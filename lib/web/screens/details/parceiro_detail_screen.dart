@@ -13,6 +13,7 @@ import 'filiais_parceiro_screen.dart';
 
 import '../../../widgets/finance/cnab_config_screen.dart';
 import '../../../widgets/smtp_config_tab.dart';
+import '../../../widgets/transporte_config_tab.dart';
 
 class WebParceiroDetailScreen extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -293,6 +294,15 @@ class WebParceiroDetailScreen extends StatelessWidget {
                   empresaNome: parceiroNome,
                 )
               : const Center(child: Text('ID do parceiro não disponível')),
+        ),
+        // ── Transporte (MDF-e): RNTRC, série e tipos ─────────────────────
+        RelatedGridTab(
+          title: 'Transporte',
+          icon: Icons.local_shipping,
+          customWidget: TransporteConfigTab(
+            parceiroId: parceiroId,
+            nome: parceiroNome,
+          ),
         ),
         // ── Séries NF-e do Parceiro ──────────────────────────────────────
         RelatedGridTab(

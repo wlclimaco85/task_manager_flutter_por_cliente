@@ -84,6 +84,10 @@ import './nfse_serie_grid_screen.dart';
 import './nfe_tipo_operacao_grid_screen.dart';
 import './nfe_grid_screen.dart';
 import './nfce_grid_screen.dart';
+import './transporte_veiculo_grid_screen.dart';
+import './transporte_motorista_grid_screen.dart';
+import '../../widgets/cte_emissao_view.dart';
+import '../../widgets/mdfe_emissao_view.dart';
 import './nfe_import_screen.dart';
 import './nfe_import_xml_screen.dart';
 import './nfse_import_xml_screen.dart';
@@ -369,6 +373,24 @@ class _WebBottomNavBarScreenState extends State<WebBottomNavBarScreen> {
     }
   }
 
+  /// hasPermission por tela via SecurityMatrix (cadastros do modulo Transporte).
+  bool Function(String) _screenPermission(AppScreen screen) {
+    return (String permission) {
+      final matrix = SecurityMatrix.current();
+      switch (permission) {
+        case 'create':
+          return matrix.canInsert(screen);
+        case 'edit':
+          return matrix.canUpdate(screen);
+        case 'delete':
+        case 'deleteMultiple':
+          return matrix.canDelete(screen);
+        default:
+          return matrix.canView(screen);
+      }
+    };
+  }
+
   List<Widget> _buildScreensList() {
     final userInfo = AuthUtility.userInfo?.data;
     final loginInfo = AuthUtility.userInfo?.login;
@@ -616,6 +638,14 @@ class _WebBottomNavBarScreenState extends State<WebBottomNavBarScreen> {
       WebNfseSerieGridScreen(hasPermission: (p) => true), // 203: NfseSerie
       const WebNfseImportXmlScreen(), // 204: NfseImportXml
       const WebModuloTelaGridScreen(), // 205: Telas por Módulo
+      WebTransporteVeiculoGridScreen(
+          hasPermission: _screenPermission(
+              AppScreen.transporteVeiculos)), // 206: Veiculos
+      WebTransporteMotoristaGridScreen(
+          hasPermission: _screenPermission(
+              AppScreen.transporteMotoristas)), // 207: Motoristas
+      const MdfeEmissaoView(), // 208: MDF-e
+      const CteEmissaoView(), // 209: CT-e
     ];
   }
 

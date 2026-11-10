@@ -139,6 +139,11 @@ class PermissionService {
     // conversao de caixa -- mantido assim aqui tambem.
     'nfce_grid': 'nfce_grid',
     'cnab_remessa': 'cnab_remessa',
+    // Modulo Transporte (MDF-e): cadastros de veiculos e motoristas.
+    'transporte_veiculos': 'transporte_veiculos',
+    'transporte_motoristas': 'transporte_motoristas',
+    'transporte_mdfe': 'transporte_mdfe',
+    'transporte_cte': 'transporte_cte',
 
     // Financeiro
     'calendario': 'Calendario',

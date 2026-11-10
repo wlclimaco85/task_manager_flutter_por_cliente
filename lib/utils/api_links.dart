@@ -1133,6 +1133,32 @@ class ApiLinks {
   static String get allNfseSerie => '$_baseUrlNew/api/nfse_serie';
   static String get allNfeSerie => '$_baseUrlNew/api/nfe_serie';
   static String nfseSerie(String id) => '$_baseUrlNew/api/nfse_serie/$id';
+  // Transporte (MDF-e): cadastros de veiculos e motoristas
+  static String get allTransporteVeiculos =>
+      '$_baseUrlNew/api/transporte/veiculos';
+  static String transporteVeiculo(String id) =>
+      '$_baseUrlNew/api/transporte/veiculos/$id';
+  static String get transporteConfig =>
+      '$_baseUrlNew/api/transporte/config';
+  static String get allTransporteMotoristas =>
+      '$_baseUrlNew/api/transporte/motoristas';
+  static String transporteMotorista(String id) =>
+      '$_baseUrlNew/api/transporte/motoristas/$id';
+  static String get allMdfe => '$_baseUrlNew/api/mdfe';
+  static String mdfe(String id) => '$_baseUrlNew/api/mdfe/$id';
+  static String mdfeConsultar(String id) => '$_baseUrlNew/api/mdfe/$id/consultar';
+  static String mdfeCancelar(String id) => '$_baseUrlNew/api/mdfe/$id/cancelar';
+  static String mdfeEncerrar(String id) => '$_baseUrlNew/api/mdfe/$id/encerrar';
+  static String mdfeEventos(String id) => '$_baseUrlNew/api/mdfe/$id/eventos';
+  static String mdfeDamdfe(String id) => '$_baseUrlNew/api/mdfe/$id/damdfe';
+  static String get allCte => '$_baseUrlNew/api/cte';
+  static String cte(String id) => '$_baseUrlNew/api/cte/$id';
+  static String cteConsultar(String id) => '$_baseUrlNew/api/cte/$id/consultar';
+  static String cteCancelar(String id) => '$_baseUrlNew/api/cte/$id/cancelar';
+  static String cteCartaCorrecao(String id) =>
+      '$_baseUrlNew/api/cte/$id/carta-correcao';
+  static String cteEventos(String id) => '$_baseUrlNew/api/cte/$id/eventos';
+  static String cteDacte(String id) => '$_baseUrlNew/api/cte/$id/dacte';
   // NFS-e config
   static String nfseConfig(int empresaId) =>
       '$_baseUrlNew/api/nfse-config?empresaId=$empresaId';

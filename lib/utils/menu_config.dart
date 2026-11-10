@@ -283,6 +283,33 @@ class MenuConfig {
       ],
     ),
     MenuGroup(
+      id: 'transporte',
+      label: 'Transporte',
+      icon: FontAwesomeIcons.truckFast,
+      items: [
+        MenuItem(
+            id: 'transporte_veiculos',
+            label: 'Veículos',
+            icon: FontAwesomeIcons.truck,
+            screenIndex: 206),
+        MenuItem(
+            id: 'transporte_motoristas',
+            label: 'Motoristas',
+            icon: FontAwesomeIcons.idBadge,
+            screenIndex: 207),
+        MenuItem(
+            id: 'transporte_mdfe',
+            label: 'MDF-e',
+            icon: FontAwesomeIcons.fileInvoice,
+            screenIndex: 208),
+        MenuItem(
+            id: 'transporte_cte',
+            label: 'CT-e',
+            icon: FontAwesomeIcons.truckFast,
+            screenIndex: 209),
+      ],
+    ),
+    MenuGroup(
       id: 'financeiro',
       label: 'Financeiro',
       icon: FontAwesomeIcons.moneyBillTrendUp,

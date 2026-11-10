@@ -9,6 +9,7 @@ import '../../../web/screens/comunicado_componente_screen.dart'
     show WebComunicadoGridComponentesScreen;
 import '../certificado_empresa_screen.dart';
 import '../ged_arquivos_screen.dart';
+import '../../../widgets/transporte_config_tab.dart';
 import 'modulo_cobranca_screen.dart';
 
 class WindowsParceiroDetailScreen extends StatelessWidget {
@@ -269,6 +270,14 @@ class WindowsParceiroDetailScreen extends StatelessWidget {
                   empresaNome: parceiroNome,
                 )
               : const Center(child: Text('ID do parceiro nao disponivel')),
+        ),
+        RelatedGridTab(
+          title: 'Transporte',
+          icon: Icons.local_shipping,
+          customWidget: TransporteConfigTab(
+            parceiroId: parceiroId,
+            nome: parceiroNome,
+          ),
         ),
         RelatedGridTab(
           title: 'Series NF-e',
