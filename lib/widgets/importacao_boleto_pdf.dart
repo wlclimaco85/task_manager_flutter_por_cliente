@@ -44,6 +44,13 @@ class BoletoPreview {
   final String? numeroDocumento;
   final String? linhaDigitavel;
 
+  /// Fornecedor ja cadastrado (pelo CNPJ do beneficiario ou, em guia de tributo, o orgao: IMPOSTO FEDERAL...).
+  final int? fornecedorId;
+  final String? fornecedorNome;
+
+  /// Nome a cadastrar quando nao ha fornecedor com CNPJ (guias de tributo).
+  final String? fornecedorSugestaoNome;
+
   const BoletoPreview({
     required this.tipoDocumento,
     this.valor,
@@ -59,6 +66,9 @@ class BoletoPreview {
     this.observacao,
     this.numeroDocumento,
     this.linhaDigitavel,
+    this.fornecedorId,
+    this.fornecedorNome,
+    this.fornecedorSugestaoNome,
   });
 
   factory BoletoPreview.fromJson(Map<String, dynamic> j) => BoletoPreview(
@@ -76,6 +86,9 @@ class BoletoPreview {
         observacao: j['observacao']?.toString(),
         numeroDocumento: j['numeroDocumento']?.toString(),
         linhaDigitavel: j['linhaDigitavel']?.toString(),
+        fornecedorId: (j['fornecedorId'] as num?)?.toInt(),
+        fornecedorNome: j['fornecedorNome']?.toString(),
+        fornecedorSugestaoNome: j['fornecedorSugestaoNome']?.toString(),
       );
 }
 
@@ -88,8 +101,10 @@ Map<String, dynamic> montarDadosImportacaoBoleto({
   required DateTime vencimento,
   required String tipo,
   String? observacao,
+  int? fornecedorId,
 }) =>
     {
+      if (fornecedorId != null) 'fornecedorId': fornecedorId,
       if (observacao != null && observacao.trim().isNotEmpty)
         'observacao': observacao.trim(),
       'descricao': 'Boleto - $parceiroNome',
@@ -162,10 +177,15 @@ Map<String, dynamic> montarDadosCadastroClienteReceitaWs({
 
 /// Cadastra o cliente do boleto: consulta o CNPJ na ReceitaWS, abre o formulario de cadastro pre-preenchido
 /// e, ao salvar, devolve `{id, nome}` do parceiro criado. Devolve null se o usuario cancelar ou falhar.
+///
+/// Serve tambem para o fornecedor ([titulo] e [nomeInicial]): quando nao ha CPF/CNPJ (guia de tributo) o
+/// formulario abre so com o nome sugerido, ex.: IMPOSTO FEDERAL.
 Future<Map<String, dynamic>?> cadastrarClientePorDocumento(
-    BuildContext context, String documento) async {
+    BuildContext context, String documento,
+    {String? nomeInicial, String titulo = 'Cadastrar cliente (ReceitaWS)'}) async {
   final doc = documento.replaceAll(RegExp(r'\D'), '');
-  if (doc.length != 11 && doc.length != 14) {
+  final nomeSugerido = (nomeInicial ?? '').trim();
+  if (doc.length != 11 && doc.length != 14 && nomeSugerido.isEmpty) {
     _snack(context, 'Documento inválido para cadastro.', erro: true);
     return null;
   }
@@ -196,13 +216,17 @@ Future<Map<String, dynamic>?> cadastrarClientePorDocumento(
     empresaId: empresa?.id,
     empresaNome: empresa?.nome,
   );
+  if (nomeSugerido.isNotEmpty && (inicial['nome'] as String).isEmpty) {
+    inicial['nome'] = nomeSugerido;
+    inicial['razaoSocial'] = nomeSugerido;
+  }
 
   var salvou = false;
   await showDialog<void>(
     context: context,
     builder: (_) => FornecedorFormDialog(
       item: inicial,
-      tituloOverride: 'Cadastrar cliente (ReceitaWS)',
+      tituloOverride: titulo,
       customSaveHandler: (payload) async {
         final resp = await NetworkCaller().postRequest(
           ApiLinks.insertParceiro,
@@ -220,12 +244,16 @@ Future<Map<String, dynamic>?> cadastrarClientePorDocumento(
   );
   if (!salvou) return null;
 
-  // O cadastro devolve so bool: busca o parceiro recem criado pelo documento.
+  // O cadastro devolve so bool: busca o parceiro recem criado pelo documento (ou pelo nome, sem documento).
   final r = await DropdownHelpers.parceirosBusca(
-      busca: doc, pagina: 0, empresaId: TenantContext.empresaId?.toString());
+      busca: doc.isNotEmpty ? doc : nomeSugerido,
+      pagina: 0,
+      empresaId: TenantContext.empresaId?.toString());
   for (final item in r.items) {
     final cpf = (item['cpf'] ?? item['cnpj'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
-    if (cpf == doc) return item;
+    if (doc.isNotEmpty ? cpf == doc : (item['nome'] ?? '').toString().toUpperCase() == nomeSugerido.toUpperCase()) {
+      return item;
+    }
   }
   return r.items.isNotEmpty ? r.items.first : null;
 }
@@ -382,6 +410,9 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
   DateTime? _vencimento;
   int? _parceiroId;
   String? _parceiroNome;
+  int? _fornecedorId;
+  String? _fornecedorNome;
+  bool _cadastrandoFornecedor = false;
   String _tipo = kBoletoTipoTributo; // vem marcado como Tributo
 
   @override
@@ -396,6 +427,8 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
     _vencimento = p.vencimento;
     _parceiroId = p.parceiroId;
     _parceiroNome = p.parceiroNome;
+    _fornecedorId = p.fornecedorId;
+    _fornecedorNome = p.fornecedorNome;
     _tipo = p.tipoSugerido;
   }
 
@@ -444,6 +477,7 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
       vencimento: _vencimento!,
       tipo: _tipo,
       observacao: _obs.text,
+      fornecedorId: widget.receber ? null : _fornecedorId,
     ));
   }
 
@@ -472,23 +506,74 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
     }
   }
 
+  String get _documentoFornecedor =>
+      (widget.preview.beneficiarioDocumento ?? '').replaceAll(RegExp(r'\D'), '');
+
+  bool get _podeCadastrarFornecedor =>
+      !widget.receber &&
+      _fornecedorId == null &&
+      (_documentoFornecedor.length == 11 ||
+          _documentoFornecedor.length == 14 ||
+          (widget.preview.fornecedorSugestaoNome ?? '').trim().isNotEmpty);
+
+  /// Cadastra o fornecedor (ReceitaWS pelo CNPJ do beneficiario; em guia de tributo, o orgao pelo nome sugerido).
+  Future<void> _cadastrarFornecedor() async {
+    if (_cadastrandoFornecedor) return;
+    setState(() => _cadastrandoFornecedor = true);
+    try {
+      final novo = await cadastrarClientePorDocumento(context, _documentoFornecedor,
+          nomeInicial: widget.preview.fornecedorSugestaoNome ?? widget.preview.beneficiarioNome,
+          titulo: 'Cadastrar fornecedor');
+      if (novo != null && mounted) {
+        setState(() {
+          _fornecedorId = (novo['id'] as num?)?.toInt();
+          _fornecedorNome = novo['nome']?.toString();
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _cadastrandoFornecedor = false);
+    }
+  }
+
   Widget _blocoFornecedor(BoletoPreview p) {
-    final nome = (p.beneficiarioNome ?? '').trim();
+    final beneficiario = (p.beneficiarioNome ?? '').trim();
+    final cadastrado = (_fornecedorNome ?? '').trim();
+    final nome = cadastrado.isNotEmpty ? cadastrado : beneficiario;
     final doc = formatarDocumento(p.beneficiarioDocumento);
     final extras = [
       if ((p.numeroDocumento ?? '').trim().isNotEmpty) 'Doc. ${p.numeroDocumento!.trim()}',
       if ((p.linhaDigitavel ?? '').trim().isNotEmpty) p.linhaDigitavel!.trim(),
     ];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Fornecedor / Beneficiário',
-          style: TextStyle(fontWeight: FontWeight.w600)),
+      Text(widget.receber ? 'Beneficiário' : 'Fornecedor',
+          style: const TextStyle(fontWeight: FontWeight.w600)),
       const SizedBox(height: 4),
       Text(nome.isEmpty ? 'Não identificado no boleto' : nome,
           style: TextStyle(color: nome.isEmpty ? Colors.black45 : null)),
+      if (!widget.receber && cadastrado.isNotEmpty && beneficiario.isNotEmpty && beneficiario != cadastrado)
+        Text('Beneficiário no boleto: $beneficiario',
+            style: const TextStyle(fontSize: 11, color: Colors.black45)),
+      if (!widget.receber && _fornecedorId == null)
+        const Text('Fornecedor não cadastrado',
+            style: TextStyle(fontSize: 12, color: Colors.redAccent)),
       if (doc.isNotEmpty)
         Text(doc, style: const TextStyle(fontSize: 12, color: Colors.black54)),
       for (final e in extras)
         Text(e, style: const TextStyle(fontSize: 11, color: Colors.black45)),
+      if (_podeCadastrarFornecedor)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: _cadastrandoFornecedor ? null : _cadastrarFornecedor,
+            icon: _cadastrandoFornecedor
+                ? const SizedBox(
+                    width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.add_business, size: 18),
+            label: Text(_documentoFornecedor.length == 11 || _documentoFornecedor.length == 14
+                ? 'Cadastrar fornecedor ${formatarDocumento(_documentoFornecedor)} (ReceitaWS)'
+                : 'Cadastrar fornecedor ${widget.preview.fornecedorSugestaoNome}'),
+          ),
+        ),
       const SizedBox(height: 12),
     ]);
   }

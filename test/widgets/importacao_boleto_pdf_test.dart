@@ -262,7 +262,7 @@ void main() {
           observacao: 'Não receber após o vencimento.',
         ));
 
-    expect(find.text('Fornecedor / Beneficiário'), findsOneWidget);
+    expect(find.text('Fornecedor'), findsOneWidget);
     expect(find.text('Fornecedor X Ltda'), findsOneWidget);
     expect(find.text('12.345.678/0001-95'), findsOneWidget);
     expect(find.text('Doc. NF-123'), findsOneWidget);
@@ -319,5 +319,103 @@ void main() {
           documento: '63434696000184',
         ));
     expect(find.textContaining('(ReceitaWS)'), findsNothing);
+  });
+
+  testWidgets('fornecedor cadastrado pelo CNPJ aparece com o nome da base e vai no corpo', (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final resultado = await abrir(
+        tester,
+        BoletoPreview(
+          tipoDocumento: 'BOLETO_FORNECEDOR',
+          valor: 150.75,
+          vencimento: DateTime(2026, 12, 10),
+          parceiroId: 3,
+          parceiroNome: 'Cliente X',
+          beneficiarioNome: 'FORNECEDOR X LTDA (boleto)',
+          beneficiarioDocumento: '12345678000195',
+          fornecedorId: 7,
+          fornecedorNome: 'Fornecedor X',
+        ));
+    expect(find.text('Fornecedor X'), findsOneWidget);
+    expect(find.text('Beneficiário no boleto: FORNECEDOR X LTDA (boleto)'), findsOneWidget);
+    expect(find.text('Fornecedor não cadastrado'), findsNothing);
+    expect(find.textContaining('Cadastrar fornecedor'), findsNothing);
+    await tester.tap(find.text('Confirmar e gerar conta'));
+    await tester.pumpAndSettle();
+    expect(resultado()!['fornecedorId'], 7);
+  });
+
+  testWidgets('fornecedor nao cadastrado com CNPJ: oferece cadastrar pela ReceitaWS', (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await abrir(
+        tester,
+        BoletoPreview(
+          tipoDocumento: 'BOLETO_FORNECEDOR',
+          valor: 10,
+          vencimento: DateTime(2026, 12, 10),
+          parceiroId: 3,
+          parceiroNome: 'Cliente X',
+          beneficiarioNome: 'Fornecedor Novo',
+          beneficiarioDocumento: '12345678000195',
+        ));
+    expect(find.text('Fornecedor não cadastrado'), findsOneWidget);
+    expect(find.text('Cadastrar fornecedor 12.345.678/0001-95 (ReceitaWS)'), findsOneWidget);
+  });
+
+  testWidgets('guia de tributo sem o orgao cadastrado oferece cadastrar IMPOSTO FEDERAL', (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await abrir(
+        tester,
+        BoletoPreview(
+          tipoDocumento: 'DARF_FEDERAL',
+          valor: 178.31,
+          vencimento: DateTime(2026, 11, 19),
+          parceiroId: 3,
+          parceiroNome: 'PASTELE DO CARIOCA',
+          beneficiarioNome: 'Receita Federal (DARF)',
+          fornecedorSugestaoNome: 'IMPOSTO FEDERAL',
+        ));
+    expect(find.text('Cadastrar fornecedor IMPOSTO FEDERAL'), findsOneWidget);
+  });
+
+  testWidgets('conta a receber nao tem fornecedor: rotulo Beneficiario e sem botao de cadastrar', (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    AuthUtility.userInfo = LoginModel(token: 't', login: Login(id: 1, empresa: Empresa(id: 10)));
+    await tester.pumpWidget(MaterialApp(
+      home: Builder(
+        builder: (ctx) => TextButton(
+          onPressed: () => showDialog<Map<String, dynamic>>(
+            context: ctx,
+            builder: (_) => BoletoConfirmacaoDialog(
+              nomeArquivo: 'b.pdf',
+              receber: true,
+              preview: BoletoPreview(
+                tipoDocumento: 'BOLETO_FORNECEDOR',
+                valor: 1500,
+                vencimento: DateTime(2026, 12, 10),
+                parceiroId: 7,
+                parceiroNome: 'Cliente',
+                beneficiarioNome: 'Escritorio',
+                beneficiarioDocumento: '11222333000181',
+              ),
+            ),
+          ),
+          child: const Text('abrir'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('abrir'));
+    await tester.pumpAndSettle();
+    expect(find.text('Beneficiário'), findsOneWidget);
+    expect(find.text('Fornecedor não cadastrado'), findsNothing);
+    expect(find.textContaining('Cadastrar fornecedor'), findsNothing);
   });
 }
