@@ -9,11 +9,16 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:intl/intl.dart';
 
+import '../models/auth_utility.dart';
+import '../services/consulta_cnpj_service.dart';
+import '../services/network_caller.dart';
 import '../utils/api_links.dart';
 import '../utils/app_logger.dart';
 import '../utils/dropdown_helpers.dart';
 import '../utils/grid_colors.dart';
 import '../utils/tenant_context.dart';
+import '../windows/dialogs/fornecedor_form_dialog.dart';
+import 'automacao_fiscal_screen.dart' show montarPayloadParceiroAutomacaoFiscal;
 
 /// Tipos da conta gerada a partir do boleto (o backend usa o valor para escolher a categoria financeira).
 const String kBoletoTipoTributo = 'TRIBUTO';
@@ -32,6 +37,13 @@ class BoletoPreview {
   final bool jaImportado;
   final String? aviso;
 
+  /// Fornecedor (beneficiario) e observacao/instrucoes impressas no boleto.
+  final String? beneficiarioNome;
+  final String? beneficiarioDocumento;
+  final String? observacao;
+  final String? numeroDocumento;
+  final String? linhaDigitavel;
+
   const BoletoPreview({
     required this.tipoDocumento,
     this.valor,
@@ -42,6 +54,11 @@ class BoletoPreview {
     this.tipoSugerido = kBoletoTipoTributo,
     this.jaImportado = false,
     this.aviso,
+    this.beneficiarioNome,
+    this.beneficiarioDocumento,
+    this.observacao,
+    this.numeroDocumento,
+    this.linhaDigitavel,
   });
 
   factory BoletoPreview.fromJson(Map<String, dynamic> j) => BoletoPreview(
@@ -54,6 +71,11 @@ class BoletoPreview {
         tipoSugerido: j['tipoSugerido']?.toString() ?? kBoletoTipoTributo,
         jaImportado: j['jaImportado'] == true,
         aviso: j['aviso']?.toString(),
+        beneficiarioNome: j['beneficiarioNome']?.toString(),
+        beneficiarioDocumento: j['beneficiarioDocumento']?.toString(),
+        observacao: j['observacao']?.toString(),
+        numeroDocumento: j['numeroDocumento']?.toString(),
+        linhaDigitavel: j['linhaDigitavel']?.toString(),
       );
 }
 
@@ -65,8 +87,11 @@ Map<String, dynamic> montarDadosImportacaoBoleto({
   required double valor,
   required DateTime vencimento,
   required String tipo,
+  String? observacao,
 }) =>
     {
+      if (observacao != null && observacao.trim().isNotEmpty)
+        'observacao': observacao.trim(),
       'descricao': 'Boleto - $parceiroNome',
       'valor': valor,
       'dataVencimento': DateFormat('yyyy-MM-dd').format(vencimento),
@@ -81,6 +106,128 @@ double? valorDeTexto(String texto) {
   if (t.contains(',')) t = t.replaceAll('.', '').replaceAll(',', '.');
   final v = double.tryParse(t);
   return (v == null || v <= 0) ? null : v;
+}
+
+/// "12345678000195" -> "12.345.678/0001-95"; "12345678909" -> "123.456.789-09"; outro tamanho: devolve so os digitos.
+String formatarDocumento(String? documento) {
+  final d = (documento ?? '').replaceAll(RegExp(r'\D'), '');
+  if (d.length == 14) {
+    return '${d.substring(0, 2)}.${d.substring(2, 5)}.${d.substring(5, 8)}/${d.substring(8, 12)}-${d.substring(12)}';
+  }
+  if (d.length == 11) {
+    return '${d.substring(0, 3)}.${d.substring(3, 6)}.${d.substring(6, 9)}-${d.substring(9)}';
+  }
+  return d;
+}
+
+/// Dados iniciais do formulario de cadastro do cliente a partir da ReceitaWS (mesmo contrato do cadastro
+/// de pendencias da Automacao Fiscal). [receita] nulo = consulta falhou: o usuario preenche o resto.
+Map<String, dynamic> montarDadosCadastroClienteReceitaWs({
+  required String documento,
+  Map<String, dynamic>? receita,
+  int? empresaId,
+  String? empresaNome,
+  int? parceiroId,
+  String? parceiroNome,
+}) {
+  String t(dynamic v) => (v ?? '').toString().trim();
+  final doc = documento.replaceAll(RegExp(r'\D'), '');
+  return {
+    'empresaId': empresaId,
+    'empresaNome': empresaNome,
+    'parceiroId': parceiroId,
+    'parceiroNome': parceiroNome,
+    'nome': t(receita?['nomeFantasia']).isNotEmpty
+        ? t(receita?['nomeFantasia'])
+        : t(receita?['nome'] ?? receita?['razaoSocial']),
+    'razaoSocial': t(receita?['razaoSocial'] ?? receita?['nome']),
+    'cpf': doc,
+    'cnpj': doc,
+    'ie': '',
+    'incrMun': '',
+    'email': t(receita?['email']),
+    'telefone1': t(receita?['telefone']),
+    'telefone2': '',
+    'cep': t(receita?['cep']),
+    'rua': t(receita?['logradouro'] ?? receita?['rua']),
+    'numero': t(receita?['numero']),
+    'complemento': t(receita?['complemento']),
+    'bairro': t(receita?['bairro']),
+    'cidade': t(receita?['municipio'] ?? receita?['cidade']),
+    'estado': t(receita?['uf'] ?? receita?['estado']),
+    'status': 'ATIVO',
+    'observacao': 'Cadastrado na importação de boleto (ReceitaWS)',
+  };
+}
+
+/// Cadastra o cliente do boleto: consulta o CNPJ na ReceitaWS, abre o formulario de cadastro pre-preenchido
+/// e, ao salvar, devolve `{id, nome}` do parceiro criado. Devolve null se o usuario cancelar ou falhar.
+Future<Map<String, dynamic>?> cadastrarClientePorDocumento(
+    BuildContext context, String documento) async {
+  final doc = documento.replaceAll(RegExp(r'\D'), '');
+  if (doc.length != 11 && doc.length != 14) {
+    _snack(context, 'Documento inválido para cadastro.', erro: true);
+    return null;
+  }
+
+  Map<String, dynamic>? receita;
+  if (doc.length == 14) {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Consultando o CNPJ na ReceitaWS...'),
+        duration: Duration(seconds: 20)));
+    try {
+      receita = await ConsultaCnpjService.consultar(doc);
+    } catch (e) {
+      AppLogger.i.warn('[BOLETO-PDF] consulta ReceitaWS falhou para $doc: $e');
+    }
+    if (context.mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    if (receita == null && context.mounted) {
+      _snack(context,
+          'Não foi possível obter os dados na ReceitaWS. Preencha o cadastro manualmente.',
+          erro: true);
+    }
+  }
+  if (!context.mounted) return null;
+
+  final empresa = AuthUtility.userInfo?.login?.empresa;
+  final inicial = montarDadosCadastroClienteReceitaWs(
+    documento: doc,
+    receita: receita,
+    empresaId: empresa?.id,
+    empresaNome: empresa?.nome,
+  );
+
+  var salvou = false;
+  await showDialog<void>(
+    context: context,
+    builder: (_) => FornecedorFormDialog(
+      item: inicial,
+      tituloOverride: 'Cadastrar cliente (ReceitaWS)',
+      customSaveHandler: (payload) async {
+        final resp = await NetworkCaller().postRequest(
+          ApiLinks.insertParceiro,
+          montarPayloadParceiroAutomacaoFiscal(payload),
+        );
+        final texto = resp.body?.toString().toLowerCase() ?? '';
+        if (!resp.isSuccess && !texto.contains('existe')) {
+          AppLogger.i.warn(
+              '[BOLETO-PDF] cadastro do cliente $doc falhou (status ${resp.statusCode})');
+        }
+        return resp.isSuccess || texto.contains('existe');
+      },
+      onSaved: () => salvou = true,
+    ),
+  );
+  if (!salvou) return null;
+
+  // O cadastro devolve so bool: busca o parceiro recem criado pelo documento.
+  final r = await DropdownHelpers.parceirosBusca(
+      busca: doc, pagina: 0, empresaId: TenantContext.empresaId?.toString());
+  for (final item in r.items) {
+    final cpf = (item['cpf'] ?? item['cnpj'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+    if (cpf == doc) return item;
+  }
+  return r.items.isNotEmpty ? r.items.first : null;
 }
 
 class BoletoPdfCaller {
@@ -230,6 +377,8 @@ class BoletoConfirmacaoDialog extends StatefulWidget {
 
 class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
   late final TextEditingController _valor;
+  late final TextEditingController _obs;
+  bool _cadastrando = false;
   DateTime? _vencimento;
   int? _parceiroId;
   String? _parceiroNome;
@@ -243,6 +392,7 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
         text: p.valor == null
             ? ''
             : p.valor!.toStringAsFixed(2).replaceAll('.', ','));
+    _obs = TextEditingController(text: p.observacao ?? '');
     _vencimento = p.vencimento;
     _parceiroId = p.parceiroId;
     _parceiroNome = p.parceiroNome;
@@ -252,6 +402,7 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
   @override
   void dispose() {
     _valor.dispose();
+    _obs.dispose();
     super.dispose();
   }
 
@@ -292,7 +443,54 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
       valor: valorDeTexto(_valor.text)!,
       vencimento: _vencimento!,
       tipo: _tipo,
+      observacao: _obs.text,
     ));
+  }
+
+  /// CPF/CNPJ do documento lido no boleto (so digitos) quando o cliente nao esta no cadastro.
+  String get _documentoParaCadastro =>
+      (widget.preview.documento ?? '').replaceAll(RegExp(r'\D'), '');
+
+  bool get _podeCadastrar =>
+      _parceiroId == null &&
+      (_documentoParaCadastro.length == 11 || _documentoParaCadastro.length == 14);
+
+  /// Consulta o CNPJ na ReceitaWS, abre o formulario de cadastro ja preenchido e, ao salvar, seleciona o cliente.
+  Future<void> _cadastrarCliente() async {
+    if (_cadastrando) return;
+    setState(() => _cadastrando = true);
+    try {
+      final novo = await cadastrarClientePorDocumento(context, _documentoParaCadastro);
+      if (novo != null && mounted) {
+        setState(() {
+          _parceiroId = (novo['id'] as num?)?.toInt();
+          _parceiroNome = novo['nome']?.toString();
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _cadastrando = false);
+    }
+  }
+
+  Widget _blocoFornecedor(BoletoPreview p) {
+    final nome = (p.beneficiarioNome ?? '').trim();
+    final doc = formatarDocumento(p.beneficiarioDocumento);
+    final extras = [
+      if ((p.numeroDocumento ?? '').trim().isNotEmpty) 'Doc. ${p.numeroDocumento!.trim()}',
+      if ((p.linhaDigitavel ?? '').trim().isNotEmpty) p.linhaDigitavel!.trim(),
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Fornecedor / Beneficiário',
+          style: TextStyle(fontWeight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      Text(nome.isEmpty ? 'Não identificado no boleto' : nome,
+          style: TextStyle(color: nome.isEmpty ? Colors.black45 : null)),
+      if (doc.isNotEmpty)
+        Text(doc, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+      for (final e in extras)
+        Text(e, style: const TextStyle(fontSize: 11, color: Colors.black45)),
+      const SizedBox(height: 12),
+    ]);
   }
 
   Widget _tipoOpcao(String valor, String rotulo) => CheckboxListTile(
@@ -334,6 +532,7 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
                 ),
               ],
               const SizedBox(height: 12),
+              _blocoFornecedor(p),
               Text(widget.receber ? 'Cliente (pagador)' : 'Cliente',
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
@@ -346,6 +545,21 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
                     onPressed: _escolherCliente,
                     child: Text(_parceiroId == null ? 'Selecionar' : 'Trocar')),
               ]),
+              if (_podeCadastrar)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _cadastrando ? null : _cadastrarCliente,
+                    icon: _cadastrando
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.person_add_alt_1, size: 18),
+                    label: Text(
+                        'Cadastrar ${formatarDocumento(_documentoParaCadastro)} (ReceitaWS)'),
+                  ),
+                ),
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(
@@ -370,6 +584,16 @@ class _BoletoConfirmacaoDialogState extends State<BoletoConfirmacaoDialog> {
               _tipoOpcao(kBoletoTipoTributo, 'Tributo'),
               _tipoOpcao(kBoletoTipoHonorarios, 'Honorários'),
               _tipoOpcao(kBoletoTipoOutros, 'Outros'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _obs,
+                minLines: 2,
+                maxLines: 4,
+                maxLength: 500,
+                decoration: const InputDecoration(
+                    labelText: 'Observação (do boleto)',
+                    alignLabelWithHint: true),
+              ),
             ],
           ),
         ),

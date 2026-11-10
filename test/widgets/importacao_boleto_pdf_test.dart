@@ -97,7 +97,7 @@ void main() {
     expect(find.text('Confirmar importação do boleto'), findsOneWidget);
     expect(find.text('Fornecedor X'), findsOneWidget);
     expect(find.text('10/12/2026'), findsOneWidget);
-    final campoValor = tester.widget<TextField>(find.byType(TextField));
+    final campoValor = tester.widget<TextField>(find.byType(TextField).first);
     expect(campoValor.controller!.text, '150,75');
     final checks =
         tester.widgetList<CheckboxListTile>(find.byType(CheckboxListTile)).toList();
@@ -202,5 +202,122 @@ void main() {
     expect(resultado!['tipo'], 'HONORARIOS');
     expect(resultado!['parceiroId'], 7);
     expect(resultado!['valor'], 1500);
+  });
+
+  test('formatarDocumento formata CNPJ e CPF e devolve digitos nos outros casos', () {
+    expect(formatarDocumento('63434696000184'), '63.434.696/0001-84');
+    expect(formatarDocumento('12345678909'), '123.456.789-09');
+    expect(formatarDocumento('123'), '123');
+    expect(formatarDocumento(null), '');
+  });
+
+  test('cadastro do cliente: usa fantasia/razao da ReceitaWS e o documento so com digitos', () {
+    final d = montarDadosCadastroClienteReceitaWs(
+      documento: '63.434.696/0001-84',
+      receita: {
+        'nome': 'ACME COMERCIO LTDA',
+        'nomeFantasia': 'Acme',
+        'logradouro': 'Rua A',
+        'numero': '10',
+        'municipio': 'Uberaba',
+        'uf': 'MG',
+        'cep': '38000-000',
+        'email': 'a@acme.com',
+        'telefone': '(34) 3333-3333',
+      },
+      empresaId: 10,
+      empresaNome: 'Abraco',
+    );
+    expect(d['cpf'], '63434696000184');
+    expect(d['cnpj'], '63434696000184');
+    expect(d['nome'], 'Acme');
+    expect(d['razaoSocial'], 'ACME COMERCIO LTDA');
+    expect(d['rua'], 'Rua A');
+    expect(d['cidade'], 'Uberaba');
+    expect(d['estado'], 'MG');
+    expect(d['empresaId'], 10);
+    expect(d['status'], 'ATIVO');
+    // consulta falhou: so o documento, o resto em branco para preencher
+    final vazio = montarDadosCadastroClienteReceitaWs(documento: '63434696000184');
+    expect(vazio['nome'], '');
+    expect(vazio['cnpj'], '63434696000184');
+  });
+
+  testWidgets('popup mostra o fornecedor e a observacao do boleto e envia a observacao',
+      (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final resultado = await abrir(
+        tester,
+        BoletoPreview(
+          tipoDocumento: 'BOLETO_FORNECEDOR',
+          valor: 150.75,
+          vencimento: DateTime(2026, 12, 10),
+          parceiroId: 7,
+          parceiroNome: 'Cliente X',
+          beneficiarioNome: 'Fornecedor X Ltda',
+          beneficiarioDocumento: '12345678000195',
+          numeroDocumento: 'NF-123',
+          observacao: 'Não receber após o vencimento.',
+        ));
+
+    expect(find.text('Fornecedor / Beneficiário'), findsOneWidget);
+    expect(find.text('Fornecedor X Ltda'), findsOneWidget);
+    expect(find.text('12.345.678/0001-95'), findsOneWidget);
+    expect(find.text('Doc. NF-123'), findsOneWidget);
+    final campos = tester.widgetList<TextField>(find.byType(TextField)).toList();
+    expect(campos.any((c) => c.controller?.text == 'Não receber após o vencimento.'), isTrue);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Não receber após o vencimento.'),
+        'Pagar até dia 9');
+    await tester.tap(find.text('Confirmar e gerar conta'));
+    await tester.pumpAndSettle();
+    expect(resultado()!['observacao'], 'Pagar até dia 9');
+  });
+
+  testWidgets('sem fornecedor identificado avisa; observacao vazia nao vai no corpo', (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final resultado = await abrir(tester, completo());
+    expect(find.text('Não identificado no boleto'), findsOneWidget);
+    await tester.tap(find.text('Confirmar e gerar conta'));
+    await tester.pumpAndSettle();
+    expect(resultado()!.containsKey('observacao'), isFalse);
+  });
+
+  testWidgets('cliente nao encontrado com CNPJ lido: oferece cadastrar pela ReceitaWS', (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await abrir(
+        tester,
+        BoletoPreview(
+          tipoDocumento: 'FGTS',
+          valor: 178.31,
+          vencimento: DateTime(2026, 11, 19),
+          documento: '63434696000184',
+          aviso: 'Cliente não identificado automaticamente',
+        ));
+    expect(find.text('Não identificado'), findsOneWidget);
+    expect(find.text('Cadastrar 63.434.696/0001-84 (ReceitaWS)'), findsOneWidget);
+  });
+
+  testWidgets('cliente ja encontrado ou sem documento: nao mostra o botao de cadastrar', (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await abrir(
+        tester,
+        BoletoPreview(
+          tipoDocumento: 'BOLETO_FORNECEDOR',
+          valor: 10,
+          vencimento: DateTime(2026, 12, 10),
+          parceiroId: 7,
+          parceiroNome: 'X',
+          documento: '63434696000184',
+        ));
+    expect(find.textContaining('(ReceitaWS)'), findsNothing);
   });
 }
