@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
-import 'package:file_saver/file_saver.dart';
+import 'package:task_manager_flutter/utils/file_saver_compat.dart';
 import 'package:flutter/material.dart';
 import '../../../customization/dynamic_grid_windows_screen.dart';
 import '../../../utils/api_links.dart';
@@ -1380,6 +1380,84 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
     }
   }
 
+  Future<void> _reprocessarIncompletas(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Regerar / Enriquecer NF-es Incompletas',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        content: const SizedBox(
+          width: 360,
+          child: Text(
+            'Deseja verificar todas as NF-es de entrada sem itens (resumos da SEFAZ), '
+            'manifestar Ciência da Emissão (210210), buscar o XML completo e auto-cadastrar '
+            'itens, produtos, estoque, tributação e contas a pagar?',
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: GridColors.success,
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.sync, size: 16),
+            onPressed: () => Navigator.pop(ctx, true),
+            label: const Text('Iniciar Reprocessamento'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Expanded(child: Text('Consultando SEFAZ e enriquecendo notas...')),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final r = await TenantContext.post(
+          '${ApiLinks.baseUrl}/api/nfe/receita/reprocessar-incompletas?limite=50',
+          {});
+      if (context.mounted) Navigator.pop(context);
+      if (!context.mounted) return;
+      final body = jsonDecode(r.body);
+      final total = body['totalIncompletas'] ?? 0;
+      final sucessos = body['sucessos'] ?? 0;
+      final falhas = body['falhas'] ?? 0;
+      final msg = body['mensagem'] ??
+          'Reprocessamento finalizado: $sucessos nota(s) enriquecida(s) de $total encontrada(s).';
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg.toString()),
+        backgroundColor: falhas == 0 ? GridColors.success : Colors.orange.shade800,
+        duration: const Duration(seconds: 5),
+      ));
+      if (r.statusCode == 200) setState(() => _gridKey++);
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erro: $e'),
+          backgroundColor: GridColors.error,
+        ));
+      }
+    }
+  }
+
   Widget _dpDialog(BuildContext context, DateTime? val, String hint,
           void Function(DateTime?) cb) =>
       GestureDetector(
@@ -1729,6 +1807,12 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
                       color: const Color(0xFF1565C0),
                       onPressed: () => _importarReceita(context),
                     ),
+                    _actionChip(
+                      icon: Icons.sync,
+                      label: 'Regerar Incompletas',
+                      color: const Color(0xFF00838F),
+                      onPressed: () => _reprocessarIncompletas(context),
+                    ),
                   ],
                 ],
               ),
@@ -1842,6 +1926,13 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
               icon: Icons.cloud_download,
               label: 'Importar Receita',
               color: const Color(0xFF1565C0),
+            ),
+            const SizedBox(height: 6),
+            _actionBtn(
+              onPressed: () => _reprocessarIncompletas(context),
+              icon: Icons.sync,
+              label: 'Regerar Incompletas',
+              color: const Color(0xFF00838F),
             ),
             const SizedBox(height: 6),
           ],

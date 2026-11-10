@@ -1,4 +1,6 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:task_manager_flutter/models/nfe/nfe_draft_model.dart';
 import 'package:task_manager_flutter/models/nfe/nfe_draft_status.dart';
@@ -34,18 +36,37 @@ class NfeDraftsBannerState extends State<NfeDraftsBanner> {
   List<NfeDraftModel> _drafts = const [];
   bool _online = true;
   final Set<String> _enviando = {};
+  Timer? _connectivityTimer;
 
   @override
   void initState() {
     super.initState();
     _carregar();
     _checarConectividade();
-    Connectivity().onConnectivityChanged.listen((_) => _checarConectividade());
+    _connectivityTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => _checarConectividade(),
+    );
   }
 
+  @override
+  void dispose() {
+    _connectivityTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Checagem de conectividade real sem depender de plugin nativo (apenas
+  /// `dart:io`) — evita o crash nativo do connectivity_plus em alguns
+  /// dispositivos físicos (SIGSEGV em ConnectivityPlusPlugin.register).
   Future<void> _checarConectividade() async {
-    final result = await Connectivity().checkConnectivity();
-    final online = result != ConnectivityResult.none;
+    bool online;
+    try {
+      final result = await InternetAddress.lookup('google.com')
+          .timeout(const Duration(seconds: 3));
+      online = result.isNotEmpty && result.first.rawAddress.isNotEmpty;
+    } catch (_) {
+      online = false;
+    }
     if (mounted && online != _online) {
       setState(() => _online = online);
     } else if (mounted) {

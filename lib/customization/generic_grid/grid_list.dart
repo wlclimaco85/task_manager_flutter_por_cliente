@@ -335,15 +335,13 @@ class _GridListScreenState extends State<GridListScreen> {
         // então body é sempre Map e a lista sai de data/dados.
         final body = resp.body ?? <String, dynamic>{};
         final list = extractAnyList(body is Map ? (body['data'] ?? body['dados'] ?? body) : body);
-        final total = ((body is Map
-                ? (body['totalElements'] ??
-                    body['total'] ??
-                    (body['data'] is Map ? body['data']['totalElements'] : null) ??
-                    (body['dados'] is Map
-                        ? body['dados']['totalElements']
-                        : null))
-                : null)) as int? ??
-            list.length;
+        final total = body is Map ? (((body['totalElements'] ??
+                body['total'] ??
+                (body['data'] is Map ? body['data']['totalElements'] : null) ??
+                (body['dados'] is Map
+                    ? body['dados']['totalElements']
+                    : null))) as int? ??
+            list.length) : list.length;
 
         setState(() {
           if (reset) {

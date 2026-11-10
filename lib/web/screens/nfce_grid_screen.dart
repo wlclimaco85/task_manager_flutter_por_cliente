@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:file_saver/file_saver.dart';
+import 'package:task_manager_flutter/utils/file_saver_compat.dart';
 import 'package:flutter/material.dart';
 
 import '../../../customization/dynamic_grid_windows_screen.dart';
@@ -243,8 +243,6 @@ class _WebNfceGridScreenState extends State<WebNfceGridScreen> {
                         fromJson: (json) => NfceModel.fromJson(json),
                         toJson: (a) => a.toJson(),
                         showAppBar: false,
-                        editUsesDetailScreen: true,
-                        detailScreenBuilder: (item) => PdvScreen(nfce: item),
                         bulkActions: _buildBulkActions(context),
                         customActions: () => _buildCustomActions(context),
                       ),
@@ -288,8 +286,6 @@ class _WebNfceGridScreenState extends State<WebNfceGridScreen> {
                         fromJson: (json) => NfceModel.fromJson(json),
                         toJson: (a) => a.toJson(),
                         showAppBar: false,
-                        editUsesDetailScreen: true,
-                        detailScreenBuilder: (item) => PdvScreen(nfce: item),
                         bulkActions: _buildBulkActions(context),
                         customActions: () => _buildCustomActions(context),
                       ),
@@ -1143,7 +1139,7 @@ class _WebNfceGridScreenState extends State<WebNfceGridScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
-                          color: Color(0xFF0F172A),
+                          color: GridColors.textPrimary,
                         ),
                       ),
                       if (activeCount > 0) ...[
@@ -1309,13 +1305,13 @@ class _WebNfceGridScreenState extends State<WebNfceGridScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.tune, size: 16, color: Color(0xFF0F172A)),
+                  Icon(Icons.tune, size: 16, color: GridColors.textPrimary),
                   SizedBox(width: 6),
                   Text('Filtros',
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
-                          color: Color(0xFF0F172A))),
+                          color: GridColors.textPrimary)),
                 ],
               ),
               IconButton(

@@ -6,6 +6,7 @@ import '../../../models/login_model.dart';
 import 'empresa_acesso_model.dart';
 import 'empresa_model.dart';
 import 'parceiro_model.dart';
+import 'package:task_manager_flutter/services/alerta_polling_service.dart';
 import 'package:task_manager_flutter/services/permission_service.dart';
 import 'package:task_manager_flutter/utils/security_matrix.dart';
 
@@ -186,6 +187,8 @@ class AuthUtility {
     userInfo = null;
     // Limpar permissões ao fazer logout
     PermissionService().clear();
+    // Parar polling de notificações da sessão anterior
+    AlertaPollingService.instance.parar();
   }
 
   /// Retorna o LoginModel do usuário logado (lê de SharedPreferences se necessário).

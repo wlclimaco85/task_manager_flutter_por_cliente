@@ -449,15 +449,13 @@ class _GenericMobileGridScreenState extends State<GenericMobileGridScreen> {
         final list = _extractAnyList(body is Map ? (body['data'] ?? body['dados'] ?? body) : body);
 
 // total seguro: tenta nas chaves usuais ou cai no length da lista
-        final total = ((body is Map
-                ? (body['totalElements'] ??
-                    body['total'] ??
-                    (body['data'] is Map ? body['data']['totalElements'] : null) ??
-                    (body['dados'] is Map
-                        ? body['dados']['totalElements']
-                        : null))
-                : null)) as int? ??
-            list.length;
+        final total = body is Map ? (((body['totalElements'] ??
+                body['total'] ??
+                (body['data'] is Map ? body['data']['totalElements'] : null) ??
+                (body['dados'] is Map
+                    ? body['dados']['totalElements']
+                    : null))) as int? ??
+            list.length) : list.length;
 
         final newItems = list; // já está tipado/normalizado
 

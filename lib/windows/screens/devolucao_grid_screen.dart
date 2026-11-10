@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
+import 'package:task_manager_flutter/utils/file_saver_compat.dart';
 import '../../../services/devolucao_service.dart';
 import '../../../utils/grid_colors.dart';
+import '../../../utils/api_links.dart';
+import '../../../utils/tenant_context.dart';
 import '../../../windows/dialogs/devolucao_form_dialog.dart';
 import '../../utils/grid_texts.dart';
 
@@ -304,19 +308,170 @@ class _WindowsDevolucaoGridScreenState
 
   Widget _buildActions(int? id, String status) {
     if (id == null) return const SizedBox.shrink();
+    final item =
+        _devolucoes.firstWhere((o) => o['id'] == id, orElse: () => {});
+    final nfeId = item['nfeOrigemId'] ??
+        (item['documentoOrigemTipo'] == 'NFE'
+            ? item['documentoOrigemId']
+            : null);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _actionIcon(Icons.visibility, GridTexts.view, GridColors.info, () => _openForm(_devolucoes.firstWhere((o) => o['id'] == id))),
+        _actionIcon(Icons.visibility, GridTexts.view, GridColors.info,
+            () => _openForm(item)),
+        if (nfeId != null) ...[
+          _actionIcon(Icons.print, 'Imprimir DANFE', Colors.blueGrey,
+              () => _imprimirDanfe(nfeId as int)),
+          _actionIcon(Icons.code, 'Exportar XML', Colors.deepPurple,
+              () => _baixarXml(nfeId as int)),
+          _actionIcon(Icons.email_outlined, 'Enviar por E-mail', Colors.teal,
+              () => _enviarEmail(nfeId as int, item)),
+        ],
         if (status == 'RASCUNHO') ...[
-          _actionIcon(Icons.edit, GridTexts.edit, GridColors.secondary, () => _openForm(_devolucoes.firstWhere((o) => o['id'] == id))),
-          _actionIcon(Icons.check_circle, GridTexts.conclude, Colors.green, () => _confirmAction(
-            GridTexts.concludeReturnTitle, GridTexts.concludeReturnQuestion, () => DevolucaoService.concluir(id))),
-          _actionIcon(Icons.block, GridTexts.cancel, Colors.orange, () => _confirmAction(
-            GridTexts.cancelReturnTitle, GridTexts.cancelReturnQuestion, () => DevolucaoService.delete(id))),
+          _actionIcon(Icons.edit, GridTexts.edit, GridColors.secondary,
+              () => _openForm(item)),
+          _actionIcon(
+              Icons.check_circle,
+              GridTexts.conclude,
+              Colors.green,
+              () => _confirmAction(
+                  GridTexts.concludeReturnTitle,
+                  GridTexts.concludeReturnQuestion,
+                  () => DevolucaoService.concluir(id))),
+          _actionIcon(
+              Icons.block,
+              GridTexts.cancel,
+              Colors.orange,
+              () => _confirmAction(
+                  GridTexts.cancelReturnTitle,
+                  GridTexts.cancelReturnQuestion,
+                  () => DevolucaoService.delete(id))),
         ],
       ],
     );
+  }
+
+  Future<void> _imprimirDanfe(int nfeId) async {
+    try {
+      final r = await TenantContext.get(ApiLinks.danfeNfe(nfeId.toString()));
+      if (!mounted) return;
+      if (r.statusCode == 200) {
+        await FileSaver.instance.saveFile(
+          name: 'danfe_$nfeId',
+          bytes: r.bodyBytes,
+          fileExtension: 'pdf',
+        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('DANFE baixado!'), backgroundColor: Colors.green));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro ao baixar DANFE: ${r.statusCode}'),
+            backgroundColor: Colors.red));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _baixarXml(int nfeId) async {
+    try {
+      final r = await TenantContext.get(ApiLinks.xmlNfe(nfeId.toString()));
+      if (!mounted) return;
+      if (r.statusCode == 200) {
+        await FileSaver.instance.saveFile(
+          name: 'nfe_$nfeId',
+          bytes: Uint8List.fromList(r.body.codeUnits),
+          fileExtension: 'xml',
+        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('XML baixado!'), backgroundColor: Colors.green));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro ao baixar XML: ${r.statusCode}'),
+            backgroundColor: Colors.red));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  Future<void> _enviarEmail(int nfeId, Map<String, dynamic> item) async {
+    final emailCtrl =
+        TextEditingController(text: item['clienteFornecedorEmail'] ?? '');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Enviar NF-e por E-mail',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                  'Serão enviados em anexo o DANFE (PDF) e o XML da NF-e referente a esta devolução.',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'E-mail destinatário *',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: GridColors.primary,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Enviar E-mail'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final email = emailCtrl.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Informe um e-mail válido.'),
+          backgroundColor: Colors.orange));
+      return;
+    }
+    try {
+      final r = await TenantContext.post(
+          ApiLinks.emailNfe(nfeId.toString()), {'email': email});
+      if (!mounted) return;
+      if (r.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text('E-mail enviado com sucesso com DANFE e XML para $email!'),
+            backgroundColor: Colors.green));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro ao enviar e-mail: ${r.body}'),
+            backgroundColor: Colors.red));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   Widget _actionIcon(IconData icon, String tooltip, Color color, VoidCallback onPressed) {

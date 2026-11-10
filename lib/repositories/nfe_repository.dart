@@ -42,8 +42,19 @@ class NfeRepository {
         queryParameters: params,
       );
 
-      // Trata resposta: pode ser list direta ou wrapped em 'content' (pagination)
-      final List items = response.data?['content'] ?? response.data ?? [];
+      // Trata resposta: pode ser list direta ou wrapped em 'content' (pagination).
+      // Map sem 'content' e erro de contrato, nao lista vazia silenciosa.
+      final dados = response.data;
+      final List items;
+      if (dados is Map) {
+        final conteudo = dados['content'];
+        if (conteudo is! List) {
+          throw const FormatException('Resposta de listagem sem campo content');
+        }
+        items = conteudo;
+      } else {
+        items = (dados as List?) ?? [];
+      }
       final nfes = items
           .cast<Map<String, dynamic>>()
           .map((json) => NfeModel.fromJson(json))

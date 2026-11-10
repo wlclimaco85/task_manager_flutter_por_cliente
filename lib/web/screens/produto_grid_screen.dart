@@ -6,6 +6,7 @@ import '../../../utils/api_links.dart';
 import '../../../widgets/generic_grid_windows_screen.dart'
     show FieldConfigWindows, FieldType, CustomAction;
 import '../../../widgets/produto_saidas_chart_dialog.dart';
+import './ged_arquivos_screen.dart';
 import 'details/produto_detail_screen.dart';
 import '../../utils/grid_texts.dart';
 
@@ -93,6 +94,22 @@ class WebProdutoGridScreen extends StatelessWidget {
             context: ctx,
             builder: (_) => ProdutoSaidasChartDialog(produto: item),
           ),
+          isVisible: (_) => true,
+        ),
+        CustomAction<Map<String, dynamic>>(
+          icon: Icons.folder_open,
+          label: 'Ver GED',
+          onPressed: (ctx, item) {
+            final id = item['id'] is int ? item['id'] as int : int.tryParse(item['id']?.toString() ?? '');
+            final nome = item['nome']?.toString() ?? item['xProd']?.toString() ?? '';
+            Navigator.push(ctx, MaterialPageRoute(
+              builder: (_) => GedArquivosScreen(
+                moduloOrigem: 'produto',
+                idOrigem: id,
+                nomeOrigem: nome,
+              ),
+            ));
+          },
           isVisible: (_) => true,
         ),
         CustomAction<Map<String, dynamic>>(

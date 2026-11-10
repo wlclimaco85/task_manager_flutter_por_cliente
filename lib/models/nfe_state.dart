@@ -1,5 +1,8 @@
 import 'package:task_manager_flutter/models/nfe/nfe_model.dart';
 
+/// Marca "argumento nao informado" no copyWith, para distinguir de `null`.
+const Object _naoInformado = Object();
+
 /// Estado imutável que representa o estado gerenciado de NFes
 ///
 /// Pode estar em 4 estados principais:
@@ -66,20 +69,25 @@ class NfeState {
     return 'LOADED (${nfes.length} NFes)';
   }
 
-  /// Cria uma cópia do estado com valores opcionalmente alterados
+  /// Cria uma cópia do estado com valores opcionalmente alterados.
+  ///
+  /// `selected` e `errorMessage` aceitam `null` para limpar o campo; sem
+  /// argumento, mantêm o valor atual (por isso o sentinela `_naoInformado`).
   NfeState copyWith({
     List<NfeModel>? nfes,
-    NfeModel? selected,
+    Object? selected = _naoInformado,
     bool? isLoading,
-    String? errorMessage,
+    Object? errorMessage = _naoInformado,
     int? currentPage,
     int? pageSize,
   }) {
     return NfeState(
       nfes: nfes ?? this.nfes,
-      selected: selected ?? this.selected,
+      selected: identical(selected, _naoInformado) ? this.selected : selected as NfeModel?,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: identical(errorMessage, _naoInformado)
+          ? this.errorMessage
+          : errorMessage as String?,
       currentPage: currentPage ?? this.currentPage,
       pageSize: pageSize ?? this.pageSize,
     );

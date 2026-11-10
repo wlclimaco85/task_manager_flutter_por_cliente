@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:file_saver/file_saver.dart';
+import 'package:task_manager_flutter/utils/file_saver_compat.dart';
 import 'package:flutter/material.dart';
 import '../../customization/dynamic_grid_windows_screen.dart';
 import '../../services/nfse_caller.dart';
@@ -8,6 +8,8 @@ import '../../utils/api_links.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/grid_colors.dart';
 import '../../utils/tenant_context.dart';
+import '../../widgets/nfse_auditoria_timeline_dialog.dart';
+import '../../widgets/nfse_faturar_dialog.dart';
 import '../../widgets/generic_grid_windows_screen.dart'
     show CustomAction, BulkAction;
 import '../../widgets/searchable_dropdown.dart';
@@ -281,13 +283,6 @@ class _NfseScreenState extends State<NfseScreen> {
     ).then((_) => setState(() => _resultadoCancelamento = null));
   }
 
-  void _showAuditoriaDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (_) => _AuditoriaDialog(caller: _caller),
-    );
-  }
 
   void _consultarLinha(Map<String, dynamic> item) {
     _consultaCtrl.text = _nfseNumero(item);
@@ -297,6 +292,50 @@ class _NfseScreenState extends State<NfseScreen> {
   void _cancelarLinha(Map<String, dynamic> item) {
     _cancelNumeroCtrl.text = _nfseNumero(item);
     _showCancelamentoDialog();
+  }
+
+  /// Abre a linha do tempo de auditoria da NFS-e escolhida na grade.
+  void _showAuditoriaNota(BuildContext context, Map<String, dynamic> item) {
+    final id = item['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => NfseAuditoriaTimelineDialog(nfseId: id, numero: _nfseNumero(item)),
+    );
+  }
+
+  /// Consulta a NFS-e no Portal Nacional. Se estiver cancelada la, o sistema e sincronizado
+  /// pelo mesmo caminho do cancelamento (titulos e mensalidade desfeitos) e a grade recarrega.
+  Future<void> _consultarStatusPortalLinha(
+      BuildContext context, Map<String, dynamic> item) async {
+    final id = item['id']?.toString() ?? '';
+    if (id.isEmpty) return;
+    try {
+      final response =
+          await TenantContext.post(ApiLinks.consultarStatusPortalNfse(id), {});
+      if (!context.mounted) return;
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final canceladaNoPortal = body['canceladaNoPortal'] == true;
+        if (canceladaNoPortal) _dynamicGridKey.currentState?.reload();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(body['detalhe']?.toString() ?? 'Consulta concluida.'),
+          backgroundColor: GridColors.success,
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Nao foi possivel consultar: ${response.body}'),
+          backgroundColor: GridColors.error,
+        ));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erro ao consultar status: $e'),
+          backgroundColor: GridColors.error,
+        ));
+      }
+    }
   }
 
   Future<void> _confirmarLinha(
@@ -361,7 +400,7 @@ class _NfseScreenState extends State<NfseScreen> {
         CustomAction<Map<String, dynamic>>(
           icon: Icons.manage_search,
           label: 'Consultar status',
-          onPressed: (context, item) => _consultarLinha(item),
+          onPressed: (context, item) => _consultarStatusPortalLinha(context, item),
         ),
         CustomAction<Map<String, dynamic>>(
           icon: Icons.cancel_outlined,
@@ -384,7 +423,7 @@ class _NfseScreenState extends State<NfseScreen> {
         CustomAction<Map<String, dynamic>>(
           icon: Icons.history,
           label: 'Auditoria',
-          onPressed: (context, item) => _showAuditoriaDialog(),
+          onPressed: (context, item) => _showAuditoriaNota(context, item),
         ),
       ];
 
@@ -568,6 +607,7 @@ class _NfseScreenState extends State<NfseScreen> {
         AppLogger.i.error('Ação em massa "Enviar" NFS-e #$id: $e', st);
       }
     }
+    _dynamicGridKey.currentState?.reload(); // status mudou no servidor (ex.: REJEITADA)
     if (!context.mounted) return;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
@@ -580,9 +620,11 @@ class _NfseScreenState extends State<NfseScreen> {
       ));
   }
 
-  /// Cancela (`POST /api/fiscal/nfse/cancelar`) item a item, pedindo o motivo
-  /// UMA ÚNICA VEZ (aplicado a todas as selecionadas) — mesmo endpoint/corpo
-  /// usado por `nfse_detail_screen.dart._cancelarNfse`.
+  /// Cancela (`POST /api/nfse/{id}/cancelar-nacional`) item a item, pedindo o
+  /// motivo UMA ÚNICA VEZ (aplicado a todas as selecionadas) — mesmo endpoint
+  /// real usado por `nfse_detail_screen.dart._cancelarNfse` (bug real
+  /// 2026-10-06: endpoint legado `/api/fiscal/nfse/cancelar` dava 403 sempre
+  /// e usava adapter mockado; ver bugs.md).
   Future<void> _bulkCancelar(
     BuildContext context,
     List<Map<String, dynamic>> items,
@@ -642,13 +684,23 @@ class _NfseScreenState extends State<NfseScreen> {
         continue;
       }
       try {
-        final r = await TenantContext.post(ApiLinks.nfseCancelar, {
-          'empresaId': item['empresaId'],
-          'municipio': item['municipioPrestacao'] ?? item['municipio'],
-          'nfseNumber': item['numero'],
-          'motivo': motivo,
-          'nfseId': int.tryParse(id),
-        });
+        // Bug real (2026-10-06, ver bugs.md): o endpoint legado
+        // POST /api/fiscal/nfse/cancelar (NfseAppController/NfseFacade) exige
+        // 'empresaId' no corpo (@NotNull), mas o item da grid so' tem o campo
+        // aninhado 'empresa': {'id': ...} -- nunca um 'empresaId' plano. O
+        // corpo sempre ia com empresaId=null; como nao ha' validacao Bean
+        // Validation no classpath (@Valid vira no-op), isso nunca dava 400 --
+        // ia direto pro @PreAuthorize, que chama tenantSecurity.canAccess(null)
+        // => sempre false => 403 "Acesso negado" pra TODO cancelamento. Alem
+        // disso esse endpoint usa o adapter MOCKADO (SafeMockAdapter), entao
+        // mesmo corrigindo o corpo ele so' fingiria cancelar sem avisar a
+        // prefeitura -- risco real de imposto gerado numa nota "cancelada".
+        // Trocado pelo endpoint real ja' testado em producao contra o WebISS
+        // Uberaba (POST /api/nfse/{id}/cancelar-nacional, bugs.md 2026-10-05).
+        final r = await TenantContext.post(
+          '${ApiLinks.cancelarNfseNacional(id)}?motivo=${Uri.encodeComponent(motivo)}',
+          {},
+        );
         if (r.statusCode == 200 || r.statusCode == 201) {
           ok++;
         } else {
@@ -661,6 +713,7 @@ class _NfseScreenState extends State<NfseScreen> {
         AppLogger.i.error('Ação em massa "Cancelar" NFS-e #$id: $e', st);
       }
     }
+    _dynamicGridKey.currentState?.reload(); // status mudou no servidor (ex.: REJEITADA)
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(falhas.isEmpty
@@ -694,6 +747,13 @@ class _NfseScreenState extends State<NfseScreen> {
             ),
           ),
           const Spacer(),
+          IconButton(
+            key: const Key('nfse_faturar_botao'),
+            icon: const Icon(Icons.request_quote, color: Colors.white),
+            tooltip: 'Faturar',
+            onPressed: () => showNfseFaturarDialog(context,
+                onConcluido: () => _dynamicGridKey.currentState?.reload()),
+          ),
           IconButton(
             icon: Icon(
               _filtrosVisiveis ? Icons.filter_alt : Icons.filter_alt_outlined,
@@ -912,15 +972,6 @@ class _NfseScreenState extends State<NfseScreen> {
             icon: Icons.cancel_outlined,
             label: 'Cancelar NFSe',
             backgroundColor: GridColors.error,
-            foregroundColor: Colors.white,
-            height: 36,
-          ),
-          const SizedBox(height: 8),
-          _actionBtn(
-            onPressed: _showAuditoriaDialog,
-            icon: Icons.history,
-            label: 'Auditoria',
-            backgroundColor: Colors.grey.shade700,
             foregroundColor: Colors.white,
             height: 36,
           ),

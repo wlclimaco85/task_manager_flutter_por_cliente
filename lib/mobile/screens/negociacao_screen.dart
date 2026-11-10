@@ -4,7 +4,7 @@ import '../../../utils/api_links.dart';
 import '../../../utils/fotos_util.dart';
 import '../screens/update_profile.dart';
 import '../../../widgets/user_banners.dart';
-import '../screens/checkoutscreen.dart';
+import '../screens/checkoutScreen.dart';
 import '../../constants/custom_colors.dart';
 import '../../utils/grid_texts.dart';
 

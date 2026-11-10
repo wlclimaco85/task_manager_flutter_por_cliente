@@ -397,7 +397,7 @@ class NfceService {
     // 5xx...) - a tela mostrava "Nenhum produto encontrado" sem pista do erro.
     if (statusPdv == 200) {
       // PDV respondeu 200 sem itens e o fallback tambem nao trouxe: lista vazia real.
-      return ResultadoPaginadoSpring(
+      return const ResultadoPaginadoSpring(
         itens: [],
         totalElements: 0,
         isLast: true,

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import '../utils/valor_digitado_utils.dart';
+import '../utils/nfse_faturar_utils.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
@@ -532,7 +532,7 @@ class _GenericDetailFormScreenState extends State<GenericDetailFormScreen>
         if (key == 'valorMensal' || key == 'valor_mensal' || key == 'valor') {
           // Texto pode vir do backend como "1097.47" (ponto = decimal) ou da
           // mascara como "1.097,47": so remove o ponto se houver virgula decimal.
-          final numVal = parseValorDigitado(
+          final numVal = nfseParseValorDigitado(
               text.replaceAll('R\$', '').replaceAll(' ', ''));
           body[key] = numVal ?? text;
         } else if (key == 'diaVencimentoMensalidade' ||

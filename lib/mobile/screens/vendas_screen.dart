@@ -6,7 +6,7 @@ import '../../../utils/api_links.dart';
 import '../../../models/network_response.dart';
 import '../../services/network_caller.dart';
 import '../screens/update_profile.dart';
-import '../screens/checkoutscreen.dart';
+import '../screens/checkoutScreen.dart';
 import '../screens/ProdutoDetailsScreen.dart';
 import '../../../widgets/user_banners.dart';
 import '../../../widgets/negotiationDialog.dart';

@@ -6,7 +6,7 @@ import '../../services/network_caller.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import '../../../models/noticias_model.dart';
-import '../screens/NewsDetailScreen.dart';
+import '../screens/newsDetailScreen.dart';
 import '../../../widgets/user_banners.dart';
 import '../screens/update_profile.dart';
 import '../../constants/custom_colors.dart';

@@ -1070,10 +1070,28 @@ class ApiLinks {
       '$_baseUrlNew/api/nfse/$nfseId/danfse';
   static String cancelarNfseNacional(String nfseId) =>
       '$_baseUrlNew/api/nfse/$nfseId/cancelar-nacional';
+  static String consultarStatusPortalNfse(String nfseId) =>
+      '$_baseUrlNew/api/nfse/$nfseId/consultar-status-portal';
+  static String historicoNfse(String nfseId) =>
+      '$_baseUrlNew/api/nfse/$nfseId/historico';
+  /// Logo do DANFSe da empresa (envio multipart, campo "arquivo").
+  static String nfseLogoEmpresa(String empresaId) =>
+      '$_baseUrlNew/api/nfse/logo/empresa/$empresaId';
+  /// Logo do DANFSe do parceiro (envio multipart, campo "arquivo").
+  static String nfseLogoParceiro(String parceiroId) =>
+      '$_baseUrlNew/api/nfse/logo/parceiro/$parceiroId';
+  // Acao "Faturar" da NFS-e (mensalidade + contas + GED + emissao numa transacao)
+  static String get nfseFaturar => '$_baseUrlNew/api/nfse/faturar';
+  static String nfseFaturarResumo(int tomadorId, int mes, int ano) =>
+      '$_baseUrlNew/api/nfse/faturar/resumo?tomadorId=$tomadorId&mes=$mes&ano=$ano';
   static String aceitarNfe(String nfeId) =>
       '$_baseUrlNew/api/nfe/$nfeId/aceitar';
   static String recusarNfe(String nfeId) =>
       '$_baseUrlNew/api/nfe/$nfeId/recusar';
+  static String devolverNfe(String nfeId) =>
+      '$_baseUrlNew/api/nfe/$nfeId/devolver';
+  static String emailNfe(String nfeId) =>
+      '$_baseUrlNew/api/nfe/$nfeId/enviar-email';
   // Busca parceiro por CNPJ/CPF (usado pelo filtro de NF-e por parceiro/destinatario)
   static String buscarParceiroPorCnpj(String cpfCnpj) =>
       '$_baseUrlNew/api/parceiro?cpfCnpj=$cpfCnpj&tamanho=1';

@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import '../../services/vendas_caller.dart';
 import '../../../models/venda_model.dart';
-import '../screens/checkoutscreen.dart';
+import '../screens/checkoutScreen.dart';
 import '../../../widgets/negotiationDialog.dart';
 import '../../../models/auth_utility.dart';
 import '../../constants/custom_colors.dart';

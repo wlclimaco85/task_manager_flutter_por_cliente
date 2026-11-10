@@ -31,6 +31,11 @@ class _SystemTestRunPanelState extends State<SystemTestRunPanel> {
 
   static const _groups = <String, String>{
     'FITNESS_DOCUMENTOS': 'Fitness: fichas e histórico',
+    'FITNESS_ACADEMIA_DONO': 'Fitness: cadastro do dono de academia',
+    'FITNESS_CADASTRO_INICIAL': 'Fitness: cadastro inicial do aluno (foto e medidas)',
+    'FITNESS_METAS_CATALOGO': 'Fitness: catalogo de metas sugeridas (leitura)',
+    'FITNESS_ACADEMIA_FINANCEIRO': 'Fitness: financeiro da academia (baixa e pendências)',
+    'FITNESS_DASHBOARD': 'Fitness: dashboard do personal e da academia (leitura)',
     'FITNESS_PERSONAL': 'Fitness: gestão do personal e vínculo de alunos',
     'FASE_1': 'Fase 1',
     'FASE_2': 'Fase 2',
@@ -43,6 +48,7 @@ class _SystemTestRunPanelState extends State<SystemTestRunPanel> {
     'TRADING': 'Bolsa de valores',
     'GME': 'GME',
     'TRIAL_REQUEST': 'Trial Request',
+    'ACESSOS': 'Acessos (painel do dono)',
     'TODOS': 'Tudo: fases 1 e 2',
   };
 

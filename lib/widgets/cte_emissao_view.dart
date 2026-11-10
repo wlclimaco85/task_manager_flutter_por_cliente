@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/network_caller.dart';
 import '../utils/api_links.dart';
 import '../utils/app_logger.dart';
-import 'package:file_saver/file_saver.dart';
+import '../utils/file_saver_compat.dart';
 import '../utils/tenant_context.dart';
 import 'mdfe_emissao_view.dart' show extrairChaves, listaMdfeDe;
 

@@ -14,6 +14,7 @@ import '../../../widgets/automacao_fiscal_screen.dart';
 import '../../../widgets/importacao_sintegra_card.dart';
 import '../../../widgets/importacao_sped_card.dart';
 import '../../../widgets/nfse_servidor_config_card.dart';
+import '../../../widgets/reprocessar_nfe_receita_card.dart';
 import '../../../widgets/searchable_dropdown.dart';
 import 'defaults_importacao_screen.dart';
 
@@ -153,6 +154,8 @@ class _ConfiguracoesSistemaScreenState
           _ImportacaoSection(baseUrl: ApiLinks.baseUrl),
           const SizedBox(height: 20),
           _section('Importacao Fiscal', Icons.receipt_long_outlined, [
+            ReprocessarNfeReceitaCard(baseUrl: ApiLinks.baseUrl),
+            const SizedBox(height: 12),
             ImportacaoSintegraCard(baseUrl: ApiLinks.baseUrl),
             const SizedBox(height: 12),
             ImportacaoSpedCard(baseUrl: ApiLinks.baseUrl),
@@ -774,6 +777,11 @@ class _ConfiguracoesSistemaScreenState
       setState(() => _loading['seed'] = false);
     }
   }
+
+  void _reprocessarNfesIncompletas() => _executar(
+      'reprocessar_nfe_receita',
+      () => TenantContext.post(
+          '${ApiLinks.baseUrl}/api/nfe/receita/reprocessar-incompletas', {}));
 
   Future<void> _executar(String id, Future<dynamic> Function() fn) async {
     setState(() => _loading[id] = true);

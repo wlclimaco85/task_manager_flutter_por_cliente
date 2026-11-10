@@ -654,6 +654,9 @@ class _SearchDialogState extends State<_SearchDialog> {
     } else {
       _filtered = List<Map<String, dynamic>>.from(widget.items);
       _ordenarAlfabetico(_filtered);
+      if (widget.onSearch != null && widget.items.isEmpty) {
+        _onSearchRemote('');
+      }
     }
   }
 
@@ -780,7 +783,7 @@ class _SearchDialogState extends State<_SearchDialog> {
     final query = q.trim();
     _debounce?.cancel();
 
-    if (query.isEmpty) {
+    if (query.isEmpty && widget.items.isNotEmpty) {
       _searchToken++;
       setState(() {
         _loading = false;
@@ -791,8 +794,10 @@ class _SearchDialogState extends State<_SearchDialog> {
     }
 
     setState(() => _loading = true);
-    _debounce = Timer(const Duration(milliseconds: 350), () async {
-      final token = ++_searchToken;
+    _debounce = Timer(
+      Duration(milliseconds: query.isEmpty ? 0 : 350),
+      () async {
+        final token = ++_searchToken;
       try {
         final resultado = await widget.onSearch!(query);
         if (!mounted || token != _searchToken) return;

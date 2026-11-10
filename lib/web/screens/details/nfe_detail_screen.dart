@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
-import 'package:file_saver/file_saver.dart';
+import 'package:task_manager_flutter/utils/file_saver_compat.dart';
 import 'package:flutter/material.dart';
 import '../../../utils/grid_colors.dart';
 import '../../../customization/dynamic_grid_windows_screen.dart';
@@ -1159,6 +1159,8 @@ class _State extends State<NfeSankhyaDetailScreen> {
       ];
 
   List<Widget> _actionsEntrada() => [
+        _appBarBtn(Icons.cloud_download_outlined, 'Buscar XML SEFAZ',
+            _buscandoXmlSefaz ? null : () => _buscarXmlSefaz()),
         _appBarBtn(Icons.upload_file, 'Importar XML', () => _importarXml()),
         _isRascunhoImportacao
             ? _appBarBtn(Icons.check_circle_outline, 'Confirmar Entrada',
@@ -1448,6 +1450,53 @@ class _State extends State<NfeSankhyaDetailScreen> {
 
   // ── Ações NF-e ENTRADA ────────────────────────────────────────────────────
 
+  bool _buscandoXmlSefaz = false;
+
+  Future<void> _recarregarTudo() async {
+    await _recarregarCabecalhoNfe();
+    await _loadItens();
+    await _loadContas();
+    await _loadPagamentos();
+    await _recarregarProdutos();
+  }
+
+  Future<void> _buscarXmlSefaz() async {
+    if (_nfeId.isEmpty || _buscandoXmlSefaz) return;
+    setState(() => _buscandoXmlSefaz = true);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Buscando XML completo na SEFAZ (Ciência da Emissão)...'),
+      duration: Duration(seconds: 4),
+    ));
+    try {
+      final r = await TenantContext.post(
+        '${ApiLinks.baseUrl}/api/nfe/$_nfeId/buscar-xml-sefaz',
+        {},
+      );
+      if (!mounted) return;
+      if (r.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text('XML e itens atualizados com sucesso da SEFAZ!'),
+          backgroundColor: _green,
+        ));
+        await _recarregarTudo();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Não foi possível obter o XML da SEFAZ (${r.statusCode}). Verifique o certificado.'),
+          backgroundColor: _red,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Erro ao conectar com a SEFAZ: $e'),
+          backgroundColor: _red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _buscandoXmlSefaz = false);
+    }
+  }
+
   Future<void> _importarXml() async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
@@ -1470,6 +1519,9 @@ class _State extends State<NfeSankhyaDetailScreen> {
               ? 'XML importado com sucesso!'
               : 'Erro ${r.statusCode}. Tente novamente.'),
           backgroundColor: r.statusCode == 200 ? _green : _red));
+      if (r.statusCode == 200) {
+        await _recarregarTudo();
+      }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

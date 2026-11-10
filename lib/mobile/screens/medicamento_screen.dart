@@ -6,8 +6,8 @@ import '../screens/update_profile.dart';
 import '../../../models/network_response.dart';
 import '../../services/network_caller.dart';
 import '../../../widgets/input_field_busca.dart';
-import '../screens/Medicamento_add.dart';
-import '../screens/Medicamento_list.dart';
+import '../screens/medicamento_add.dart';
+import '../screens/medicamento_list.dart';
 import '../../../models/auth_utility.dart';
 import '../../../models/login_model.dart';
 

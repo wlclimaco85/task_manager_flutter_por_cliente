@@ -6,7 +6,9 @@ import 'package:task_manager_flutter/models/auth_utility.dart';
 import 'package:task_manager_flutter/models/empresa_model.dart';
 import 'package:task_manager_flutter/models/regime_tributario_model.dart';
 import 'package:task_manager_flutter/services/network_caller.dart';
+import 'package:task_manager_flutter/services/nfse_logo_service.dart';
 import 'package:task_manager_flutter/utils/api_links.dart';
+import 'package:task_manager_flutter/utils/app_logger.dart';
 import 'package:task_manager_flutter/utils/grid_colors.dart';
 import 'package:task_manager_flutter/widgets/edit_form_helpers.dart';
 import 'package:task_manager_flutter/widgets/searchable_dropdown.dart';
@@ -146,11 +148,6 @@ class _EmpresaEditScreenState extends State<EmpresaEditScreen> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
     try {
-      if (_logo != null) {
-        // Upload de logo não disponível nesta versão — ignorado
-        debugPrint('Upload de logo: funcionalidade pendente de integração');
-      }
-
       final body = {
         'id': safeToInt(widget.initialData['id']),
         'nome': _nome.text.trim(),
@@ -180,6 +177,29 @@ class _EmpresaEditScreenState extends State<EmpresaEditScreen> {
 
       if (!mounted) return;
       Navigator.pop(context);
+
+      // Logo do DANFSe escolhida no formulario: envio separado (endpoint de logo da empresa).
+      if (resp.isSuccess && _logo != null) {
+        // Leitura fora do catch geral: falha aqui nao fecha a tela de novo.
+        List<int>? bytes;
+        try {
+          bytes = await _logo!.readAsBytes();
+        } catch (e, st) {
+          AppLogger.i.error('[NFSE-LOGO] falha ao ler a imagem escolhida: $e', st);
+          bytes = null;
+        }
+        final erroLogo = bytes == null
+            ? 'nao foi possivel ler a imagem escolhida.'
+            : await NfseLogoService.enviarEmpresa(
+                int.parse(widget.initialData['id'].toString()),
+                bytes,
+                _logo!.path.split(RegExp(r'[\\/]')).last);
+        if (erroLogo != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Empresa salva, mas a logo do DANFSe nao foi enviada: $erroLogo'),
+          ));
+        }
+      }
 
       if (resp.isSuccess) {
         final refreshed = await NetworkCaller()

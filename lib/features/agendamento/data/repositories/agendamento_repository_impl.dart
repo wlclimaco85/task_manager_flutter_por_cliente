@@ -1,4 +1,5 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:task_manager_flutter/features/agendamento/data/models/agendamento_model.dart';
@@ -8,7 +9,6 @@ import 'package:task_manager_flutter/features/agendamento/domain/repositories/ag
 /// Implementação concreta do repositório com offline-first + optimistic update
 class AgendamentoRepositoryImpl implements AgendamentoRepository {
   final Dio dio;
-  final Connectivity connectivity;
   late final Box<AgendamentoModel> offlineBox;
 
   static const String _offlineBoxName = 'agendamentos_offline';
@@ -16,7 +16,6 @@ class AgendamentoRepositoryImpl implements AgendamentoRepository {
 
   AgendamentoRepositoryImpl({
     required this.dio,
-    required this.connectivity,
   });
 
   Future<void> initializeHive() async {
@@ -184,8 +183,13 @@ class AgendamentoRepositoryImpl implements AgendamentoRepository {
 
   @override
   Future<bool> isOnline() async {
-    final result = await connectivity.checkConnectivity();
-    return result != ConnectivityResult.none;
+    try {
+      final result = await InternetAddress.lookup('google.com')
+          .timeout(const Duration(seconds: 3));
+      return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
   }
 }
 

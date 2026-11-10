@@ -1,4 +1,3 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -35,7 +34,6 @@ class _AgendamentoModuleScreenState extends State<AgendamentoModuleScreen> {
         baseUrl: ApiLinks.baseUrl,
         headers: TenantContext.jsonHeaders,
       )),
-      connectivity: Connectivity(),
     );
     _initFuture = _repository.initializeHive();
   }

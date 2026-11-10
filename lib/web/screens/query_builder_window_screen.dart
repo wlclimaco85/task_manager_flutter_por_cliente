@@ -205,12 +205,27 @@ class _QueryBuilderWindowScreenState extends State<QueryBuilderWindowScreen> {
       final cols = dados['colunas'];
       if (cols is List) {
         _colunasResultado = cols.map((c) {
-          final base = c is Map<String, dynamic>
-              ? Map<String, dynamic>.from(c)
-              : {'nome': c.toString()};
-          base['nome'] ??= base['column_name']?.toString();
-          base['tipo'] ??= base['data_type']?.toString();
-          return base;
+          if (c is Map) {
+            final m = Map<String, dynamic>.from(c);
+            final nome =
+                (m['column_name'] ?? m['nome'] ?? m['name'] ?? '?').toString();
+            final tipo =
+                (m['data_type'] ?? m['tipo'] ?? m['type'] ?? '').toString();
+            return {
+              ...m,
+              'nome': nome,
+              'column_name': nome,
+              'tipo': tipo,
+              'data_type': tipo,
+            };
+          }
+          final str = c.toString();
+          return {
+            'nome': str,
+            'column_name': str,
+            'tipo': '',
+            'data_type': '',
+          };
         }).toList();
       } else {
         _colunasResultado = [];
@@ -222,10 +237,10 @@ class _QueryBuilderWindowScreenState extends State<QueryBuilderWindowScreen> {
         _linhasResultado = linhas.map((linha) {
           if (linha is List) return linha;
           if (linha is Map<String, dynamic>) {
-            return _colunasResultado
-                .map((c) =>
-                    linha.containsKey(c['nome']) ? linha[c['nome']] : null)
-                .toList();
+            return _colunasResultado.map((c) {
+              final k = c['column_name'] ?? c['nome'];
+              return linha.containsKey(k) ? linha[k] : null;
+            }).toList();
           }
           return <dynamic>[];
         }).toList();

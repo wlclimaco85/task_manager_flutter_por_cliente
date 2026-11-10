@@ -65,6 +65,7 @@ class DynamicGridDynamicScreen extends StatefulWidget {
       transformFormData;
   final List<FieldConfig>? fieldOverrides;
   final List<CustomAction> Function()? customActions;
+  final List<Widget>? headerActions;
   final String? fetchEndpointOverride;
   final String? createEndpointOverride;
   final String? updateEndpointOverride;
@@ -99,6 +100,7 @@ class DynamicGridDynamicScreen extends StatefulWidget {
     this.transformFormData,
     this.fieldOverrides,
     this.customActions,
+    this.headerActions,
     this.fetchEndpointOverride,
     this.createEndpointOverride,
     this.updateEndpointOverride,
@@ -925,6 +927,7 @@ class _DynamicGridDynamicScreenState extends State<DynamicGridDynamicScreen> {
               dynamicAdditionalFormData: widget.dynamicAdditionalFormData,
               transformFormData: widget.transformFormData,
               customActions: widget.customActions,
+              headerActions: widget.headerActions,
               serverActions: serverActions,
             );
           },
