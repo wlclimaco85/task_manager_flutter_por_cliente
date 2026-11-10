@@ -233,11 +233,17 @@ Future<Map<String, dynamic>?> cadastrarClientePorDocumento(
           montarPayloadParceiroAutomacaoFiscal(payload),
         );
         final texto = resp.body?.toString().toLowerCase() ?? '';
-        if (!resp.isSuccess && !texto.contains('existe')) {
+        if (!resp.isSuccess && resp.statusCode != 409) {
           AppLogger.i.warn(
               '[BOLETO-PDF] cadastro do cliente $doc falhou (status ${resp.statusCode})');
         }
-        return resp.isSuccess || texto.contains('existe');
+        // so duplicidade conta como sucesso (conflito 409 ou mensagem de cadastro ja existente)
+        return resp.isSuccess ||
+            resp.statusCode == 409 ||
+            texto.contains('já existe') ||
+            texto.contains('ja existe') ||
+            texto.contains('já cadastrad') ||
+            texto.contains('ja cadastrad');
       },
       onSaved: () => salvou = true,
     ),
@@ -255,7 +261,11 @@ Future<Map<String, dynamic>?> cadastrarClientePorDocumento(
       return item;
     }
   }
-  return r.items.isNotEmpty ? r.items.first : null;
+  // Nao achou o parceiro recem salvo: NUNCA assume outro da lista (vincularia o boleto a quem nao e).
+  if (context.mounted) {
+    _snack(context, 'Cadastro salvo. Selecione o cliente/fornecedor na lista para continuar.');
+  }
+  return null;
 }
 
 class BoletoPdfCaller {

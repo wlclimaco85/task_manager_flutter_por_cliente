@@ -300,13 +300,18 @@ Map<String, dynamic> montarCorpoEmissaoCte({
 /// Lista `/api/cte`, emite, e permite consultar, imprimir o DACTE, ver eventos,
 /// enviar carta de correcao, cancelar e excluir (so homologacao).
 class CteEmissaoView extends StatefulWidget {
-  const CteEmissaoView({super.key});
+  /// Permissao por acao (create/edit/delete) vinda do SecurityMatrix; nulo = tudo permitido.
+  final bool Function(String acao)? hasPermission;
+
+  const CteEmissaoView({super.key, this.hasPermission});
 
   @override
   State<CteEmissaoView> createState() => _CteEmissaoViewState();
 }
 
 class _CteEmissaoViewState extends State<CteEmissaoView> {
+  bool _pode(String acao) => widget.hasPermission?.call(acao) ?? true;
+
   final _net = NetworkCaller();
   List<Map<String, dynamic>> _itens = [];
   bool _loading = true;
@@ -576,6 +581,7 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
                   tooltip: 'Atualizar',
                   onPressed: _carregar,
                   icon: const Icon(Icons.refresh)),
+              if (_pode('create'))
               FilledButton.icon(
                 onPressed: _novo,
                 icon: const Icon(Icons.add),
@@ -668,17 +674,17 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
                     onPressed: () => _eventos(c),
                     icon: const Icon(Icons.history, size: 18),
                     label: const Text('Eventos')),
-                if (autorizado)
+                if (autorizado && _pode('edit'))
                   OutlinedButton.icon(
                       onPressed: () => _cartaCorrecao(c),
                       icon: const Icon(Icons.edit_note, size: 18),
                       label: const Text('Carta de correção')),
-                if (autorizado)
+                if (autorizado && _pode('edit'))
                   OutlinedButton.icon(
                       onPressed: () => _cancelar(c),
                       icon: const Icon(Icons.cancel_outlined, size: 18),
                       label: const Text('Cancelar')),
-                if (homolog)
+                if (homolog && _pode('delete'))
                   TextButton.icon(
                       onPressed: () => _excluir(c),
                       icon: const Icon(Icons.delete_outline, size: 18),

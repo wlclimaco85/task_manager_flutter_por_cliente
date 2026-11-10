@@ -1785,13 +1785,23 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
       case "MDF-e":
         nav = Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const MobileMdfeEmissaoScreen()),
+          MaterialPageRoute(
+            builder: (_) => MobileMdfeEmissaoScreen(
+              hasPermission: (action) =>
+                  _hasPermissionFor(sec, AppScreen.transporteMdfe, action),
+            ),
+          ),
         );
         break;
       case "CT-e":
         nav = Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const MobileCteEmissaoScreen()),
+          MaterialPageRoute(
+            builder: (_) => MobileCteEmissaoScreen(
+              hasPermission: (action) =>
+                  _hasPermissionFor(sec, AppScreen.transporteCte, action),
+            ),
+          ),
         );
         break;
       case "Séries NFS-e":

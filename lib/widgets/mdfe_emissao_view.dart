@@ -429,13 +429,18 @@ List<Map<String, dynamic>> listaMdfeDe(Map<String, dynamic>? body) {
 /// Lista `/api/mdfe`, emite pelo cadastro de veiculos/motoristas e permite
 /// consultar, cancelar, encerrar, ver eventos e excluir (so homologacao).
 class MdfeEmissaoView extends StatefulWidget {
-  const MdfeEmissaoView({super.key});
+  /// Permissao por acao (create/edit/delete) vinda do SecurityMatrix; nulo = tudo permitido.
+  final bool Function(String acao)? hasPermission;
+
+  const MdfeEmissaoView({super.key, this.hasPermission});
 
   @override
   State<MdfeEmissaoView> createState() => _MdfeEmissaoViewState();
 }
 
 class _MdfeEmissaoViewState extends State<MdfeEmissaoView> {
+  bool _pode(String acao) => widget.hasPermission?.call(acao) ?? true;
+
   final _net = NetworkCaller();
   List<Map<String, dynamic>> _itens = [];
   bool _loading = true;
@@ -690,6 +695,7 @@ class _MdfeEmissaoViewState extends State<MdfeEmissaoView> {
                   tooltip: 'Atualizar',
                   onPressed: _carregar,
                   icon: const Icon(Icons.refresh)),
+              if (_pode('create'))
               FilledButton.icon(
                 onPressed: _novo,
                 icon: const Icon(Icons.add),
@@ -779,17 +785,17 @@ class _MdfeEmissaoViewState extends State<MdfeEmissaoView> {
                     onPressed: () => _eventos(m),
                     icon: const Icon(Icons.history, size: 18),
                     label: const Text('Eventos')),
-                if (autorizado)
+                if (autorizado && _pode('edit'))
                   OutlinedButton.icon(
                       onPressed: () => _encerrar(m),
                       icon: const Icon(Icons.flag, size: 18),
                       label: const Text('Encerrar')),
-                if (autorizado)
+                if (autorizado && _pode('edit'))
                   OutlinedButton.icon(
                       onPressed: () => _cancelar(m),
                       icon: const Icon(Icons.cancel_outlined, size: 18),
                       label: const Text('Cancelar')),
-                if (homolog)
+                if (homolog && _pode('delete'))
                   TextButton.icon(
                       onPressed: () => _excluir(m),
                       icon: const Icon(Icons.delete_outline, size: 18),
