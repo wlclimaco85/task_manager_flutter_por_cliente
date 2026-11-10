@@ -1,3 +1,6 @@
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, kDebugMode, kIsWeb, TargetPlatform, visibleForTesting;
+
 class ApiLinks {
   ApiLinks._();
 
@@ -9,10 +12,14 @@ class ApiLinks {
   // "Unsupported operation: String.fromEnvironment can only be used as a
   // const constructor". Precisa ficar const mesmo com o resto da cadeia
   // (_baseIp em diante) sendo final.
-  static const String _backendUrl = String.fromEnvironment(
-    'BACKEND_URL',
-    defaultValue: 'https://appacademia-production-be7e.up.railway.app',
-  );
+  static const String _backendUrlDefine = String.fromEnvironment('BACKEND_URL');
+
+  // Defaults (ver resolverBackend). Producao: Railway, https, atende na raiz.
+  static const String _railwayUrl =
+      'https://appacademia-production-be7e.up.railway.app';
+  // Backend local do dev (AppAcademia_Tudo.bat sobe na 9001 com context-path /boletobancos).
+  static const String _localUrl = 'http://127.0.0.1:9001';
+  static const String _localContextPath = '/boletobancos';
 
   // Context-path do backend: server.servlet.context-path=/boletobancos em
   // TODOS os perfis (application.properties, que se aplica sempre, e
@@ -39,10 +46,53 @@ class ApiLinks {
   // Railway atende na raiz: /boletobancos/... devolve 308 para /... e o app
   // não seguia esse redirect (aparecia 308 na tela). Para backend local
   // (ex.: 127.0.0.1:9001) passe --dart-define=BACKEND_CONTEXT_PATH=/boletobancos.
-  static const String _backendContextPath = String.fromEnvironment(
+  // Sentinela: BACKEND_CONTEXT_PATH nao informado => decidir pelo tipo de backend (resolverBackend).
+  // Informado (inclusive vazio) sempre vale.
+  static const String _contextPathAuto = '__auto__';
+  static const String _backendContextPathDefine = String.fromEnvironment(
     'BACKEND_CONTEXT_PATH',
-    defaultValue: '',
+    defaultValue: _contextPathAuto,
   );
+
+  /// Dev local sem --dart-define: web em debug aberto em localhost/127.0.0.1 ou Windows desktop em debug.
+  /// Android/iOS continuam no Railway (o celular nao enxerga o 127.0.0.1 do PC) ate alguem passar BACKEND_URL.
+  static bool _ehDesenvolvimentoLocal() {
+    if (!kDebugMode) return false;
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      return host == 'localhost' || host == '127.0.0.1';
+    }
+    return defaultTargetPlatform == TargetPlatform.windows;
+  }
+
+  /// Decide o backend e o context-path.
+  /// - BACKEND_URL informado vale; senao, dev local => backend local; senao Railway (producao, sem mudanca).
+  /// - Context-path: BACKEND_CONTEXT_PATH informado vale; senao backend http:// (local, sem TLS) usa
+  ///   /boletobancos (server.servlet.context-path) e https:// (Railway) usa raiz.
+  @visibleForTesting
+  static List<String> resolverBackend({
+    required String urlDefine,
+    required String contextPathDefine,
+    required bool desenvolvimentoLocal,
+  }) {
+    final url = urlDefine.isNotEmpty
+        ? urlDefine
+        : (desenvolvimentoLocal ? _localUrl : _railwayUrl);
+    final contextPath = contextPathDefine != _contextPathAuto
+        ? contextPathDefine
+        : (url.startsWith('http://') && !url.endsWith(_localContextPath)
+            ? _localContextPath
+            : '');
+    return [url, contextPath];
+  }
+
+  static final List<String> _backend = resolverBackend(
+    urlDefine: _backendUrlDefine,
+    contextPathDefine: _backendContextPathDefine,
+    desenvolvimentoLocal: _ehDesenvolvimentoLocal(),
+  );
+  static final String _backendUrl = _backend[0];
+  static final String _backendContextPath = _backend[1];
   static final String _baseIp = '$_backendUrl$_backendContextPath';
 
   // WebSocket: converte http→ws e https→wss

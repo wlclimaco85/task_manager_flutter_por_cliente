@@ -19,14 +19,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:task_manager_flutter/utils/api_links.dart';
 
-const String _backendUsadoNoBuild = String.fromEnvironment(
-  'BACKEND_URL',
-  defaultValue: 'https://appacademia-production-be7e.up.railway.app',
+// Mesma regra do ApiLinks (flutter test nao e web nem Windows => nao e "dev local automatico").
+final List<String> _backendResolvido = ApiLinks.resolverBackend(
+  urlDefine: const String.fromEnvironment('BACKEND_URL'),
+  contextPathDefine:
+      const String.fromEnvironment('BACKEND_CONTEXT_PATH', defaultValue: '__auto__'),
+  desenvolvimentoLocal: false,
 );
-const String _contextPathUsadoNoBuild = String.fromEnvironment(
-  'BACKEND_CONTEXT_PATH',
-  defaultValue: '',
-);
+final String _backendUsadoNoBuild = _backendResolvido[0];
+final String _contextPathUsadoNoBuild = _backendResolvido[1];
 
 void main() {
   group('ApiLinks — context-path segue a configuracao do build', () {

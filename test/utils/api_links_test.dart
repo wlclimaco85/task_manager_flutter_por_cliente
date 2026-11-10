@@ -7,9 +7,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:task_manager_flutter/utils/api_links.dart';
 
 // Mesmos valores do ApiLinks: o build define a base. Padrao = Railway na raiz.
-const String _backend = String.fromEnvironment('BACKEND_URL',
-    defaultValue: 'https://appacademia-production-be7e.up.railway.app');
-const String _contextPath = String.fromEnvironment('BACKEND_CONTEXT_PATH', defaultValue: '');
+final List<String> _backendResolvido = ApiLinks.resolverBackend(
+  urlDefine: const String.fromEnvironment('BACKEND_URL'),
+  contextPathDefine:
+      const String.fromEnvironment('BACKEND_CONTEXT_PATH', defaultValue: '__auto__'),
+  desenvolvimentoLocal: false,
+);
+final String _backend = _backendResolvido[0];
+final String _contextPath = _backendResolvido[1];
 // Testes de backend local so rodam com o dart-define local (ver instrucao no skip).
 final String? _pularLocal = (_backend == 'http://127.0.0.1:9001' && _contextPath == '/boletobancos')
     ? null
