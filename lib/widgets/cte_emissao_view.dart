@@ -8,6 +8,7 @@ import '../utils/app_logger.dart';
 import '../utils/file_saver_compat.dart';
 import '../utils/tenant_context.dart';
 import 'documento_fiscal_grid.dart';
+import 'localidade_busca_field.dart';
 import 'mdfe_emissao_view.dart' show extrairChaves, listaMdfeDe;
 
 const String kCteAutorizado = 'AUTORIZADO';
@@ -1109,22 +1110,6 @@ class _CteFormPageState extends State<_CteFormPage>
         ),
       );
 
-  Widget _ufDrop(
-          String rotulo, String? valor, ValueChanged<String?> onChanged) =>
-      SizedBox(
-        width: 100,
-        child: DropdownButtonFormField<String>(
-          value: valor,
-          decoration: InputDecoration(labelText: rotulo),
-          items: [
-            for (final uf in kCteUfs)
-              DropdownMenuItem(value: uf, child: Text(uf))
-          ],
-          onChanged: onChanged,
-          validator: (v) => v == null ? 'Obrigatório' : null,
-        ),
-      );
-
   Widget _secao(String titulo) => Padding(
         padding: const EdgeInsets.only(top: 14, bottom: 6),
         child:
@@ -1146,14 +1131,16 @@ class _CteFormPageState extends State<_CteFormPage>
             _campo('Logradouro', p.logradouro, largura: 240),
             _campo('Número', p.numero, largura: 90),
             _campo('Bairro', p.bairro),
-            _campo('Cód. IBGE do município', p.ibge,
-                validator: (v) =>
-                    _soDigitosCte(v ?? '').length == 7 ? null : '7 dígitos',
-                teclado: TextInputType.number),
-            _campo('Município', p.municipio),
-            _campo('CEP (opcional)', p.cep,
-                largura: 120, validator: (_) => null),
-            _ufDrop('UF', p.uf, (v) => setState(() => p.uf = v)),
+            _campo('CEP (opcional)', p.cep, largura: 120, validator: (_) => null),
+            SizedBox(
+              width: larguraCte(context, 440, reserva: 90),
+              child: MunicipioBuscaField(
+                label: 'Município',
+                ibge: p.ibge,
+                nome: p.municipio,
+                onUf: (v) => setState(() => p.uf = v),
+              ),
+            ),
           ]),
         ],
       );
@@ -1364,18 +1351,24 @@ class _CteFormPageState extends State<_CteFormPage>
   List<Widget> _abaPercurso() => [
         _secao('Percurso da prestação'),
         Wrap(spacing: 8, runSpacing: 4, children: [
-          _campo('Origem - IBGE', _origIbge,
-              validator: (v) =>
-                  _soDigitosCte(v ?? '').length == 7 ? null : '7 dígitos',
-              teclado: TextInputType.number),
-          _campo('Origem - município', _origNome),
-          _ufDrop('UF', _origUf, (v) => setState(() => _origUf = v)),
-          _campo('Destino - IBGE', _destIbge,
-              validator: (v) =>
-                  _soDigitosCte(v ?? '').length == 7 ? null : '7 dígitos',
-              teclado: TextInputType.number),
-          _campo('Destino - município', _destNome),
-          _ufDrop('UF', _destUf, (v) => setState(() => _destUf = v)),
+          SizedBox(
+            width: larguraCte(context, 440, reserva: 90),
+            child: MunicipioBuscaField(
+              label: 'Município de origem',
+              ibge: _origIbge,
+              nome: _origNome,
+              onUf: (v) => setState(() => _origUf = v),
+            ),
+          ),
+          SizedBox(
+            width: larguraCte(context, 440, reserva: 90),
+            child: MunicipioBuscaField(
+              label: 'Município de destino',
+              ibge: _destIbge,
+              nome: _destNome,
+              onUf: (v) => setState(() => _destUf = v),
+            ),
+          ),
         ]),
         _secao('Tomador do serviço'),
         Wrap(spacing: 8, runSpacing: 4, children: [

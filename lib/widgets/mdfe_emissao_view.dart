@@ -6,6 +6,7 @@ import '../utils/app_logger.dart';
 import '../utils/file_saver_compat.dart';
 import '../utils/tenant_context.dart';
 import 'documento_fiscal_grid.dart';
+import 'localidade_busca_field.dart';
 import '../web/screens/transporte_veiculo_grid_screen.dart'
     show kTransporteUfs;
 import 'transporte_config_tab.dart'
@@ -820,12 +821,14 @@ class _EncerrarDialogState extends State<_EncerrarDialog> {
   late String? _uf =
       kTransporteUfs.contains(widget.ufInicial) ? widget.ufInicial : null;
   final _municipio = TextEditingController();
+  final _nomeMunicipio = TextEditingController();
   DateTime _data = DateTime.now();
   String? _erro;
 
   @override
   void dispose() {
     _municipio.dispose();
+    _nomeMunicipio.dispose();
     super.dispose();
   }
 
@@ -856,21 +859,11 @@ class _EncerrarDialogState extends State<_EncerrarDialog> {
                 if (d != null) setState(() => _data = d);
               },
             ),
-            DropdownButtonFormField<String>(
-              initialValue: _uf,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'UF de encerramento'),
-              items: [
-                for (final uf in kTransporteUfs)
-                  DropdownMenuItem(value: uf, child: Text(uf)),
-              ],
-              onChanged: (v) => setState(() => _uf = v),
-            ),
-            TextField(
-              controller: _municipio,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                  labelText: 'Código IBGE do município (7 dígitos)'),
+            MunicipioBuscaField(
+              label: 'Município de encerramento',
+              ibge: _municipio,
+              nome: _nomeMunicipio,
+              onUf: (v) => setState(() => _uf = v),
             ),
             if (_erro != null)
               Padding(
@@ -888,7 +881,7 @@ class _EncerrarDialogState extends State<_EncerrarDialog> {
           onPressed: () {
             final cod = _municipio.text.trim();
             if (_uf == null || !RegExp(r'^\d{7}$').hasMatch(cod)) {
-              setState(() => _erro = 'Informe a UF e o código IBGE de 7 dígitos.');
+              setState(() => _erro = 'Selecione o município de encerramento.');
               return;
             }
             Navigator.pop(context,
@@ -1494,17 +1487,13 @@ class _MdfeFormPageState extends State<_MdfeFormPage>
   }
 
   Widget _ufDrop(String label, String? valor, ValueChanged<String?> onChanged) =>
-      _caixa(DropdownButtonFormField<String>(
-        initialValue: valor,
-        isExpanded: true,
-        decoration: _dec(label),
-        validator: (v) => v == null ? 'Obrigatório' : null,
-        items: [
-          for (final uf in kTransporteUfs)
-            DropdownMenuItem(value: uf, child: Text(uf)),
-        ],
+      _caixa(UfBuscaField(
+        label: label,
+        value: valor,
         onChanged: onChanged,
-      ), largura: 120);
+        ufsFallback: kTransporteUfs,
+        validator: (v) => v == null ? 'Obrigatório' : null,
+      ), largura: 200);
 
   /// Valida todas as abas (as fora da tela ficam montadas no IndexedStack), marca as com erro
   /// e leva o usuario para a primeira. Devolve o indice dela, ou null se tudo estiver ok.
@@ -1607,17 +1596,11 @@ class _MdfeFormPageState extends State<_MdfeFormPage>
                           () => setState(() => _carregs.add(_MunicipioCtl()))),
                       for (var i = 0; i < _carregs.length; i++)
                         _linha([
-                          _caixa(TextFormField(
-                            controller: _carregs[i].ibge,
-                            keyboardType: TextInputType.number,
-                            decoration: _dec('Carregamento: IBGE'),
-                            validator: _ibge,
-                          ), largura: 180),
-                          _caixa(TextFormField(
-                            controller: _carregs[i].nome,
-                            decoration: _dec('Carregamento: município'),
-                            validator: _obrig,
-                          ), largura: 260),
+                          _caixa(MunicipioBuscaField(
+                            label: 'Município de carregamento',
+                            ibge: _carregs[i].ibge,
+                            nome: _carregs[i].nome,
+                          ), largura: 440),
                           if (_carregs.length > 1)
                             IconButton(
                               tooltip: 'Remover município de carregamento',
@@ -1634,17 +1617,11 @@ class _MdfeFormPageState extends State<_MdfeFormPage>
                           () => setState(() => _descargas.add(_DescargaCtl()))),
                       for (var i = 0; i < _descargas.length; i++) ...[
                         _linha([
-                          _caixa(TextFormField(
-                            controller: _descargas[i].ibge,
-                            keyboardType: TextInputType.number,
-                            decoration: _dec('Descarga: IBGE'),
-                            validator: _ibge,
-                          ), largura: 180),
-                          _caixa(TextFormField(
-                            controller: _descargas[i].nome,
-                            decoration: _dec('Descarga: município'),
-                            validator: _obrig,
-                          ), largura: 260),
+                          _caixa(MunicipioBuscaField(
+                            label: 'Município de descarga',
+                            ibge: _descargas[i].ibge,
+                            nome: _descargas[i].nome,
+                          ), largura: 440),
                           if (_descargas.length > 1)
                             IconButton(
                               tooltip: 'Remover município de descarga',
