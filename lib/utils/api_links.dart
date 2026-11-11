@@ -781,7 +781,8 @@ class ApiLinks {
       '$_baseUrlNew/api/login/$loginId/roles';
   static String updateRolesLoginId(int loginId) =>
       '$_baseUrlNew/api/login/$loginId/roles';
-  static String getAllRoles =
+  // getter (e nao campo estatico): o hot reload nao recalcula campos estaticos ja inicializados
+  static String get getAllRoles =>
       '$_baseUrlNew/api/role?tamanho=1000'; // o backend le 'tamanho' (default 25); 'size' era ignorado e roles novas nao apareciam
 
   /// GET /api/role/disponiveis — roles filtradas por módulos contratados
