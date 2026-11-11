@@ -1,3 +1,4 @@
+import 'package:task_manager_flutter/widgets/brand_logo.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -5,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../utils/api_links.dart';
-import '../utils/assets_utils.dart';
 import '../utils/grid_colors.dart';
 import '../utils/grid_texts.dart';
 
@@ -535,21 +535,7 @@ class _SafeLogoWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
-      AssetsUtils.logoJPG,
-      height: size,
-      width: size,
-      fit: BoxFit.contain,
-      errorBuilder: (_, error, __) {
-        return SizedBox(
-          height: size,
-          width: size,
-          child: const Center(
-            child: Icon(Icons.business_center, color: GridColors.secondary, size: 32),
-          ),
-        );
-      },
-    );
+    return BrandLogo(size: size);
   }
 }
 

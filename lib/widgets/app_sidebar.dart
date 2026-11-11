@@ -1,3 +1,4 @@
+import 'package:task_manager_flutter/widgets/brand_logo.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -9,7 +10,6 @@ import '../services/permission_service.dart';
 import '../utils/menu_config.dart';
 import '../utils/security_matrix.dart';
 import '../utils/string_utils.dart';
-import '../utils/asset_loader.dart';
 
 /// Sidebar com submenus, busca e favoritos.
 /// Usado tanto no Windows quanto no Web (drawer).
@@ -347,15 +347,8 @@ class _AppSidebarState extends State<AppSidebar> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Column(
           children: [
-            // Logo Abraço Contabilidade (versão compacta — só o avatar/ícone)
-            ClipOval(
-              child: AssetLoader.loadImage(
-                'assets/images/logo_contabilidade.jpg',
-                width: 30,
-                height: 30,
-                fit: BoxFit.cover,
-              ),
-            ),
+            // Logo PortalCont (versão compacta — só o avatar/ícone)
+            const BrandLogo(size: 30),
             const SizedBox(height: 10),
             _buildUserAvatar(18),
             const SizedBox(height: 8),
@@ -378,22 +371,14 @@ class _AppSidebarState extends State<AppSidebar> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Logo da Abraço Contabilidade
+          // Logo do PortalCont
           Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: AssetLoader.loadImage(
-                  'assets/images/logo_contabilidade.jpg',
-                  width: 32,
-                  height: 32,
-                  fit: BoxFit.cover,
-                ),
-              ),
+              const BrandLogo(size: 32),
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'Abraço Contabilidade',
+                  'Portal Cont',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

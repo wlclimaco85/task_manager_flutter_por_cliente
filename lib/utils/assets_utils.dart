@@ -4,12 +4,10 @@ class AssetsUtils {
   AssetsUtils._();
   static const String _images = 'assets/images';
   static const String backgroundSVG = '$_images/background.svg';
-  // Logo institucional Abraco Contabilidade
-  static const String logoJPG = 'assets/images/logo_contabilidade.jpg';
-  static const String logoSVG = 'assets/images/logo.svg';
+  // Logo institucional PortalCont
+  static const String logoJPG = 'assets/images/portal_cont_logo.png';
+  static const String logoSVG = 'assets/images/portalcont_logo.svg';
   static const List<String> newsFallbackImages = [
-    'assets/images/Logo contabilidade_page-0001.jpg',
-    'assets/images/logo_contabilidade.jpg',
     'assets/images/Screenshot_1.png',
     'assets/images/Screenshot_2.png',
     'assets/images/Screenshot_3.png',

@@ -1,3 +1,4 @@
+import 'package:task_manager_flutter/widgets/brand_logo.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -12,7 +13,6 @@ import '../../../auth_screens/login_screen.dart';
 import 'package:task_manager_flutter/mobile/screens/meu_perfil_screen.dart';
 import 'meu_perfil_dialog.dart';
 import '../../../utils/grid_colors.dart'; // ★ adicionado para aplicar o tema
-import '../../../utils/asset_loader.dart';
 
 // AppBar customizado (apenas cabeçalho)
 class UserBannerAppBar extends StatefulWidget implements PreferredSizeWidget {
@@ -440,17 +440,7 @@ class _UserBannerAppBarState extends State<UserBannerAppBar> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Logo do escritório
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: AssetLoader.loadImageWithCustomError(
-                        'assets/images/logo_contabilidade.jpg',
-                        width: 28,
-                        height: 28,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const SizedBox(width: 28, height: 28),
-                      ),
-                    ),
+                    const BrandLogo(size: 28),
                     const SizedBox(width: 8),
                     // CORREÇÃO: GestureDetector apenas no CircleAvatar
                     GestureDetector(
