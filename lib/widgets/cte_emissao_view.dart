@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../services/network_caller.dart';
 import '../utils/api_links.dart';
@@ -428,14 +430,26 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
     if (recarregar && ok > 0 && mounted) _carregar();
   }
 
+  static bool _ok(http.Response r) => r.statusCode >= 200 && r.statusCode < 300;
+
+  /// Motivo da falha vindo do backend (campo message); sem ele, so o HTTP.
+  static String _falha(http.Response r) {
+    var m = '';
+    try {
+      final corpo = jsonDecode(utf8.decode(r.bodyBytes));
+      if (corpo is Map) m = '${corpo['message'] ?? ''}'.trim();
+    } catch (_) {
+      // corpo nao e JSON: cai no codigo HTTP
+    }
+    return m.isEmpty ? 'HTTP ${r.statusCode}' : m;
+  }
+
   Future<void> _consultar(List<Map<String, dynamic>> alvo) =>
       _lote('Consulta', alvo, (c) async {
         final r =
-            await _net.postRequest(ApiLinks.cteConsultar('${c['id']}'), {});
-        if (r.isSuccess) return null;
-        return r.statusCode == 502
-            ? 'SEFAZ indisponível'
-            : 'HTTP ${r.statusCode}';
+            await TenantContext.post(ApiLinks.cteConsultar('${c['id']}'), {});
+        if (_ok(r)) return null;
+        return r.statusCode == 502 ? 'SEFAZ indisponível' : _falha(r);
       });
 
   Future<void> _cancelar(List<Map<String, dynamic>> alvo) async {
@@ -448,9 +462,9 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
     );
     if (texto == null) return;
     await _lote('Cancelamento', alvo, (c) async {
-      final r = await _net.postRequest(
+      final r = await TenantContext.post(
           ApiLinks.cteCancelar('${c['id']}'), {'justificativa': texto});
-      return r.isSuccess ? null : 'HTTP ${r.statusCode}';
+      return _ok(r) ? null : _falha(r);
     });
   }
 
@@ -550,10 +564,10 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
     );
     if (ok != true) return;
     await _lote('Exclusão', alvo, (c) async {
-      final r = await _net.deleteRequest(ApiLinks.cte('${c['id']}'));
-      return r.isSuccess
+      final r = await TenantContext.delete(ApiLinks.cte('${c['id']}'));
+      return _ok(r)
           ? null
-          : 'HTTP ${r.statusCode} (só em homologação; CT-e autorizado precisa ser cancelado antes)';
+          : '${_falha(r)} (só em homologação; CT-e autorizado precisa ser cancelado antes)';
     });
   }
 
@@ -609,19 +623,19 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
   }
 
   late final List<DocColuna> _colunas = [
-    DocColuna('Nº', (c) => _txt(c['numero']), largura: 70),
-    DocColuna('Série', (c) => _txt(c['serie']), largura: 60),
-    DocColuna('Tipo', (c) => rotuloTipoCte(c['tipoCte']), largura: 150),
+    DocColuna('Nº', (c) => _txt(c['numero']), largura: 60),
+    DocColuna('Série', (c) => _txt(c['serie']), largura: 50),
+    DocColuna('Tipo', (c) => rotuloTipoCte(c['tipoCte']), largura: 100),
     DocColuna('Ambiente', (c) => c['tpAmb'] == 2 ? 'Homologação' : 'Produção',
-        largura: 110),
+        largura: 100),
     DocColuna('Valor da prestação',
         (c) => c['valorPrestacao'] == null ? '-' : 'R\$ ${c['valorPrestacao']}',
-        largura: 140),
+        largura: 100),
     DocColuna('Chave de acesso', (c) => _txt(c['chaveAcesso']),
-        largura: 330, compacta: true),
+        largura: 220, compacta: true),
     DocColuna('Protocolo', (c) => _txt(c['protocolo']),
-        largura: 140, compacta: true),
-    DocColuna('Retorno', _retorno, largura: 260),
+        largura: 110, compacta: true),
+    DocColuna('Retorno', _retorno, largura: 160),
   ];
 
   Future<String?> _pedirTexto(
