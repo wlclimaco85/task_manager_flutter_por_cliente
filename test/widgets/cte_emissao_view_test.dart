@@ -6,6 +6,8 @@ import 'package:task_manager_flutter/utils/security_matrix.dart';
 import 'package:task_manager_flutter/widgets/cte_emissao_view.dart';
 
 void main() {
+  testesFormularioCte();
+
   const chave = '31261112345678000195550010000007771123456780';
 
   Map<String, dynamic> parte(String doc, String nome, String uf) => montarParteCte(
@@ -362,5 +364,62 @@ void main() {
     final mdfe = itens.firstWhere((i) => i.id == 'transporte_mdfe');
     expect(cte.screenIndex, isNot(mdfe.screenIndex));
     expect(AppScreen.values.map((e) => e.name), contains('transporteCte'));
+  });
+}
+
+/// A fonte do ambiente de teste e mais larga que a real e estoura dropdowns: ignora so esse aviso de layout.
+void _ignoraOverflowDeLayout() {
+  final original = FlutterError.onError;
+  FlutterError.onError = (d) {
+    if (d.exceptionAsString().contains('overflowed')) return;
+    original?.call(d);
+  };
+  addTearDown(() => FlutterError.onError = original);
+}
+
+void testesFormularioCte() {
+  testWidgets('IBS/CBS sao opcionais: aba Valores e impostos nao exige esses campos', (t) async {
+    _ignoraOverflowDeLayout();
+    t.view.physicalSize = const Size(1400, 900);
+    t.view.devicePixelRatio = 1.0;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(MaterialApp(home: cteFormPageParaTeste()));
+
+    await t.tap(find.text('4. Valores e impostos'));
+    await t.pumpAndSettle();
+    await t.enterText(find.widgetWithText(TextFormField, 'Valor total (R\$)'), '1000.00');
+    await t.enterText(find.widgetWithText(TextFormField, 'Valor (R\$)'), '1000.00');
+
+    await t.tap(find.text('5. Carga e documentos'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Emitir'));
+    await t.pumpAndSettle();
+
+    // outras abas ficam com erro (partes, municipios...), mas a de valores nao
+    await t.tap(find.text('4. Valores e impostos'));
+    await t.pumpAndSettle();
+    expect(find.text('Obrigatório'), findsNothing);
+    expect(find.text('Valor inválido'), findsNothing);
+  });
+
+  testWidgets('IBS/CBS preenchido com texto invalido continua sendo recusado', (t) async {
+    _ignoraOverflowDeLayout();
+    t.view.physicalSize = const Size(1400, 900);
+    t.view.devicePixelRatio = 1.0;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(MaterialApp(home: cteFormPageParaTeste()));
+
+    await t.tap(find.text('4. Valores e impostos'));
+    await t.pumpAndSettle();
+    await t.enterText(find.widgetWithText(TextFormField, 'Valor total (R\$)'), '1000.00');
+    await t.enterText(find.widgetWithText(TextFormField, 'Valor (R\$)'), '1000.00');
+    await t.enterText(find.widgetWithText(TextFormField, 'CBS (%)'), 'abc');
+    await t.tap(find.text('5. Carga e documentos'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Emitir'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('4. Valores e impostos'));
+    await t.pumpAndSettle();
+    expect(find.text('Valor inválido'), findsOneWidget);
   });
 }

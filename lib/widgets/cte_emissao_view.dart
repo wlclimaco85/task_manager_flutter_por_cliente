@@ -965,6 +965,10 @@ class _CompCtl {
   }
 }
 
+/// Pagina de emissao do CT-e para teste de widget (a classe real e privada).
+@visibleForTesting
+Widget cteFormPageParaTeste() => const _CteFormPage();
+
 class _CteFormPage extends StatefulWidget {
   const _CteFormPage();
 
@@ -1089,6 +1093,12 @@ class _CteFormPageState extends State<_CteFormPage>
 
   String? _obrigatorio(String? v) =>
       (v == null || v.trim().isEmpty) ? 'Obrigatório' : null;
+
+  /// IBS/CBS sao opcionais: vazio passa; preenchido precisa ser numero.
+  String? _numeroOpcional(String? v) {
+    if ((v ?? '').trim().isEmpty) return null;
+    return _numero(v!) == null ? 'Valor inválido' : null;
+  }
 
   String? _numeroObrigatorio(String? v) {
     final n = _numero(v ?? '');
@@ -1504,12 +1514,20 @@ class _CteFormPageState extends State<_CteFormPage>
               largura: 120, validator: _ibsCstValidador),
           _campo('cClassTrib (6 dígitos)', _ibsClass,
               largura: 170, validator: _ibsClassValidador),
-          _campo('Base de cálculo', _ibsBase, teclado: TextInputType.number),
+          _campo('Base de cálculo', _ibsBase,
+              teclado: TextInputType.number, validator: _numeroOpcional),
           _campo('IBS UF (%)', _ibsUf,
-              largura: 110, teclado: TextInputType.number),
+              largura: 110,
+              teclado: TextInputType.number,
+              validator: _numeroOpcional),
           _campo('IBS Município (%)', _ibsMun,
-              largura: 140, teclado: TextInputType.number),
-          _campo('CBS (%)', _cbs, largura: 100, teclado: TextInputType.number),
+              largura: 140,
+              teclado: TextInputType.number,
+              validator: _numeroOpcional),
+          _campo('CBS (%)', _cbs,
+              largura: 100,
+              teclado: TextInputType.number,
+              validator: _numeroOpcional),
         ]),
       ];
 
