@@ -35,10 +35,10 @@ class LoginModulosVitrine extends StatefulWidget {
 
   /// Funcionalidades base do Conta Própria (propaganda do que já está incluso).
   static const List<ModuloVitrine> inclusos = [
-    ModuloVitrine('Fluxo de caixa e extrato',
+    ModuloVitrine('Fluxo de caixa',
         'Extrato unificado, importação e conciliação do seu caixa.',
         Icons.account_balance_wallet_outlined),
-    ModuloVitrine('Contas a pagar e receber',
+    ModuloVitrine('Pagar e receber',
         'Vencimentos, baixas e visão clara do que entra e sai.',
         Icons.payments_outlined),
     ModuloVitrine('Contatos',
@@ -157,7 +157,8 @@ class _LoginModulosVitrineState extends State<LoginModulosVitrine> {
   Widget _grade(List<ModuloVitrine> itens, String selo) {
     return LayoutBuilder(builder: (context, c) {
       final largura = c.maxWidth.isFinite ? c.maxWidth : widget.maxWidth;
-      final colunas = largura >= 900 ? 4 : (largura >= 600 ? 3 : 2);
+      final colunas =
+          largura >= 900 ? 4 : (largura >= 600 ? 3 : (largura >= 400 ? 2 : 1));
       const espaco = 10.0;
       final itemW = (largura - espaco * (colunas - 1)) / colunas;
       return Wrap(
