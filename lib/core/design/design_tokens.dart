@@ -15,29 +15,29 @@ class DesignTokens {
   // 🎨 CORES (Consolidado de GridColors existente)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  /// Cor primária — Vermelho AppAcademia
-  static const Color primary = Color(0xFF93070A);
+  /// Cor primária — Azul Portal Cont
+  static const Color primary = Color(0xFF0F4C81);
 
   /// Variante escura da cor primária
-  static const Color primaryDark = Color(0xFF6A0507);
+  static const Color primaryDark = Color(0xFF0B3A63);
 
   /// Variante clara/soft da cor primária — para backgrounds
-  static const Color primarySoft = Color(0xFFFCEDEE);
+  static const Color primarySoft = Color(0xFFEAF4FB);
 
   /// Variante light da cor primária — para elementos secundários
-  static const Color primaryLight = Color(0xFFB84042);
+  static const Color primaryLight = Color(0xFF4A8BC2);
 
-  /// Cor secundária — Verde AppAcademia
-  static const Color secondary = Color(0xFF005826);
+  /// Cor secundária — Ciano Portal Cont
+  static const Color secondary = Color(0xFF0E7C99);
 
   /// Variante soft da cor secundária
-  static const Color secondarySoft = Color(0xFFEAF5EE);
+  static const Color secondarySoft = Color(0xFFEEF9FC);
 
   /// Variante light da cor secundária
   static const Color secondaryLight = Color(0xFF2E7D32);
 
   /// Variante escura da cor secundária
-  static const Color secondaryDark = Color(0xFF003D1A);
+  static const Color secondaryDark = Color(0xFF0A2F52);
 
   /// Texto primário — Branco (usado sobre fundos escuros)
   static const Color textPrimary = Color(0xFFFFFFFF);
@@ -46,19 +46,19 @@ class DesignTokens {
   static const Color textPrimaryMuted = Color(0xB3FFFFFF);
 
   /// Texto secundário — Preto/Cinza escuro (usado sobre fundos claros)
-  static const Color textSecondary = Color(0xFF17211B);
+  static const Color textSecondary = Color(0xFF10253A);
 
   /// Texto mutado/desabilitado
-  static const Color textMuted = Color(0xFF64756A);
+  static const Color textMuted = Color(0xFF4B6478);
 
   /// Background principal da aplicação
-  static const Color background = Color(0xFFF6FAF7);
+  static const Color background = Color(0xFFF4F8FB);
 
   /// Background de página
-  static const Color pageBackground = Color(0xFFF6FAF7);
+  static const Color pageBackground = Color(0xFFF4F8FB);
 
   /// Superfície mutada — backgrounds secundários sutis
-  static const Color surfaceMuted = Color(0xFFF3F7F4);
+  static const Color surfaceMuted = Color(0xFFEEF4F9);
 
   /// Cor de card/superfície elevada
   static const Color card = Color(0xFFFFFFFF);
@@ -85,7 +85,7 @@ class DesignTokens {
   static const Color successDark = Color(0xFF1B5E20);
 
   /// Cor de divisor/linha
-  static const Color divider = Color(0xFFD8E0DA);
+  static const Color divider = Color(0xFFD8E3EC);
 
   /// Cor de borda sutil
   static const Color borderSubtle = Color(0xFFDDDDDD);
@@ -105,8 +105,8 @@ class DesignTokens {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF93070A), // RED primary
-      Color(0xFF005826), // GREEN secondary
+      Color(0xFF0F4C81), // blue primary
+      Color(0xFF0E7C99), // cyan secondary
     ],
     stops: [0.0, 1.0],
   );
@@ -116,8 +116,8 @@ class DesignTokens {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [
-      Color(0xFFFCEDEE), // primarySoft
-      Color(0xFFEAF5EE), // secondarySoft
+      Color(0xFFEAF4FB), // primarySoft
+      Color(0xFFEEF9FC), // secondarySoft
     ],
     stops: [0.0, 1.0],
   );
@@ -148,12 +148,12 @@ class DesignTokens {
   static const double h1FontSizeTablet = 28;
   static const double h1FontSizeDesktop = 28;
   static const FontWeight h1FontWeight = FontWeight.w700;
-  static const Color h1Color = Color(0xFF17211B); // textSecondary
+  static const Color h1Color = Color(0xFF10253A); // textSecondary
 
   // Tagline — Subtítulo/descrição
   static const double taglineFontSize = 14;
   static const FontWeight taglineFontWeight = FontWeight.w400;
-  static const Color taglineColor = Color(0xFF64756A); // textMuted
+  static const Color taglineColor = Color(0xFF4B6478); // textMuted
 
   // Rótulo de botão/botão
   static const double buttonLabelFontSize = 14;

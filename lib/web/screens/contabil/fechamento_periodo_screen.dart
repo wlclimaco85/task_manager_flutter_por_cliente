@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../../../models/auth_utility.dart';
 import '../../../services/periodo_contabil_service.dart';
 
-const _primary = Color(0xFF93070A); // GridColors.primary
+const _primary = Color(0xFF0F4C81); // GridColors.primary
 const _bg = Color(0xFFF5F5F5);
-const _green = Color(0xFF005826);
-const _red = Color(0xFF93070A);
+const _green = Color(0xFF0E7C99);
+const _red = Color(0xFFD32F2F);
 const _orange = Color(0xFFE65100);
 const _border = Color(0xFFDDDDDD);
 

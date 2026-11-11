@@ -10,7 +10,7 @@ class ChatSupportPalette {
 
   static const Color surface = GridColors.card;
   static const Color page =
-      Color(0xFFEAF5EE); // verde institucional suave (GridColors.secondarySoft)
+      Color(0xFFEEF9FC); // verde institucional suave (GridColors.secondarySoft)
   static const Color subtle = Color(0xFFD4EAD8);
   static const Color outbound =
       Color(0xFFCDE8D2); // minha mensagem — verde mais vivo

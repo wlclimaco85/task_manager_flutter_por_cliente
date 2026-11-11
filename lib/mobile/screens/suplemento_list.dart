@@ -168,7 +168,7 @@ class ListItensSuplemento extends StatelessWidget {
                             height: 50,
                             padding: const EdgeInsets.all(4.0),
                             decoration: const BoxDecoration(
-                                color: Color(0xFFFA903A),
+                                color: Color(0xFF0E7C99),
                                 borderRadius: BorderRadius.only(
                                   topLeft: Radius.circular(6.0),
                                   topRight: Radius.circular(6.0),
@@ -209,7 +209,7 @@ class ListItensSuplemento extends StatelessWidget {
                             height: 50,
                             padding: const EdgeInsets.all(4.0),
                             decoration: const BoxDecoration(
-                                color: Color(0xFFFA903A),
+                                color: Color(0xFF0E7C99),
                                 borderRadius: BorderRadius.only(
                                   topLeft: Radius.circular(6.0),
                                   topRight: Radius.circular(6.0),
@@ -248,7 +248,7 @@ class ListItensSuplemento extends StatelessWidget {
                             height: 50,
                             padding: const EdgeInsets.all(4.0),
                             decoration: const BoxDecoration(
-                                color: Color(0xFFFA903A),
+                                color: Color(0xFF0E7C99),
                                 borderRadius: BorderRadius.only(
                                   topLeft: Radius.circular(6.0),
                                   topRight: Radius.circular(6.0),

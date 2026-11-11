@@ -1322,8 +1322,8 @@ class _WindowsDashboardFinanceiroScreenState
 
     final colors = [
       const Color(0xFF1976D2),
-      const Color(0xFF93070A),
-      const Color(0xFF005826),
+      const Color(0xFF0F4C81),
+      const Color(0xFF0E7C99),
       const Color(0xFFE65100),
       const Color(0xFF6A1B9A),
       const Color(0xFF00838F),

@@ -741,7 +741,7 @@ class _NfseScreenState extends State<NfseScreen> {
     final activeCount = _contarFiltrosAtivos();
     return Container(
       height: 56,
-      color: GridColors.error,
+      color: GridColors.primary,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [

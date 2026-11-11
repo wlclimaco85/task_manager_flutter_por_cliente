@@ -42,12 +42,12 @@ class AppSidebar extends StatefulWidget {
 }
 
 class _AppSidebarState extends State<AppSidebar> {
-  static const _primary = GridColors.primary; // Sage Sereno (#3E6B5C)
-  static const _bg = GridColors.primaryDark; // Sage Profundo (#2D5246)
-  static const _bgItem = Color(0xFF355E51); // Hover Sage
-  static const _bgSelected = Color(0xFF244339); // Selecionado Sage Profundo
+  static const _primary = Color(0xFF7FD3E8); // ciano claro — destaque sobre navy (AA)
+  static const _bg = GridColors.shellBackground; // navy da marca — fundo sidebar
+  static const _bgItem = Color(0xFF124F85); // azul — hover/campo busca
+  static const _bgSelected = Color(0xFF1A5F9E); // azul claro — selecionado
   static const _textColor = Colors.white; // Branco
-  static const _textMuted = Color(0xFFCBD5E1); // Ardósia Suave
+  static const _textMuted = Color(0xFFB7D3EA); // azul claro — texto secundario
 
 
   final TextEditingController _searchCtrl = TextEditingController();
@@ -286,7 +286,7 @@ class _AppSidebarState extends State<AppSidebar> {
       decoration: BoxDecoration(
         color: _bg,
         border:
-            const Border(right: BorderSide(color: Color(0xFF004a20), width: 1)),
+            const Border(right: BorderSide(color: Color(0xFF1A5F9E), width: 1)),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.3),
@@ -366,7 +366,7 @@ class _AppSidebarState extends State<AppSidebar> {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFF004a20), width: 1)),
+        border: Border(bottom: BorderSide(color: Color(0xFF1A5F9E), width: 1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -521,7 +521,7 @@ class _AppSidebarState extends State<AppSidebar> {
         if (_favoriteItems.isNotEmpty) ...[
           _buildSectionHeader('⭐ Favoritos'),
           ..._favoriteItems.map((item) => _buildMenuItem(item, indent: true)),
-          const Divider(color: Color(0xFF004a20), height: 16),
+          const Divider(color: Color(0xFF1A5F9E), height: 16),
         ],
         // Grupos por módulo — colapso adaptativo. Com 1 só grupo visível,
         // renderiza os itens direto (sem cabeçalho), evitando ruído quando o
@@ -536,7 +536,7 @@ class _AppSidebarState extends State<AppSidebar> {
           ..._visibleGroups().map((group) => _buildGroup(group)),
         // Itens soltos
         if (MenuConfig.loose.any(_canSee)) ...[
-          const Divider(color: Color(0xFF004a20), height: 16),
+          const Divider(color: Color(0xFF1A5F9E), height: 16),
           _buildSectionHeader('Outros'),
           ...MenuConfig.loose
               .where(_canSee)
@@ -720,7 +720,7 @@ class _AppSidebarState extends State<AppSidebar> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0xFF004a20))),
+          border: Border(top: BorderSide(color: Color(0xFF1A5F9E))),
         ),
         child: Center(
           child: Icon(

@@ -153,7 +153,7 @@ class _DietacreenState extends State<WindowsDietacreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       //  floatingActionButton: getHomeFab(context, listModels, refreshPage),
-      backgroundColor: const Color(0xFF340A9C),
+      backgroundColor: const Color(0xFF0F4C81),
       appBar: UserBannerAppBar(
         onTapped: () {
           Navigator.push(
@@ -166,7 +166,7 @@ class _DietacreenState extends State<WindowsDietacreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         tooltip: 'Exportar PDF',
-        backgroundColor: const Color(0xFF93070A),
+        backgroundColor: const Color(0xFF0F4C81),
         icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
         label: const Text('Exportar PDF', style: TextStyle(color: Colors.white)),
         onPressed: _dietasDados.isEmpty

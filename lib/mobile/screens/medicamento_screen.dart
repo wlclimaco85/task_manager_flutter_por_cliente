@@ -143,7 +143,7 @@ class _MedicamentoscreenState extends State<Medicamentoscreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       //  floatingActionButton: getHomeFab(context, listModels, refreshPage),
-      backgroundColor: const Color(0xFF340A9C),
+      backgroundColor: const Color(0xFF0F4C81),
       appBar: UserBannerAppBar(
         onTapped: () {
           Navigator.push(

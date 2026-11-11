@@ -5,7 +5,7 @@
 import 'package:flutter/material.dart';
 
 class GridColors {
-  static const Color primary = Color(0xFF93070A);
+  static const Color primary = Color(0xFF0F4C81);
   static const Color primaryDark = Color(0xFF6A0507);
   static const Color primarySoft = Color(0xFFFCEDEE);
   static const Color primaryLight = Color(0xFFB84042);

@@ -18,7 +18,7 @@ class SystemTestRunPanel extends StatefulWidget {
 }
 
 class _SystemTestRunPanelState extends State<SystemTestRunPanel> {
-  static const _primary = Color(0xFF93070A);
+  static const _primary = Color(0xFF0F4C81);
   static const _success = Color(0xFF2E7D32);
   static const _errorColor = Color(0xFFD32F2F);
   static const _warning = Color(0xFFFFA000);

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 /// Design tokens para Manifestação de Recebimento NFe
-/// Cores: #93070A (primary), #2E7D32 (success), #D32F2F (error)
+/// Cores: #0F4C81 (primary), #2E7D32 (success), #D32F2F (error)
 /// Tipografia: Roboto 14px body, 24px H1, line-height 1.5
 class ManifestacaoDesignTokens {
   // ======== COLORS ========
-  static const Color colorPrimary = Color(0xFF93070A); // Vermelho APP
+  static const Color colorPrimary = Color(0xFF0F4C81); // Azul Portal Cont
   static const Color colorSuccess = Color(0xFF2E7D32); // Verde
   static const Color colorError = Color(0xFFD32F2F); // Vermelho error
   static const Color colorWarning = Color(0xFFF57C00); // Laranja

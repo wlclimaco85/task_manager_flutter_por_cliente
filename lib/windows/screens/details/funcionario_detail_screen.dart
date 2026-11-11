@@ -40,9 +40,9 @@ class _WebFuncionarioDetailScreenState extends State<WindowsFuncionarioDetailScr
     final funcId = widget.item['id'];
     final nome = widget.item['nome']?.toString() ?? 'Funcionário';
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1117),
+      backgroundColor: const Color(0xFF071E36),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1D27),
+        backgroundColor: const Color(0xFF0B3A63),
         title: Text(nome, style: const TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
@@ -218,7 +218,7 @@ class _PontoTabState extends State<_PontoTab> {
                           margin: const EdgeInsets.only(bottom: 6),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A1D27),
+                            color: const Color(0xFF0B3A63),
                             borderRadius: BorderRadius.circular(8),
                             border: Border(left: BorderSide(
                               color: isEntrada ? GridColors.success : const Color(0xFFEF5350),
@@ -385,7 +385,7 @@ class _ResumoCards extends StatelessWidget {
       children: [
         _Card('Dias Trabalhados', acerto['totalDiasTrabalhados']?.toString() ?? '0', Icons.calendar_today, const Color(0xFF1565C0)),
         _Card('Horas Trabalhadas', '${acerto['totalHorasTrabalhadas']}h', Icons.access_time, GridColors.success),
-        _Card('Horas Extras', '${acerto['totalHorasExtras']}h', Icons.add_alarm, const Color(0xFF6A1B9A)),
+        _Card('Horas Extras', '${acerto['totalHorasExtras']}h', Icons.add_alarm, const Color(0xFF16A3C7)),
         _Card('Horas Falta', '${acerto['totalHorasFalta']}h', Icons.alarm_off, GridColors.error),
         _Card('Banco de Horas', '${acerto['saldoBancoHoras']}h', Icons.account_balance,
             saldo >= 0 ? GridColors.success : GridColors.error),
@@ -406,7 +406,7 @@ class _Card extends StatelessWidget {
       width: 160,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1D27),
+        color: const Color(0xFF0B3A63),
         borderRadius: BorderRadius.circular(10),
         border: Border(left: BorderSide(color: color, width: 3)),
       ),
@@ -434,7 +434,7 @@ class _TabelaDetalhes extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1D27),
+            color: const Color(0xFF0B3A63),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.white12),
           ),
@@ -458,7 +458,7 @@ class _TabelaDetalhes extends StatelessWidget {
   }
 
   TableRow _headerRow() => TableRow(
-    decoration: const BoxDecoration(color: Color(0xFF252836)),
+    decoration: const BoxDecoration(color: Color(0xFF124F85)),
     children: ['Data', 'Dia', 'Batidas', 'Trabalhado', 'Extra', 'Falta']
         .map((h) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -474,7 +474,7 @@ class _TabelaDetalhes extends StatelessWidget {
     final batidas = (d['batidas'] as List?)?.join(' | ') ?? '';
     return TableRow(
       decoration: BoxDecoration(
-        color: fimSemana ? const Color(0xFF1A1D27).withValues(alpha: 0.5) : Colors.transparent,
+        color: fimSemana ? const Color(0xFF0B3A63).withValues(alpha: 0.5) : Colors.transparent,
       ),
       children: [
         _cell(d['data']?.toString() ?? '', fimSemana ? Colors.white38 : Colors.white70),
@@ -509,7 +509,7 @@ class _DateButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1D27),
+          color: const Color(0xFF0B3A63),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: Colors.white12),
         ),

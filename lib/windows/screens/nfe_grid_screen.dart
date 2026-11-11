@@ -92,7 +92,7 @@ class _WindowsNfeGridScreenState extends State<WindowsNfeGridScreen> {
         // ── Header unificado — mesma cor e altura do header da grid ──────
         Container(
           height: 56,
-          color: GridColors.error,
+          color: GridColors.primary,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [

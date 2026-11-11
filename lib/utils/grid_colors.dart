@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 
 /// Identidade visual App Conta Própria - Gestão Direta (SaaS B2B).
 ///
-/// Paleta "Serene Zen Management" (Anti-Ansiedade & Anti-Fome):
-/// - Verde Sálvia / Sage (#3E6B5C) e Azul Ardósia (#475569).
+/// Paleta azul Portal Cont (substitui a antiga Serene Zen sage, 2026-11-11):
+/// - Azul marca (#0F4C81 / #0B3A63) e Azul Ardósia (#475569).
 /// - Fundo Off-white acolhedor (#F8FAFC) e superfícies limpas (#FFFFFF).
 /// - Receitas em Verde Menta/Eucalipto (#10B981) e despesas em Rosa Veludo Atenuado (#E11D48).
 /// - Ausência total de tons fast-food (sem amarelo/laranja/vermelho sangue).
 class GridColors {
   // Primária: Sage / Sálvia Sereno
-  static const Color primary = Color(0xFF3E6B5C);
-  static const Color primaryDark = Color(0xFF2D5246);
-  static const Color primaryLight = Color(0xFF5C8A7B);
-  static const Color primarySoft = Color(0xFFE8EFEA);
+  static const Color primary = Color(0xFF0F4C81);
+  static const Color primaryDark = Color(0xFF0B3A63);
+  static const Color primaryLight = Color(0xFF4A8BC2);
+  static const Color primarySoft = Color(0xFFEAF4FB);
 
   // Secundária: Azul Ardósia Suave
   static const Color secondary = Color(0xFF475569);
@@ -21,8 +21,8 @@ class GridColors {
   static const Color secondaryDark = Color(0xFF334155);
 
   // Acentos & Destaques
-  static const Color accent = Color(0xFF4E7A6B);
-  static const Color accentDark = Color(0xFF2D5246);
+  static const Color accent = Color(0xFF0E7C99);
+  static const Color accentDark = Color(0xFF0B3A63);
 
   // Tipografia & Textos
   static const Color textPrimary = Color(0xFF0F172A);
@@ -31,15 +31,15 @@ class GridColors {
   static const Color textMuted = Color(0xFF94A3B8);
 
   // Links & Controles
-  static const Color link = Color(0xFF3E6B5C);
+  static const Color link = Color(0xFF0F4C81);
   static const Color inputBackground = Color(0xFFFFFFFF);
   static const Color inputBorder = Color(0xFFCBD5E1);
-  static const Color buttonBackground = Color(0xFF3E6B5C);
+  static const Color buttonBackground = Color(0xFF0F4C81);
   static const Color buttonText = Color(0xFFFFFFFF);
 
   // Superfícies & Estrutura
   static const Color background = Color(0xFFF8FAFC);
-  static const Color shellBackground = Color(0xFF2D5246);
+  static const Color shellBackground = Color(0xFF0B3A63);
   static const Color card = Color(0xFFFFFFFF);
   static const Color divider = Color(0xFFE2E8F0);
   static const Color pageBackground = Color(0xFFF8FAFC);
@@ -59,15 +59,15 @@ class GridColors {
   static const Color warningLight = Color(0xFFFFFBEB);
   static const Color warningDark = Color(0xFFD97706);
 
-  static const Color info = Color(0xFF0284C7);
+  static const Color info = Color(0xFF0F6CBD);
 
   // Grid & Tabelas
   static const Color filterBackground = Color(0xFFF1F5F9);
   static const Color gridHeader = Color(0xFFF1F5F9);
   static const Color rowEven = Color(0xFFFFFFFF);
   static const Color rowOdd = Color(0xFFF8FAFC);
-  static const Color hover = Color(0x0F3E6B5C);
-  static const Color selectedRow = Color(0xFFE8EFEA);
+  static const Color hover = Color(0x0F0F4C81);
+  static const Color selectedRow = Color(0xFFDCEBF7);
 
   // Elementos Neutros e Bordas
   static const Color neutral = Color(0xFF64748B);
@@ -78,14 +78,14 @@ class GridColors {
   static const Color shadow = Color(0x0A0F172A);
 
   // Status de Entidades
-  static const Color statusHoliday = Color(0xFF0284C7);
+  static const Color statusHoliday = Color(0xFF0F6CBD);
   static const Color statusClosed = Color(0xFF64748B);
   static const Color statusNew = Color(0xFF10B981);
   static const Color statusUnknown = Color(0xFF94A3B8);
 
   // Cores por tipo de arquivo
   static const Color fileTypePdf = Color(0xFFE11D48);
-  static const Color fileTypeImage = Color(0xFF0284C7);
+  static const Color fileTypeImage = Color(0xFF0F6CBD);
   static const Color fileTypeSheet = Color(0xFF10B981);
   static const Color fileTypeWord = Color(0xFF475569);
   static const Color fileTypeDefault = Color(0xFF94A3B8);

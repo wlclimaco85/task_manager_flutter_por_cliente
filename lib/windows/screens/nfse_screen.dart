@@ -728,7 +728,7 @@ class _NfseScreenState extends State<NfseScreen> {
   Widget _buildHeader() {
     return Container(
       height: 56,
-      color: GridColors.error,
+      color: GridColors.primary,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
