@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:task_manager_flutter/utils/acesso_app_info.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../mobile/screens/bottom_navbar_screen.dart';
 import '../../windows/screens/bottom_navbar_screen.dart';
@@ -16,6 +15,7 @@ import '../../utils/grid_texts.dart';
 import '../../utils/security_matrix.dart';
 import '../../core/theme/zen_theme.dart';
 import '../../widgets/app_loading_overlay.dart';
+import '../../widgets/brand_logo.dart';
 import '../services/network_caller.dart';
 import 'email_verification_screeen.dart';
 import 'solicitacao_acesso_screen.dart';
@@ -134,9 +134,20 @@ class _LoginScreenState extends State<LoginScreen> {
     final isDesktop = size.width >= 900;
 
     return Scaffold(
-      backgroundColor: GridColors.background,
+      backgroundColor: const Color(0xFF071E36),
       body: Stack(
         children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF071E36), Color(0xFF0B3A63), GridColors.primary],
+                ),
+              ),
+            ),
+          ),
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -171,7 +182,13 @@ class _LoginScreenState extends State<LoginScreen> {
             Expanded(
               flex: 5,
               child: Container(
-                color: GridColors.primaryDark,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF0B3A63), GridColors.primary],
+                  ),
+                ),
                 padding: const EdgeInsets.all(48),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -183,11 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: Colors.white.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const FaIcon(
-                        FontAwesomeIcons.chartPie,
-                        color: Colors.white,
-                        size: 32,
-                      ),
+                      child: const BrandLogo(size: 40),
                     ),
                     const SizedBox(height: 28),
                     const Text(
@@ -255,11 +268,7 @@ class _LoginScreenState extends State<LoginScreen> {
               color: GridColors.primarySoft,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const FaIcon(
-              FontAwesomeIcons.chartPie,
-              color: GridColors.primary,
-              size: 28,
-            ),
+            child: const BrandLogo(size: 36),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -425,7 +434,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildFeaturePill(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, color: GridColors.primaryLight, size: 16),
+        Icon(icon, color: const Color(0xFF7FD3E8), size: 16),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
