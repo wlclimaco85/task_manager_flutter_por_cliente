@@ -7,6 +7,7 @@ import '../utils/api_links.dart';
 import '../utils/app_logger.dart';
 import '../utils/file_saver_compat.dart';
 import '../utils/tenant_context.dart';
+import 'documento_fiscal_grid.dart';
 import 'mdfe_emissao_view.dart' show extrairChaves, listaMdfeDe;
 
 const String kCteAutorizado = 'AUTORIZADO';
@@ -60,8 +61,32 @@ const Map<int, String> kCteIndIeTomador = {
 };
 
 const List<String> kCteUfs = [
-  'AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT',
-  'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP',
+  'AC',
+  'AL',
+  'AM',
+  'AP',
+  'BA',
+  'CE',
+  'DF',
+  'ES',
+  'GO',
+  'MA',
+  'MG',
+  'MS',
+  'MT',
+  'PA',
+  'PB',
+  'PE',
+  'PI',
+  'PR',
+  'RJ',
+  'RN',
+  'RO',
+  'RR',
+  'RS',
+  'SC',
+  'SE',
+  'SP',
   'TO',
 ];
 
@@ -77,8 +102,10 @@ bool _serieValida(String? v) {
 }
 
 /// Largura de campo/dialogo limitada a tela (celular estreito nao pode estourar).
-double larguraCte(BuildContext context, double largura, {double reserva = 140}) =>
-    math.min(largura, math.max(120.0, MediaQuery.sizeOf(context).width - reserva));
+double larguraCte(BuildContext context, double largura,
+        {double reserva = 140}) =>
+    math.min(
+        largura, math.max(120.0, MediaQuery.sizeOf(context).width - reserva));
 
 String _soDigitosCte(String v) => v.replaceAll(RegExp(r'\D'), '');
 
@@ -280,17 +307,24 @@ Map<String, dynamic> montarCorpoEmissaoCte({
       'componentes': componentes,
       'icms': icms,
       if (ibsCbs != null) 'ibsCbs': ibsCbs,
-      if (tipoCte != kCteTipoComplemento) 'carga': {
-        'valor': valorCarga!,
-        'produtoPredominante': produtoPredominante!.trim(),
-        'quantidades': [
-          {'unidade': unidade, 'tipoMedida': tipoMedida.trim(), 'quantidade': quantidade!}
-        ],
-      },
+      if (tipoCte != kCteTipoComplemento)
+        'carga': {
+          'valor': valorCarga!,
+          'produtoPredominante': produtoPredominante!.trim(),
+          'quantidades': [
+            {
+              'unidade': unidade,
+              'tipoMedida': tipoMedida.trim(),
+              'quantidade': quantidade!
+            }
+          ],
+        },
       if (tipoCte != kCteTipoComplemento) 'chavesNfe': chavesNfe,
       if (tipoCte != kCteTipoNormal) 'tipoCte': tipoCte,
-      if (chavesReferenciadas.isNotEmpty) 'chavesReferenciadas': chavesReferenciadas,
-      if (alteraTomador && tipoCte == kCteTipoSubstituicao) 'alteraTomador': true,
+      if (chavesReferenciadas.isNotEmpty)
+        'chavesReferenciadas': chavesReferenciadas,
+      if (alteraTomador && tipoCte == kCteTipoSubstituicao)
+        'alteraTomador': true,
       if (_limpoCte(rntrc) != null) 'rntrc': _soDigitosCte(rntrc!),
       if (_limpoCte(infoComplementar) != null)
         'infoComplementar': infoComplementar!.trim(),
@@ -360,41 +394,62 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
   }
 
   Future<void> _novo() async {
-    final criado = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _CteFormDialog(),
+    final criado = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const _CteFormPage()),
     );
     if (criado == true && mounted) _carregar();
   }
 
-  Future<void> _consultar(Map<String, dynamic> c) =>
-      _acao('consultar o CT-e', () async {
-        final r = await _net.postRequest(ApiLinks.cteConsultar('${c['id']}'), {});
-        if (r.isSuccess) {
-          _aviso('Consulta concluída: ${r.body?['status'] ?? ''}');
-          _carregar();
+  /// Roda [fn] em cada documento, um por vez; [fn] devolve null se deu certo ou o motivo da falha.
+  /// Mostra um unico resumo ao final (nada de uma mensagem por documento).
+  Future<void> _lote(String titulo, List<Map<String, dynamic>> alvo,
+      Future<String?> Function(Map<String, dynamic> c) fn,
+      {bool recarregar = true}) async {
+    var ok = 0;
+    final falhas = <String>[];
+    for (final c in alvo) {
+      try {
+        final erro = await fn(c);
+        if (erro == null) {
+          ok++;
         } else {
-          _aviso(r.statusCode == 502
-              ? 'SEFAZ indisponível para consulta. Tente novamente.'
-              : 'Falha na consulta (HTTP ${r.statusCode}).');
+          falhas.add('nº ${c['numero'] ?? c['id']}: $erro');
         }
+      } catch (e, st) {
+        AppLogger.i.error(
+            'CteEmissaoView: erro em $titulo (CT-e #${c['id']}): $e', st);
+        falhas.add('nº ${c['numero'] ?? c['id']}: erro inesperado');
+      }
+    }
+    _aviso(falhas.isEmpty
+        ? '$titulo: $ok CT-e concluído(s).'
+        : '$titulo: $ok ok, ${falhas.length} com falha — ${falhas.take(3).join('; ')}');
+    if (recarregar && ok > 0 && mounted) _carregar();
+  }
+
+  Future<void> _consultar(List<Map<String, dynamic>> alvo) =>
+      _lote('Consulta', alvo, (c) async {
+        final r =
+            await _net.postRequest(ApiLinks.cteConsultar('${c['id']}'), {});
+        if (r.isSuccess) return null;
+        return r.statusCode == 502
+            ? 'SEFAZ indisponível'
+            : 'HTTP ${r.statusCode}';
       });
 
-  Future<void> _cancelar(Map<String, dynamic> c) async {
+  Future<void> _cancelar(List<Map<String, dynamic>> alvo) async {
     final texto = await _pedirTexto(
-      titulo: 'Cancelar CT-e ${c['numero']}',
+      titulo: alvo.length == 1
+          ? 'Cancelar CT-e ${alvo.first['numero']}'
+          : 'Cancelar ${alvo.length} CT-e',
       rotulo: 'Justificativa (mín. $kCteTamanhoMinimoJustificativa caracteres)',
       minimo: kCteTamanhoMinimoJustificativa,
     );
     if (texto == null) return;
-    await _acao('cancelar o CT-e', () async {
+    await _lote('Cancelamento', alvo, (c) async {
       final r = await _net.postRequest(
           ApiLinks.cteCancelar('${c['id']}'), {'justificativa': texto});
-      _aviso(r.isSuccess
-          ? 'Cancelamento: ${r.body?['status'] ?? ''} ${r.body?['motivo'] ?? ''}'
-          : 'Falha ao cancelar (HTTP ${r.statusCode}).');
-      if (r.isSuccess) _carregar();
+      return r.isSuccess ? null : 'HTTP ${r.statusCode}';
     });
   }
 
@@ -415,12 +470,13 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
     });
   }
 
-  Future<void> _dacte(Map<String, dynamic> c) => _acao('gerar o DACTE', () async {
+  Future<void> _dacte(List<Map<String, dynamic>> alvo) =>
+      _lote('DACTE', alvo, (c) async {
         final r = await TenantContext.get(ApiLinks.cteDacte('${c['id']}'));
         if (r.statusCode != 200) {
-          AppLogger.i.warn('CteEmissaoView: DACTE #${c['id']} falhou: HTTP ${r.statusCode}');
-          _aviso('Não foi possível gerar o DACTE (HTTP ${r.statusCode}).');
-          return;
+          AppLogger.i.warn(
+              'CteEmissaoView: DACTE #${c['id']} falhou: HTTP ${r.statusCode}');
+          return 'HTTP ${r.statusCode}';
         }
         await FileSaver.instance.saveFile(
           name: 'dacte_${c['numero'] ?? c['id']}',
@@ -428,8 +484,8 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
           fileExtension: 'pdf',
           mimeType: MimeType.pdf,
         );
-        _aviso('DACTE gerado.');
-      });
+        return null;
+      }, recarregar: false);
 
   Future<void> _eventos(Map<String, dynamic> c) =>
       _acao('listar os eventos', () async {
@@ -456,8 +512,10 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
                         for (final e in lista)
                           ListTile(
                             dense: true,
-                            title: Text('${_nomeEvento('${e['tipoEvento']}')} — ${e['status']}'),
-                            subtitle: Text('${e['dhEvento'] ?? ''}\n${e['motivo'] ?? ''}'),
+                            title: Text(
+                                '${_nomeEvento('${e['tipoEvento']}')} — ${e['status']}'),
+                            subtitle: Text(
+                                '${e['dhEvento'] ?? ''}\n${e['motivo'] ?? ''}'),
                           ),
                       ],
                     ),
@@ -471,13 +529,14 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
         );
       });
 
-  Future<void> _excluir(Map<String, dynamic> c) async {
+  Future<void> _excluir(List<Map<String, dynamic>> alvo) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Excluir CT-e de teste'),
-        content: Text(
-            'Excluir o CT-e ${c['numero']} (homologação)? Esta ação não pode ser desfeita.'),
+        content: Text(alvo.length == 1
+            ? 'Excluir o CT-e ${alvo.first['numero']} (homologação)? Esta ação não pode ser desfeita.'
+            : 'Excluir ${alvo.length} CT-e de homologação? Esta ação não pode ser desfeita.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -489,17 +548,85 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
       ),
     );
     if (ok != true) return;
-    await _acao('excluir o CT-e', () async {
+    await _lote('Exclusão', alvo, (c) async {
       final r = await _net.deleteRequest(ApiLinks.cte('${c['id']}'));
-      _aviso(r.isSuccess
-          ? 'CT-e excluído.'
-          : 'Não foi possível excluir (HTTP ${r.statusCode}). Só é permitido em homologação e CT-e autorizado precisa ser cancelado antes.');
-      if (r.isSuccess) _carregar();
+      return r.isSuccess
+          ? null
+          : 'HTTP ${r.statusCode} (só em homologação; CT-e autorizado precisa ser cancelado antes)';
     });
   }
 
+  bool _autorizado(Map<String, dynamic> c) =>
+      c['status']?.toString() == kCteAutorizado;
+
+  List<DocAcao> _acoes() => [
+        DocAcao(
+            icone: Icons.sync,
+            rotulo: 'Consultar SEFAZ',
+            habilitada: (l) => l.isNotEmpty,
+            executar: _consultar),
+        DocAcao(
+            icone: Icons.picture_as_pdf,
+            rotulo: 'Imprimir DACTE',
+            habilitada: (l) => l.isNotEmpty,
+            executar: _dacte),
+        DocAcao(
+            icone: Icons.history,
+            rotulo: 'Eventos',
+            soUm: true,
+            habilitada: (l) => l.length == 1,
+            executar: (l) => _eventos(l.first)),
+        DocAcao(
+            icone: Icons.edit_note,
+            rotulo: 'Carta de correção',
+            soUm: true,
+            habilitada: (l) =>
+                l.length == 1 && _pode('edit') && _autorizado(l.first),
+            executar: (l) => _cartaCorrecao(l.first)),
+        DocAcao(
+            icone: Icons.cancel_outlined,
+            rotulo: 'Cancelar',
+            habilitada: (l) =>
+                l.isNotEmpty && _pode('edit') && l.every(_autorizado),
+            executar: _cancelar),
+        DocAcao(
+            icone: Icons.delete_outline,
+            rotulo: 'Excluir (homologação)',
+            destrutiva: true,
+            habilitada: (l) =>
+                l.isNotEmpty &&
+                _pode('delete') &&
+                l.every((c) => c['tpAmb'] == 2),
+            executar: _excluir),
+      ];
+
+  static String _txt(dynamic v) => (v == null || '$v'.isEmpty) ? '-' : '$v';
+
+  static String _retorno(Map<String, dynamic> c) {
+    final t = '${c['codigoRetorno'] ?? ''} ${c['motivo'] ?? ''}'.trim();
+    return t.isEmpty ? '-' : t;
+  }
+
+  late final List<DocColuna> _colunas = [
+    DocColuna('Nº', (c) => _txt(c['numero']), largura: 70),
+    DocColuna('Série', (c) => _txt(c['serie']), largura: 60),
+    DocColuna('Tipo', (c) => rotuloTipoCte(c['tipoCte']), largura: 150),
+    DocColuna('Ambiente', (c) => c['tpAmb'] == 2 ? 'Homologação' : 'Produção',
+        largura: 110),
+    DocColuna('Valor da prestação',
+        (c) => c['valorPrestacao'] == null ? '-' : 'R\$ ${c['valorPrestacao']}',
+        largura: 140),
+    DocColuna('Chave de acesso', (c) => _txt(c['chaveAcesso']),
+        largura: 330, compacta: true),
+    DocColuna('Protocolo', (c) => _txt(c['protocolo']),
+        largura: 140, compacta: true),
+    DocColuna('Retorno', _retorno, largura: 260),
+  ];
+
   Future<String?> _pedirTexto(
-      {required String titulo, required String rotulo, required int minimo}) async {
+      {required String titulo,
+      required String rotulo,
+      required int minimo}) async {
     final ctrl = TextEditingController();
     final resultado = await showDialog<String>(
       context: context,
@@ -575,18 +702,19 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
               const Icon(Icons.local_shipping),
               const SizedBox(width: 10),
               Expanded(
-                child: Text('CT-e', style: Theme.of(context).textTheme.titleLarge),
+                child:
+                    Text('CT-e', style: Theme.of(context).textTheme.titleLarge),
               ),
               IconButton(
                   tooltip: 'Atualizar',
                   onPressed: _carregar,
                   icon: const Icon(Icons.refresh)),
               if (_pode('create'))
-              FilledButton.icon(
-                onPressed: _novo,
-                icon: const Icon(Icons.add),
-                label: const Text('Novo CT-e'),
-              ),
+                FilledButton.icon(
+                  onPressed: _novo,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Novo CT-e'),
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -605,94 +733,15 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : _itens.isEmpty
-                    ? const Center(child: Text('Nenhum CT-e emitido.'))
-                    : ListView.separated(
-                        itemCount: _itens.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (_, i) => _cartao(_itens[i]),
-                      ),
+                : DocumentoFiscalGrid(
+                    itens: _itens,
+                    colunas: _colunas,
+                    acoes: _acoes(),
+                    corStatus: _corStatus,
+                    textoVazio: 'Nenhum CT-e emitido.',
+                  ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _cartao(Map<String, dynamic> c) {
-    final status = c['status']?.toString();
-    final autorizado = status == kCteAutorizado;
-    final homolog = c['tpAmb'] == 2;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${rotuloTipoCte(c['tipoCte'])} nº ${c['numero'] ?? '-'} • série ${c['serie'] ?? '-'}'
-                    '${homolog ? ' • HOMOLOGAÇÃO' : ''}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                Chip(
-                  label: Text(status ?? '-',
-                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                  backgroundColor: _corStatus(status),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-            if (c['valorPrestacao'] != null)
-              Text('Valor da prestação: R\$ ${c['valorPrestacao']}',
-                  style: const TextStyle(fontSize: 12)),
-            if (c['chaveAcesso'] != null)
-              SelectableText('Chave: ${c['chaveAcesso']}',
-                  style: const TextStyle(fontSize: 12)),
-            if (c['protocolo'] != null)
-              Text('Protocolo: ${c['protocolo']}',
-                  style: const TextStyle(fontSize: 12)),
-            if ((c['motivo'] ?? '').toString().isNotEmpty)
-              Text('${c['codigoRetorno'] ?? ''} ${c['motivo']}',
-                  style: const TextStyle(fontSize: 12)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                OutlinedButton.icon(
-                    onPressed: () => _consultar(c),
-                    icon: const Icon(Icons.sync, size: 18),
-                    label: const Text('Consultar')),
-                OutlinedButton.icon(
-                    onPressed: () => _dacte(c),
-                    icon: const Icon(Icons.picture_as_pdf, size: 18),
-                    label: const Text('DACTE')),
-                OutlinedButton.icon(
-                    onPressed: () => _eventos(c),
-                    icon: const Icon(Icons.history, size: 18),
-                    label: const Text('Eventos')),
-                if (autorizado && _pode('edit'))
-                  OutlinedButton.icon(
-                      onPressed: () => _cartaCorrecao(c),
-                      icon: const Icon(Icons.edit_note, size: 18),
-                      label: const Text('Carta de correção')),
-                if (autorizado && _pode('edit'))
-                  OutlinedButton.icon(
-                      onPressed: () => _cancelar(c),
-                      icon: const Icon(Icons.cancel_outlined, size: 18),
-                      label: const Text('Cancelar')),
-                if (homolog && _pode('delete'))
-                  TextButton.icon(
-                      onPressed: () => _excluir(c),
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('Excluir')),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -797,20 +846,23 @@ class _CartaCorrecaoDialogState extends State<_CartaCorrecaoDialog> {
                             width: larguraCte(context, 240),
                             child: TextFormField(
                                 controller: _linhas[i].valor,
-                                decoration:
-                                    const InputDecoration(labelText: 'Novo valor'),
+                                decoration: const InputDecoration(
+                                    labelText: 'Novo valor'),
                                 validator: (v) => _obrigatorio(v, 500))),
                         SizedBox(
                             width: larguraCte(context, 80),
                             child: TextFormField(
                                 controller: _linhas[i].item,
                                 keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(labelText: 'Item'),
+                                decoration:
+                                    const InputDecoration(labelText: 'Item'),
                                 validator: (v) {
                                   final t = v?.trim() ?? '';
                                   if (t.isEmpty) return null;
                                   final n = int.tryParse(t);
-                                  return (n == null || n < 1 || n > 99) ? '1 a 99' : null;
+                                  return (n == null || n < 1 || n > 99)
+                                      ? '1 a 99'
+                                      : null;
                                 })),
                         if (_linhas.length > 1)
                           IconButton(
@@ -824,7 +876,8 @@ class _CartaCorrecaoDialogState extends State<_CartaCorrecaoDialog> {
                   ),
                 if (_linhas.length < kCteMaxCorrecoes)
                   TextButton.icon(
-                      onPressed: () => setState(() => _linhas.add(_CorrecaoCtl())),
+                      onPressed: () =>
+                          setState(() => _linhas.add(_CorrecaoCtl())),
                       icon: const Icon(Icons.add),
                       label: const Text('Adicionar correção')),
               ],
@@ -834,7 +887,8 @@ class _CartaCorrecaoDialogState extends State<_CartaCorrecaoDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context), child: const Text('Voltar')),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Voltar')),
         FilledButton(onPressed: _enviar, child: const Text('Enviar')),
       ],
     );
@@ -869,8 +923,18 @@ class _ParteCtl {
       );
 
   void dispose() {
-    for (final c in [documento, ie, nome, telefone, logradouro, numero, bairro,
-        ibge, municipio, cep]) {
+    for (final c in [
+      documento,
+      ie,
+      nome,
+      telefone,
+      logradouro,
+      numero,
+      bairro,
+      ibge,
+      municipio,
+      cep
+    ]) {
       c.dispose();
     }
   }
@@ -886,16 +950,27 @@ class _CompCtl {
   }
 }
 
-class _CteFormDialog extends StatefulWidget {
-  const _CteFormDialog();
+class _CteFormPage extends StatefulWidget {
+  const _CteFormPage();
 
   @override
-  State<_CteFormDialog> createState() => _CteFormDialogState();
+  State<_CteFormPage> createState() => _CteFormPageState();
 }
 
-class _CteFormDialogState extends State<_CteFormDialog> {
+class _CteFormPageState extends State<_CteFormPage>
+    with SingleTickerProviderStateMixin {
   final _net = NetworkCaller();
-  final _form = GlobalKey<FormState>();
+  static const _abas = [
+    'Dados gerais',
+    'Percurso e tomador',
+    'Partes',
+    'Valores e impostos',
+    'Carga e documentos',
+  ];
+  final _abaKeys = List.generate(_abas.length, (_) => GlobalKey<FormState>());
+  late final TabController _tab =
+      TabController(length: _abas.length, vsync: this);
+  Set<int> _abasErro = {};
   final _serie = TextEditingController(text: '1');
   final _cfop = TextEditingController(text: '6353');
   final _natureza =
@@ -944,11 +1019,41 @@ class _CteFormDialogState extends State<_CteFormDialog> {
   String? _erro;
 
   @override
+  void initState() {
+    super.initState();
+    _tab.addListener(() => setState(() {}));
+  }
+
+  @override
   void dispose() {
-    for (final c in [_serie, _cfop, _natureza, _origIbge, _origNome, _destIbge,
-        _destNome, _valor, _icmsBase, _icmsAliq, _icmsValor, _ibsCst, _ibsClass,
-        _ibsBase, _ibsUf, _ibsMun, _cbs, _cargaValor,
-        _produto, _tipoMedida, _quantidade, _chaves, _refs, _rntrc, _info]) {
+    _tab.dispose();
+    for (final c in [
+      _serie,
+      _cfop,
+      _natureza,
+      _origIbge,
+      _origNome,
+      _destIbge,
+      _destNome,
+      _valor,
+      _icmsBase,
+      _icmsAliq,
+      _icmsValor,
+      _ibsCst,
+      _ibsClass,
+      _ibsBase,
+      _ibsUf,
+      _ibsMun,
+      _cbs,
+      _cargaValor,
+      _produto,
+      _tipoMedida,
+      _quantidade,
+      _chaves,
+      _refs,
+      _rntrc,
+      _info
+    ]) {
       c.dispose();
     }
     for (final p in [_rem, _dest, _exped, _receb, _outro]) {
@@ -962,7 +1067,8 @@ class _CteFormDialogState extends State<_CteFormDialog> {
 
   /// Complemento de valores nao exige remetente/destinatario (so o do tomador, se for um deles).
   bool get _exigeRemetente => _tipoCte != kCteTipoComplemento || _tomador == 0;
-  bool get _exigeDestinatario => _tipoCte != kCteTipoComplemento || _tomador == 3;
+  bool get _exigeDestinatario =>
+      _tipoCte != kCteTipoComplemento || _tomador == 3;
 
   num? _numero(String t) => num.tryParse(t.trim().replaceAll(',', '.'));
 
@@ -1003,14 +1109,16 @@ class _CteFormDialogState extends State<_CteFormDialog> {
         ),
       );
 
-  Widget _ufDrop(String rotulo, String? valor, ValueChanged<String?> onChanged) =>
+  Widget _ufDrop(
+          String rotulo, String? valor, ValueChanged<String?> onChanged) =>
       SizedBox(
         width: 100,
         child: DropdownButtonFormField<String>(
           value: valor,
           decoration: InputDecoration(labelText: rotulo),
           items: [
-            for (final uf in kCteUfs) DropdownMenuItem(value: uf, child: Text(uf))
+            for (final uf in kCteUfs)
+              DropdownMenuItem(value: uf, child: Text(uf))
           ],
           onChanged: onChanged,
           validator: (v) => v == null ? 'Obrigatório' : null,
@@ -1019,7 +1127,8 @@ class _CteFormDialogState extends State<_CteFormDialog> {
 
   Widget _secao(String titulo) => Padding(
         padding: const EdgeInsets.only(top: 14, bottom: 6),
-        child: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w700)),
+        child:
+            Text(titulo, style: const TextStyle(fontWeight: FontWeight.w700)),
       );
 
   Widget _parteCampos(String titulo, _ParteCtl p) => Column(
@@ -1028,8 +1137,9 @@ class _CteFormDialogState extends State<_CteFormDialog> {
           _secao(titulo),
           Wrap(spacing: 8, runSpacing: 4, children: [
             _campo('CPF/CNPJ', p.documento,
-                validator: (v) =>
-                    documentoValidoCte(v ?? '') ? null : 'CPF (11) ou CNPJ (14)'),
+                validator: (v) => documentoValidoCte(v ?? '')
+                    ? null
+                    : 'CPF (11) ou CNPJ (14)'),
             _campo('Nome / razão social', p.nome, largura: 260),
             _campo('IE (opcional)', p.ie, validator: (_) => null),
             _campo('Telefone (opcional)', p.telefone, validator: (_) => null),
@@ -1041,14 +1151,15 @@ class _CteFormDialogState extends State<_CteFormDialog> {
                     _soDigitosCte(v ?? '').length == 7 ? null : '7 dígitos',
                 teclado: TextInputType.number),
             _campo('Município', p.municipio),
-            _campo('CEP (opcional)', p.cep, largura: 120, validator: (_) => null),
+            _campo('CEP (opcional)', p.cep,
+                largura: 120, validator: (_) => null),
             _ufDrop('UF', p.uf, (v) => setState(() => p.uf = v)),
           ]),
         ],
       );
 
   Future<void> _emitir() async {
-    if (!_form.currentState!.validate()) return;
+    if (_validarAbas() != null) return;
     final invalidas = <String>[];
     final chaves = _tipoCte == kCteTipoComplemento
         ? <String>[]
@@ -1057,8 +1168,9 @@ class _CteFormDialogState extends State<_CteFormDialog> {
         ? <String>[]
         : extrairChaves(_refs.text, invalidas: invalidas);
     if (invalidas.isNotEmpty) {
-      setState(() => _erro = 'Chave(s) com tamanho inválido (esperado 44 dígitos): '
-          '${invalidas.join(', ')}');
+      setState(
+          () => _erro = 'Chave(s) com tamanho inválido (esperado 44 dígitos): '
+              '${invalidas.join(', ')}');
       return;
     }
     final erroReferencias = validarReferenciasCte(_tipoCte, referencias);
@@ -1149,292 +1261,394 @@ class _CteFormDialogState extends State<_CteFormDialog> {
     if (mounted) setState(() => _enviando = false);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Novo CT-e'),
-      content: SizedBox(
-        width: larguraCte(context, 760, reserva: 90),
-        child: Form(
-          key: _form,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_erro != null)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    color: Colors.red.shade50,
-                    child: Text(_erro!, style: TextStyle(color: Colors.red.shade800)),
-                  ),
-                Wrap(spacing: 8, runSpacing: 4, children: [
-                  SizedBox(
-                    width: larguraCte(context, 160),
-                    child: DropdownButtonFormField<int>(
-                      value: _tpAmb,
-                      decoration: const InputDecoration(labelText: 'Ambiente'),
-                      items: const [
-                        DropdownMenuItem(value: 2, child: Text('Homologação')),
-                        DropdownMenuItem(value: 1, child: Text('Produção')),
-                      ],
-                      onChanged: (v) => setState(() => _tpAmb = v ?? 2),
-                    ),
-                  ),
-                  _campo('Série', _serie,
-                      largura: 90,
-                      teclado: TextInputType.number,
-                      validator: (v) =>
-                          _serieValida(v) ? null : '0 a 999'),
-                  _campo('CFOP', _cfop,
-                      largura: 100,
-                      teclado: TextInputType.number,
-                      validator: (v) =>
-                          _soDigitosCte(v ?? '').length == 4 ? null : '4 dígitos'),
-                  _campo('Natureza da prestação', _natureza, largura: 300),
-                  _campo('RNTRC (opcional, 8 dígitos)', _rntrc,
-                      validator: (v) => validarRntrcCte(v) ? null : '8 dígitos'),
-                  SizedBox(
-                    width: larguraCte(context, 240),
-                    child: DropdownButtonFormField<int>(
-                      value: _tipoCte,
-                      decoration: const InputDecoration(labelText: 'Tipo do CT-e'),
-                      items: [
-                        for (final e in kCteTipos.entries)
-                          DropdownMenuItem(value: e.key, child: Text(e.value))
-                      ],
-                      onChanged: (v) => setState(() {
-                        _tipoCte = v ?? kCteTipoNormal;
-                        if (_tipoCte != kCteTipoSubstituicao) _alteraTomador = false;
-                      }),
-                    ),
-                  ),
-                ]),
-                if (_tipoCte != kCteTipoNormal) ...[
-                  _secao(_tipoCte == kCteTipoComplemento
-                      ? 'CT-e complementados'
-                      : 'CT-e substituído'),
-                  TextFormField(
-                    controller: _refs,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                        labelText: _tipoCte == kCteTipoComplemento
-                            ? 'Chaves dos CT-e (44 dígitos, 1 a $kCteMaxComplementados, uma por linha)'
-                            : 'Chave do CT-e substituído (44 dígitos)'),
-                    validator: _obrigatorio,
-                  ),
-                  if (_tipoCte == kCteTipoSubstituicao)
-                    CheckboxListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('O tomador do serviço foi alterado'),
-                      value: _alteraTomador,
-                      onChanged: (v) => setState(() => _alteraTomador = v ?? false),
-                    ),
-                ],
-                _secao('Percurso da prestação'),
-                Wrap(spacing: 8, runSpacing: 4, children: [
-                  _campo('Origem - IBGE', _origIbge,
-                      validator: (v) =>
-                          _soDigitosCte(v ?? '').length == 7 ? null : '7 dígitos',
-                      teclado: TextInputType.number),
-                  _campo('Origem - município', _origNome),
-                  _ufDrop('UF', _origUf, (v) => setState(() => _origUf = v)),
-                  _campo('Destino - IBGE', _destIbge,
-                      validator: (v) =>
-                          _soDigitosCte(v ?? '').length == 7 ? null : '7 dígitos',
-                      teclado: TextInputType.number),
-                  _campo('Destino - município', _destNome),
-                  _ufDrop('UF', _destUf, (v) => setState(() => _destUf = v)),
-                ]),
-                _secao('Tomador do serviço'),
-                Wrap(spacing: 8, runSpacing: 4, children: [
-                  SizedBox(
-                    width: larguraCte(context, 200),
-                    child: DropdownButtonFormField<int>(
-                      value: _tomador,
-                      decoration: const InputDecoration(labelText: 'Tomador'),
-                      items: [
-                        for (final e in kCteTomadores.entries)
-                          DropdownMenuItem(value: e.key, child: Text(e.value))
-                      ],
-                      onChanged: (v) => setState(() => _tomador = v ?? 0),
-                    ),
-                  ),
-                  SizedBox(
-                    width: larguraCte(context, 240),
-                    child: DropdownButtonFormField<int>(
-                      value: _indIeTomador,
-                      decoration: const InputDecoration(labelText: 'IE do tomador'),
-                      items: [
-                        for (final e in kCteIndIeTomador.entries)
-                          DropdownMenuItem(value: e.key, child: Text(e.value))
-                      ],
-                      onChanged: (v) => setState(() => _indIeTomador = v ?? 1),
-                    ),
-                  ),
-                ]),
-                if (_exigeRemetente) _parteCampos('Remetente', _rem),
-                if (_exigeDestinatario) _parteCampos('Destinatário', _dest),
-                CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Informar expedidor'),
-                  value: _usaExped || _tomador == 1,
-                  onChanged: _tomador == 1
-                      ? null
-                      : (v) => setState(() => _usaExped = v ?? false),
-                ),
-                if (_usaExped || _tomador == 1) _parteCampos('Expedidor', _exped),
-                CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Informar recebedor'),
-                  value: _usaReceb || _tomador == 2,
-                  onChanged: _tomador == 2
-                      ? null
-                      : (v) => setState(() => _usaReceb = v ?? false),
-                ),
-                if (_usaReceb || _tomador == 2) _parteCampos('Recebedor', _receb),
-                if (_tomador == 4) _parteCampos('Tomador (outro)', _outro),
-                _secao('Valores da prestação'),
-                Wrap(spacing: 8, runSpacing: 4, children: [
-                  _campo('Valor total (R\$)', _valor,
-                      teclado: TextInputType.number,
-                      validator: _numeroObrigatorio),
-                ]),
-                for (var i = 0; i < _componentes.length; i++)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _campo('Componente', _componentes[i].nome, largura: 260),
-                      _campo('Valor (R\$)', _componentes[i].valor,
-                          teclado: TextInputType.number,
-                          validator: _numeroObrigatorio),
-                      if (_componentes.length > 1)
-                        IconButton(
-                            tooltip: 'Remover',
-                            onPressed: () => setState(() {
-                                  _componentes.removeAt(i).dispose();
-                                }),
-                            icon: const Icon(Icons.remove_circle_outline)),
-                    ],
-                  ),
-                TextButton.icon(
-                    onPressed: () => setState(() => _componentes.add(_CompCtl())),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Adicionar componente')),
-                _secao('ICMS'),
-                Wrap(spacing: 8, runSpacing: 4, children: [
-                  SizedBox(
-                    width: larguraCte(context, 220),
-                    child: DropdownButtonFormField<String>(
-                      value: _cst,
-                      decoration: const InputDecoration(labelText: 'Situação tributária'),
-                      items: [
-                        for (final e in kCteCstIcms.entries)
-                          DropdownMenuItem(value: e.key, child: Text(e.value))
-                      ],
-                      onChanged: (v) => setState(() => _cst = v ?? '40'),
-                    ),
-                  ),
-                  if (_cst == '00') ...[
-                    _campo('Base de cálculo', _icmsBase,
-                        teclado: TextInputType.number, validator: _numeroObrigatorio),
-                    _campo('Alíquota (%)', _icmsAliq,
-                        largura: 120,
-                        teclado: TextInputType.number,
-                        validator: _numeroObrigatorio),
-                    _campo('Valor do ICMS', _icmsValor,
-                        teclado: TextInputType.number, validator: _numeroObrigatorio),
-                  ],
-                ]),
-                _secao('IBS/CBS (opcional)'),
-                const Text(
-                    'Informe só se o CT-e deve levar IBS/CBS. CST e cClassTrib '
-                    'conforme a tabela oficial (ex.: 2026 teste: IBS UF 0,10% e CBS 0,90%). '
-                    'Os valores são calculados sobre a base (vazia = valor da prestação).',
-                    style: TextStyle(fontSize: 12)),
-                Wrap(spacing: 8, runSpacing: 4, children: [
-                  _campo('CST (3 dígitos)', _ibsCst, largura: 120, validator: _ibsCstValidador),
-                  _campo('cClassTrib (6 dígitos)', _ibsClass,
-                      largura: 170, validator: _ibsClassValidador),
-                  _campo('Base de cálculo', _ibsBase, teclado: TextInputType.number),
-                  _campo('IBS UF (%)', _ibsUf, largura: 110, teclado: TextInputType.number),
-                  _campo('IBS Município (%)', _ibsMun,
-                      largura: 140, teclado: TextInputType.number),
-                  _campo('CBS (%)', _cbs, largura: 100, teclado: TextInputType.number),
-                ]),
-                if (_tipoCte != kCteTipoComplemento) ...[
-                _secao('Carga'),
-                Wrap(spacing: 8, runSpacing: 4, children: [
-                  _campo('Valor da carga (R\$)', _cargaValor,
-                      teclado: TextInputType.number, validator: _numeroObrigatorio),
-                  _campo('Produto predominante', _produto, largura: 260),
-                  SizedBox(
-                    width: 140,
-                    child: DropdownButtonFormField<String>(
-                      value: _unidade,
-                      decoration: const InputDecoration(labelText: 'Unidade'),
-                      items: [
-                        for (final e in kCteUnidades.entries)
-                          DropdownMenuItem(value: e.key, child: Text(e.value))
-                      ],
-                      onChanged: (v) => setState(() => _unidade = v ?? '01'),
-                    ),
-                  ),
-                  _campo('Tipo da medida', _tipoMedida,
-                      validator: (v) {
-                        final t = (v ?? '').trim();
-                        return (t.isEmpty || t.length > 20) ? '1 a 20 caracteres' : null;
-                      }),
-                  _campo('Quantidade', _quantidade,
-                      teclado: TextInputType.number,
-                      validator: (v) {
-                        final n = _numero(v ?? '');
-                        return (n == null || n <= 0) ? 'Valor inválido' : null;
-                      }),
-                ]),
-                _secao('Documentos originários'),
-                TextFormField(
-                  controller: _chaves,
-                  minLines: 2,
-                  maxLines: 5,
-                  decoration: const InputDecoration(
-                      labelText: 'Chaves das NF-e (44 dígitos, uma por linha)'),
-                  validator: _obrigatorio,
-                ),
-                ],
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _info,
-                  maxLines: 2,
-                  decoration:
-                      const InputDecoration(labelText: 'Observações (opcional)'),
-                ),
-              ],
+  /// Valida todas as abas (as fora da tela ficam montadas no IndexedStack), marca as com erro
+  /// e leva o usuario para a primeira. Devolve o indice dela, ou null se tudo estiver ok.
+  int? _validarAbas() {
+    int? primeira;
+    final erros = <int>{};
+    for (var i = 0; i < _abas.length; i++) {
+      if (!(_abaKeys[i].currentState?.validate() ?? true)) {
+        erros.add(i);
+        primeira ??= i;
+      }
+    }
+    setState(() => _abasErro = erros);
+    if (primeira != null) _tab.animateTo(primeira);
+    return primeira;
+  }
+
+  Widget _aba(int i, List<Widget> filhos) => Form(
+        key: _abaKeys[i],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: filhos,
+              ),
             ),
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: _enviando ? null : () => Navigator.pop(context, false),
-            child: const Text('Cancelar')),
-        FilledButton(
-          onPressed: _enviando ? null : _emitir,
-          child: _enviando
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Emitir'),
+      );
+
+  List<Widget> _abaGeral() => [
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          SizedBox(
+            width: larguraCte(context, 160),
+            child: DropdownButtonFormField<int>(
+              value: _tpAmb,
+              decoration: const InputDecoration(labelText: 'Ambiente'),
+              items: const [
+                DropdownMenuItem(value: 2, child: Text('Homologação')),
+                DropdownMenuItem(value: 1, child: Text('Produção')),
+              ],
+              onChanged: (v) => setState(() => _tpAmb = v ?? 2),
+            ),
+          ),
+          _campo('Série', _serie,
+              largura: 90,
+              teclado: TextInputType.number,
+              validator: (v) => _serieValida(v) ? null : '0 a 999'),
+          _campo('CFOP', _cfop,
+              largura: 100,
+              teclado: TextInputType.number,
+              validator: (v) =>
+                  _soDigitosCte(v ?? '').length == 4 ? null : '4 dígitos'),
+          _campo('Natureza da prestação', _natureza, largura: 300),
+          _campo('RNTRC (opcional, 8 dígitos)', _rntrc,
+              validator: (v) => validarRntrcCte(v) ? null : '8 dígitos'),
+          SizedBox(
+            width: larguraCte(context, 240),
+            child: DropdownButtonFormField<int>(
+              value: _tipoCte,
+              decoration: const InputDecoration(labelText: 'Tipo do CT-e'),
+              items: [
+                for (final e in kCteTipos.entries)
+                  DropdownMenuItem(value: e.key, child: Text(e.value))
+              ],
+              onChanged: (v) => setState(() {
+                _tipoCte = v ?? kCteTipoNormal;
+                if (_tipoCte != kCteTipoSubstituicao) _alteraTomador = false;
+              }),
+            ),
+          ),
+        ]),
+        if (_tipoCte != kCteTipoNormal) ...[
+          _secao(_tipoCte == kCteTipoComplemento
+              ? 'CT-e complementados'
+              : 'CT-e substituído'),
+          TextFormField(
+            controller: _refs,
+            minLines: 1,
+            maxLines: 4,
+            decoration: InputDecoration(
+                labelText: _tipoCte == kCteTipoComplemento
+                    ? 'Chaves dos CT-e (44 dígitos, 1 a $kCteMaxComplementados, uma por linha)'
+                    : 'Chave do CT-e substituído (44 dígitos)'),
+            validator: _obrigatorio,
+          ),
+          if (_tipoCte == kCteTipoSubstituicao)
+            CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: const Text('O tomador do serviço foi alterado'),
+              value: _alteraTomador,
+              onChanged: (v) => setState(() => _alteraTomador = v ?? false),
+            ),
+        ],
+      ];
+
+  List<Widget> _abaPercurso() => [
+        _secao('Percurso da prestação'),
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          _campo('Origem - IBGE', _origIbge,
+              validator: (v) =>
+                  _soDigitosCte(v ?? '').length == 7 ? null : '7 dígitos',
+              teclado: TextInputType.number),
+          _campo('Origem - município', _origNome),
+          _ufDrop('UF', _origUf, (v) => setState(() => _origUf = v)),
+          _campo('Destino - IBGE', _destIbge,
+              validator: (v) =>
+                  _soDigitosCte(v ?? '').length == 7 ? null : '7 dígitos',
+              teclado: TextInputType.number),
+          _campo('Destino - município', _destNome),
+          _ufDrop('UF', _destUf, (v) => setState(() => _destUf = v)),
+        ]),
+        _secao('Tomador do serviço'),
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          SizedBox(
+            width: larguraCte(context, 200),
+            child: DropdownButtonFormField<int>(
+              value: _tomador,
+              decoration: const InputDecoration(labelText: 'Tomador'),
+              items: [
+                for (final e in kCteTomadores.entries)
+                  DropdownMenuItem(value: e.key, child: Text(e.value))
+              ],
+              onChanged: (v) => setState(() => _tomador = v ?? 0),
+            ),
+          ),
+          SizedBox(
+            width: larguraCte(context, 240),
+            child: DropdownButtonFormField<int>(
+              value: _indIeTomador,
+              decoration: const InputDecoration(labelText: 'IE do tomador'),
+              items: [
+                for (final e in kCteIndIeTomador.entries)
+                  DropdownMenuItem(value: e.key, child: Text(e.value))
+              ],
+              onChanged: (v) => setState(() => _indIeTomador = v ?? 1),
+            ),
+          ),
+        ]),
+      ];
+
+  List<Widget> _abaPartes() => [
+        if (_exigeRemetente) _parteCampos('Remetente', _rem),
+        if (_exigeDestinatario) _parteCampos('Destinatário', _dest),
+        CheckboxListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Informar expedidor'),
+          value: _usaExped || _tomador == 1,
+          onChanged: _tomador == 1
+              ? null
+              : (v) => setState(() => _usaExped = v ?? false),
         ),
-      ],
+        if (_usaExped || _tomador == 1) _parteCampos('Expedidor', _exped),
+        CheckboxListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Informar recebedor'),
+          value: _usaReceb || _tomador == 2,
+          onChanged: _tomador == 2
+              ? null
+              : (v) => setState(() => _usaReceb = v ?? false),
+        ),
+        if (_usaReceb || _tomador == 2) _parteCampos('Recebedor', _receb),
+        if (_tomador == 4) _parteCampos('Tomador (outro)', _outro),
+      ];
+
+  List<Widget> _abaValores() => [
+        _secao('Valores da prestação'),
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          _campo('Valor total (R\$)', _valor,
+              teclado: TextInputType.number, validator: _numeroObrigatorio),
+        ]),
+        for (var i = 0; i < _componentes.length; i++)
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _campo('Componente', _componentes[i].nome, largura: 260),
+              _campo('Valor (R\$)', _componentes[i].valor,
+                  teclado: TextInputType.number, validator: _numeroObrigatorio),
+              if (_componentes.length > 1)
+                IconButton(
+                    tooltip: 'Remover',
+                    onPressed: () => setState(() {
+                          _componentes.removeAt(i).dispose();
+                        }),
+                    icon: const Icon(Icons.remove_circle_outline)),
+            ],
+          ),
+        TextButton.icon(
+            onPressed: () => setState(() => _componentes.add(_CompCtl())),
+            icon: const Icon(Icons.add),
+            label: const Text('Adicionar componente')),
+        _secao('ICMS'),
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          SizedBox(
+            width: larguraCte(context, 220),
+            child: DropdownButtonFormField<String>(
+              value: _cst,
+              decoration:
+                  const InputDecoration(labelText: 'Situação tributária'),
+              items: [
+                for (final e in kCteCstIcms.entries)
+                  DropdownMenuItem(value: e.key, child: Text(e.value))
+              ],
+              onChanged: (v) => setState(() => _cst = v ?? '40'),
+            ),
+          ),
+          if (_cst == '00') ...[
+            _campo('Base de cálculo', _icmsBase,
+                teclado: TextInputType.number, validator: _numeroObrigatorio),
+            _campo('Alíquota (%)', _icmsAliq,
+                largura: 120,
+                teclado: TextInputType.number,
+                validator: _numeroObrigatorio),
+            _campo('Valor do ICMS', _icmsValor,
+                teclado: TextInputType.number, validator: _numeroObrigatorio),
+          ],
+        ]),
+        _secao('IBS/CBS (opcional)'),
+        const Text(
+            'Informe só se o CT-e deve levar IBS/CBS. CST e cClassTrib '
+            'conforme a tabela oficial (ex.: 2026 teste: IBS UF 0,10% e CBS 0,90%). '
+            'Os valores são calculados sobre a base (vazia = valor da prestação).',
+            style: TextStyle(fontSize: 12)),
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          _campo('CST (3 dígitos)', _ibsCst,
+              largura: 120, validator: _ibsCstValidador),
+          _campo('cClassTrib (6 dígitos)', _ibsClass,
+              largura: 170, validator: _ibsClassValidador),
+          _campo('Base de cálculo', _ibsBase, teclado: TextInputType.number),
+          _campo('IBS UF (%)', _ibsUf,
+              largura: 110, teclado: TextInputType.number),
+          _campo('IBS Município (%)', _ibsMun,
+              largura: 140, teclado: TextInputType.number),
+          _campo('CBS (%)', _cbs, largura: 100, teclado: TextInputType.number),
+        ]),
+      ];
+
+  List<Widget> _abaCarga() => [
+        if (_tipoCte != kCteTipoComplemento) ...[
+          _secao('Carga'),
+          Wrap(spacing: 8, runSpacing: 4, children: [
+            _campo('Valor da carga (R\$)', _cargaValor,
+                teclado: TextInputType.number, validator: _numeroObrigatorio),
+            _campo('Produto predominante', _produto, largura: 260),
+            SizedBox(
+              width: 140,
+              child: DropdownButtonFormField<String>(
+                value: _unidade,
+                decoration: const InputDecoration(labelText: 'Unidade'),
+                items: [
+                  for (final e in kCteUnidades.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value))
+                ],
+                onChanged: (v) => setState(() => _unidade = v ?? '01'),
+              ),
+            ),
+            _campo('Tipo da medida', _tipoMedida, validator: (v) {
+              final t = (v ?? '').trim();
+              return (t.isEmpty || t.length > 20) ? '1 a 20 caracteres' : null;
+            }),
+            _campo('Quantidade', _quantidade, teclado: TextInputType.number,
+                validator: (v) {
+              final n = _numero(v ?? '');
+              return (n == null || n <= 0) ? 'Valor inválido' : null;
+            }),
+          ]),
+          _secao('Documentos originários'),
+          TextFormField(
+            controller: _chaves,
+            minLines: 2,
+            maxLines: 5,
+            decoration: const InputDecoration(
+                labelText: 'Chaves das NF-e (44 dígitos, uma por linha)'),
+            validator: _obrigatorio,
+          ),
+        ],
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _info,
+          maxLines: 2,
+          decoration:
+              const InputDecoration(labelText: 'Observações (opcional)'),
+        ),
+      ];
+
+  @override
+  Widget build(BuildContext context) {
+    final ultima = _tab.index == _abas.length - 1;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Novo CT-e'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Voltar',
+          onPressed: _enviando ? null : () => Navigator.pop(context, false),
+        ),
+        bottom: TabBar(
+          controller: _tab,
+          isScrollable: true,
+          tabs: [
+            for (var i = 0; i < _abas.length; i++)
+              Tab(
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (_abasErro.contains(i))
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Icon(Icons.error,
+                          size: 16, color: Colors.red.shade700),
+                    ),
+                  Text('${i + 1}. ${_abas[i]}'),
+                ]),
+              ),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          if (_erro != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                border: Border.all(color: Colors.red.shade200),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(_erro!, style: TextStyle(color: Colors.red.shade800)),
+            ),
+          Expanded(
+            child: IndexedStack(
+              index: _tab.index,
+              children: [
+                _aba(0, _abaGeral()),
+                _aba(1, _abaPercurso()),
+                _aba(2, _abaPartes()),
+                _aba(3, _abaValores()),
+                _aba(4, _abaCarga()),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(children: [
+              TextButton(
+                onPressed:
+                    _enviando ? null : () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              const Spacer(),
+              OutlinedButton.icon(
+                onPressed: (_tab.index == 0 || _enviando)
+                    ? null
+                    : () => _tab.animateTo(_tab.index - 1),
+                icon: const Icon(Icons.chevron_left),
+                label: const Text('Anterior'),
+              ),
+              const SizedBox(width: 8),
+              if (!ultima)
+                FilledButton.icon(
+                  onPressed: () => _tab.animateTo(_tab.index + 1),
+                  icon: const Icon(Icons.chevron_right),
+                  label: const Text('Próximo'),
+                )
+              else
+                FilledButton.icon(
+                  onPressed: _enviando ? null : _emitir,
+                  icon: _enviando
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.send),
+                  label: const Text('Emitir'),
+                ),
+            ]),
+          ),
+        ],
+      ),
     );
   }
 }

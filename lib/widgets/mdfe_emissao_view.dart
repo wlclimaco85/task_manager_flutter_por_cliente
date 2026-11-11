@@ -5,6 +5,7 @@ import '../utils/api_links.dart';
 import '../utils/app_logger.dart';
 import '../utils/file_saver_compat.dart';
 import '../utils/tenant_context.dart';
+import 'documento_fiscal_grid.dart';
 import '../web/screens/transporte_veiculo_grid_screen.dart'
     show kTransporteUfs;
 import 'transporte_config_tab.dart'
@@ -489,40 +490,58 @@ class _MdfeEmissaoViewState extends State<MdfeEmissaoView> {
   }
 
   Future<void> _novo() async {
-    final criado = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _MdfeFormDialog(),
+    final criado = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const _MdfeFormPage()),
     );
-    if (criado == true) _carregar();
+    if (criado == true && mounted) _carregar();
   }
 
-  Future<void> _consultar(Map<String, dynamic> m) => _acao('consultar o MDF-e', () async {
-        final r = await _net.postRequest(ApiLinks.mdfeConsultar('${m['id']}'), {});
-        if (r.isSuccess) {
-          _aviso('Consulta concluída: ${r.body?['status'] ?? ''}');
-          _carregar();
+  /// Roda [fn] em cada documento, um por vez; [fn] devolve null se deu certo ou o motivo da falha.
+  /// Mostra um unico resumo ao final (nada de uma mensagem por documento).
+  Future<void> _lote(String titulo, List<Map<String, dynamic>> alvo,
+      Future<String?> Function(Map<String, dynamic> m) fn,
+      {bool recarregar = true}) async {
+    var ok = 0;
+    final falhas = <String>[];
+    for (final m in alvo) {
+      try {
+        final erro = await fn(m);
+        if (erro == null) {
+          ok++;
         } else {
-          _aviso(r.statusCode == 502
-              ? 'SEFAZ indisponível para consulta. Tente novamente.'
-              : 'Falha na consulta (HTTP ${r.statusCode}).');
+          falhas.add('nº ${m['numero'] ?? m['id']}: $erro');
         }
+      } catch (e, st) {
+        AppLogger.i.error('MdfeEmissaoView: erro em $titulo (MDF-e #${m['id']}): $e', st);
+        falhas.add('nº ${m['numero'] ?? m['id']}: erro inesperado');
+      }
+    }
+    _aviso(falhas.isEmpty
+        ? '$titulo: $ok MDF-e concluído(s).'
+        : '$titulo: $ok ok, ${falhas.length} com falha — ${falhas.take(3).join('; ')}');
+    if (recarregar && ok > 0 && mounted) _carregar();
+  }
+
+  Future<void> _consultar(List<Map<String, dynamic>> alvo) =>
+      _lote('Consulta', alvo, (m) async {
+        final r = await _net.postRequest(ApiLinks.mdfeConsultar('${m['id']}'), {});
+        if (r.isSuccess) return null;
+        return r.statusCode == 502 ? 'SEFAZ indisponível' : 'HTTP ${r.statusCode}';
       });
 
-  Future<void> _cancelar(Map<String, dynamic> m) async {
+  Future<void> _cancelar(List<Map<String, dynamic>> alvo) async {
     final texto = await _pedirTexto(
-      titulo: 'Cancelar MDF-e ${m['numero']}',
+      titulo: alvo.length == 1
+          ? 'Cancelar MDF-e ${alvo.first['numero']}'
+          : 'Cancelar ${alvo.length} MDF-e',
       rotulo: 'Justificativa (mín. $kMdfeTamanhoMinimoJustificativa caracteres)',
       minimo: kMdfeTamanhoMinimoJustificativa,
     );
     if (texto == null) return;
-    await _acao('cancelar o MDF-e', () async {
+    await _lote('Cancelamento', alvo, (m) async {
       final r = await _net.postRequest(
           ApiLinks.mdfeCancelar('${m['id']}'), {'justificativa': texto});
-      _aviso(r.isSuccess
-          ? 'Cancelamento: ${r.body?['status'] ?? ''} ${r.body?['motivo'] ?? ''}'
-          : 'Falha ao cancelar (HTTP ${r.statusCode}).');
-      if (r.isSuccess) _carregar();
+      return r.isSuccess ? null : 'HTTP ${r.statusCode}';
     });
   }
 
@@ -541,12 +560,12 @@ class _MdfeEmissaoViewState extends State<MdfeEmissaoView> {
     });
   }
 
-  Future<void> _damdfe(Map<String, dynamic> m) => _acao('gerar o DAMDFE', () async {
+  Future<void> _damdfe(List<Map<String, dynamic>> alvo) =>
+      _lote('DAMDFE', alvo, (m) async {
         final r = await TenantContext.get(ApiLinks.mdfeDamdfe('${m['id']}'));
         if (r.statusCode != 200) {
           AppLogger.i.warn('MdfeEmissaoView: DAMDFE #${m['id']} falhou: HTTP ${r.statusCode}');
-          _aviso('Não foi possível gerar o DAMDFE (HTTP ${r.statusCode}).');
-          return;
+          return 'HTTP ${r.statusCode}';
         }
         await FileSaver.instance.saveFile(
           name: 'damdfe_${m['numero'] ?? m['id']}',
@@ -554,8 +573,8 @@ class _MdfeEmissaoViewState extends State<MdfeEmissaoView> {
           fileExtension: 'pdf',
           mimeType: MimeType.pdf,
         );
-        _aviso('DAMDFE gerado.');
-      });
+        return null;
+      }, recarregar: false);
 
   Future<void> _eventos(Map<String, dynamic> m) => _acao('listar os eventos', () async {
         final r = await _net.getRequest(ApiLinks.mdfeEventos('${m['id']}'));
@@ -597,13 +616,14 @@ class _MdfeEmissaoViewState extends State<MdfeEmissaoView> {
         );
       });
 
-  Future<void> _excluir(Map<String, dynamic> m) async {
+  Future<void> _excluir(List<Map<String, dynamic>> alvo) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Excluir MDF-e de teste'),
-        content: Text(
-            'Excluir o MDF-e ${m['numero']} (homologação)? Esta ação não pode ser desfeita.'),
+        content: Text(alvo.length == 1
+            ? 'Excluir o MDF-e ${alvo.first['numero']} (homologação)? Esta ação não pode ser desfeita.'
+            : 'Excluir ${alvo.length} MDF-e de homologação? Esta ação não pode ser desfeita.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -615,14 +635,69 @@ class _MdfeEmissaoViewState extends State<MdfeEmissaoView> {
       ),
     );
     if (ok != true) return;
-    await _acao('excluir o MDF-e', () async {
+    await _lote('Exclusão', alvo, (m) async {
       final r = await _net.deleteRequest(ApiLinks.mdfe('${m['id']}'));
-      _aviso(r.isSuccess
-          ? 'MDF-e excluído.'
-          : 'Não foi possível excluir (HTTP ${r.statusCode}). Só é permitido em homologação sem desfecho fiscal.');
-      if (r.isSuccess) _carregar();
+      return r.isSuccess
+          ? null
+          : 'HTTP ${r.statusCode} (só é permitido em homologação sem desfecho fiscal)';
     });
   }
+
+  bool _autorizado(Map<String, dynamic> m) => m['status']?.toString() == kMdfeAutorizado;
+
+  List<DocAcao> _acoes() => [
+        DocAcao(
+            icone: Icons.sync,
+            rotulo: 'Consultar SEFAZ',
+            habilitada: (l) => l.isNotEmpty,
+            executar: _consultar),
+        DocAcao(
+            icone: Icons.picture_as_pdf,
+            rotulo: 'Imprimir DAMDFE',
+            habilitada: (l) => l.isNotEmpty,
+            executar: _damdfe),
+        DocAcao(
+            icone: Icons.history,
+            rotulo: 'Eventos',
+            soUm: true,
+            habilitada: (l) => l.length == 1,
+            executar: (l) => _eventos(l.first)),
+        DocAcao(
+            icone: Icons.flag,
+            rotulo: 'Encerrar',
+            soUm: true,
+            habilitada: (l) => l.length == 1 && _pode('edit') && _autorizado(l.first),
+            executar: (l) => _encerrar(l.first)),
+        DocAcao(
+            icone: Icons.cancel_outlined,
+            rotulo: 'Cancelar',
+            habilitada: (l) => l.isNotEmpty && _pode('edit') && l.every(_autorizado),
+            executar: _cancelar),
+        DocAcao(
+            icone: Icons.delete_outline,
+            rotulo: 'Excluir (homologação)',
+            destrutiva: true,
+            habilitada: (l) =>
+                l.isNotEmpty && _pode('delete') && l.every((m) => m['tpAmb'] == 2),
+            executar: _excluir),
+      ];
+
+  static String _txt(dynamic v) => (v == null || '$v'.isEmpty) ? '-' : '$v';
+
+  static String _retorno(Map<String, dynamic> m) {
+    final t = '${m['codigoRetorno'] ?? ''} ${m['motivo'] ?? ''}'.trim();
+    return t.isEmpty ? '-' : t;
+  }
+
+  late final List<DocColuna> _colunas = [
+    DocColuna('Nº', (m) => _txt(m['numero']), largura: 70),
+    DocColuna('Série', (m) => _txt(m['serie']), largura: 60),
+    DocColuna('Ambiente', (m) => m['tpAmb'] == 2 ? 'Homologação' : 'Produção', largura: 110),
+    DocColuna('UF', (m) => _txt(m['uf']), largura: 50),
+    DocColuna('Chave de acesso', (m) => _txt(m['chaveAcesso']), largura: 330, compacta: true),
+    DocColuna('Protocolo', (m) => _txt(m['protocolo']), largura: 140, compacta: true),
+    DocColuna('Retorno', _retorno, largura: 260),
+  ];
 
   Future<String?> _pedirTexto(
       {required String titulo, required String rotulo, required int minimo}) {
@@ -719,91 +794,15 @@ class _MdfeEmissaoViewState extends State<MdfeEmissaoView> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : _itens.isEmpty
-                    ? const Center(child: Text('Nenhum MDF-e emitido.'))
-                    : ListView.separated(
-                        itemCount: _itens.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (_, i) => _cartao(_itens[i]),
+                : DocumentoFiscalGrid(
+                        itens: _itens,
+                        colunas: _colunas,
+                        acoes: _acoes(),
+                        corStatus: _corStatus,
+                        textoVazio: 'Nenhum MDF-e emitido.',
                       ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _cartao(Map<String, dynamic> m) {
-    final status = m['status']?.toString();
-    final autorizado = status == kMdfeAutorizado;
-    final homolog = m['tpAmb'] == 2;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'MDF-e nº ${m['numero'] ?? '-'} • série ${m['serie'] ?? '-'}'
-                    '${homolog ? ' • HOMOLOGAÇÃO' : ''}',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                Chip(
-                  label: Text(status ?? '-',
-                      style: const TextStyle(color: Colors.white, fontSize: 12)),
-                  backgroundColor: _corStatus(status),
-                  visualDensity: VisualDensity.compact,
-                ),
-              ],
-            ),
-            if (m['chaveAcesso'] != null)
-              SelectableText('Chave: ${m['chaveAcesso']}',
-                  style: const TextStyle(fontSize: 12)),
-            if (m['protocolo'] != null)
-              Text('Protocolo: ${m['protocolo']}',
-                  style: const TextStyle(fontSize: 12)),
-            if ((m['motivo'] ?? '').toString().isNotEmpty)
-              Text('${m['codigoRetorno'] ?? ''} ${m['motivo']}',
-                  style: const TextStyle(fontSize: 12)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                OutlinedButton.icon(
-                    onPressed: () => _consultar(m),
-                    icon: const Icon(Icons.sync, size: 18),
-                    label: const Text('Consultar')),
-                OutlinedButton.icon(
-                    onPressed: () => _damdfe(m),
-                    icon: const Icon(Icons.picture_as_pdf, size: 18),
-                    label: const Text('DAMDFE')),
-                OutlinedButton.icon(
-                    onPressed: () => _eventos(m),
-                    icon: const Icon(Icons.history, size: 18),
-                    label: const Text('Eventos')),
-                if (autorizado && _pode('edit'))
-                  OutlinedButton.icon(
-                      onPressed: () => _encerrar(m),
-                      icon: const Icon(Icons.flag, size: 18),
-                      label: const Text('Encerrar')),
-                if (autorizado && _pode('edit'))
-                  OutlinedButton.icon(
-                      onPressed: () => _cancelar(m),
-                      icon: const Icon(Icons.cancel_outlined, size: 18),
-                      label: const Text('Cancelar')),
-                if (homolog && _pode('delete'))
-                  TextButton.icon(
-                      onPressed: () => _excluir(m),
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('Excluir')),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -902,16 +901,27 @@ class _EncerrarDialogState extends State<_EncerrarDialog> {
   }
 }
 
-class _MdfeFormDialog extends StatefulWidget {
-  const _MdfeFormDialog();
+class _MdfeFormPage extends StatefulWidget {
+  const _MdfeFormPage();
 
   @override
-  State<_MdfeFormDialog> createState() => _MdfeFormDialogState();
+  State<_MdfeFormPage> createState() => _MdfeFormPageState();
 }
 
-class _MdfeFormDialogState extends State<_MdfeFormDialog> {
+class _MdfeFormPageState extends State<_MdfeFormPage>
+    with SingleTickerProviderStateMixin {
   final _net = NetworkCaller();
-  final _form = GlobalKey<FormState>();
+  static const _abas = [
+    'Identificação',
+    'Percurso',
+    'Descargas e documentos',
+    'Carga e veículo',
+    'Seguro e vale-pedágio',
+    'Contratantes e pagamento',
+  ];
+  final _abaKeys = List.generate(_abas.length, (_) => GlobalKey<FormState>());
+  late final TabController _tab = TabController(length: _abas.length, vsync: this);
+  Set<int> _abasErro = {};
   final _serie = TextEditingController(text: '1');
   final List<_MunicipioCtl> _carregs = [_MunicipioCtl()];
   final List<_DescargaCtl> _descargas = [_DescargaCtl()];
@@ -949,11 +959,13 @@ class _MdfeFormDialogState extends State<_MdfeFormDialog> {
   @override
   void initState() {
     super.initState();
+    _tab.addListener(() => setState(() {}));
     _carregarCadastros();
   }
 
   @override
   void dispose() {
+    _tab.dispose();
     for (final c in [
       _serie, _valor, _quantidade, _info, _segDocumento, _segNome,
       _segCnpj, _segApolice, _segAverbacoes
@@ -1012,7 +1024,7 @@ class _MdfeFormDialogState extends State<_MdfeFormDialog> {
   num? _numero(String t) => num.tryParse(t.trim().replaceAll(',', '.'));
 
   Future<void> _emitir() async {
-    if (!_form.currentState!.validate()) return;
+    if (_validarAbas() != null) return;
     final invalidas = <String>[];
     final descargas = <Map<String, dynamic>>[];
     for (final d in _descargas) {
@@ -1494,34 +1506,40 @@ class _MdfeFormDialogState extends State<_MdfeFormDialog> {
         onChanged: onChanged,
       ), largura: 120);
 
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Novo MDF-e'),
-      content: SizedBox(
-        width: 720,
-        child: _loading
-            ? const SizedBox(
-                height: 120, child: Center(child: CircularProgressIndicator()))
-            : SingleChildScrollView(
-                child: Form(
-                  key: _form,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_erro != null)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(10),
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            border: Border.all(color: Colors.red.shade200),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(_erro!,
-                              style: TextStyle(color: Colors.red.shade800)),
-                        ),
+  /// Valida todas as abas (as fora da tela ficam montadas no IndexedStack), marca as com erro
+  /// e leva o usuario para a primeira. Devolve o indice dela, ou null se tudo estiver ok.
+  int? _validarAbas() {
+    int? primeira;
+    final erros = <int>{};
+    for (var i = 0; i < _abas.length; i++) {
+      if (!(_abaKeys[i].currentState?.validate() ?? true)) {
+        erros.add(i);
+        primeira ??= i;
+      }
+    }
+    setState(() => _abasErro = erros);
+    if (primeira != null) _tab.animateTo(primeira);
+    return primeira;
+  }
+
+  Widget _aba(int i, List<Widget> filhos) => Form(
+        key: _abaKeys[i],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: filhos,
+              ),
+            ),
+          ),
+        ),
+      );
+
+  List<Widget> _abaIdentificacao() => [
                       _linha([
                         _caixa(DropdownButtonFormField<int>(
                           initialValue: _tpAmb,
@@ -1570,6 +1588,15 @@ class _MdfeFormDialogState extends State<_MdfeFormDialog> {
                           onChanged: (v) => setState(() => _tpTransp = v),
                         ), largura: 200),
                       ]),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _info,
+                        maxLines: 2,
+                        decoration: _dec('Informações complementares (opcional)'),
+                      ),
+      ];
+
+  List<Widget> _abaPercurso() => [
                       _linha([
                         _ufDrop('UF início', _ufIni, (v) => setState(() => _ufIni = v)),
                         _ufDrop('UF fim', _ufFim, (v) => setState(() => _ufFim = v)),
@@ -1599,6 +1626,9 @@ class _MdfeFormDialogState extends State<_MdfeFormDialog> {
                                   () => _carregs.removeAt(i).dispose()),
                             ),
                         ]),
+      ];
+
+  List<Widget> _abaDescargas() => [
                       _tituloLista('Municípios de descarga e documentos',
                           _descargas.length < kMdfeMaxMunicipiosDescarga,
                           () => setState(() => _descargas.add(_DescargaCtl()))),
@@ -1636,6 +1666,9 @@ class _MdfeFormDialogState extends State<_MdfeFormDialog> {
                           ), largura: 340),
                         ]),
                       ],
+      ];
+
+  List<Widget> _abaCarga() => [
                       _linha([
                         _caixa(TextFormField(
                           controller: _valor,
@@ -1716,6 +1749,9 @@ class _MdfeFormDialogState extends State<_MdfeFormDialog> {
                             v == true ? _motoristas.add(id) : _motoristas.remove(id);
                           }),
                         ),
+      ];
+
+  List<Widget> _abaSeguro() => [
                       _tituloLista('CIOT (opcional)', true,
                           () => setState(() => _ciots.add(_CiotCtl()))),
                       for (var i = 0; i < _ciots.length; i++)
@@ -1816,8 +1852,6 @@ class _MdfeFormDialogState extends State<_MdfeFormDialog> {
                             onChanged: (v) => setState(() => _valeCategoria = v),
                           ), largura: 300),
                         ]),
-                      ..._secaoContratantes(),
-                      ..._secaoPagamento(),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<int?>(
                         initialValue: _respSeg,
@@ -1859,32 +1893,111 @@ class _MdfeFormDialogState extends State<_MdfeFormDialog> {
                           decoration: _dec('Averbações (uma por linha, opcional)'),
                         ),
                       ],
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _info,
-                        maxLines: 2,
-                        decoration: _dec('Informações complementares (opcional)'),
-                      ),
+      ];
+
+  List<Widget> _abaContratantes() => [
+                      ..._secaoContratantes(),
+                      ..._secaoPagamento(),
+      ];
+
+  @override
+  Widget build(BuildContext context) {
+    final ultima = _tab.index == _abas.length - 1;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Novo MDF-e'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Voltar',
+          onPressed: _enviando ? null : () => Navigator.pop(context, false),
+        ),
+        bottom: _loading
+            ? null
+            : TabBar(
+                controller: _tab,
+                isScrollable: true,
+                tabs: [
+                  for (var i = 0; i < _abas.length; i++)
+                    Tab(
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        if (_abasErro.contains(i))
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Icon(Icons.error, size: 16, color: Colors.red.shade700),
+                          ),
+                        Text('${i + 1}. ${_abas[i]}'),
+                      ]),
+                    ),
+                ],
+              ),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                if (_erro != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      border: Border.all(color: Colors.red.shade200),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(_erro!, style: TextStyle(color: Colors.red.shade800)),
+                  ),
+                Expanded(
+                  child: IndexedStack(
+                    index: _tab.index,
+                    children: [
+                      _aba(0, _abaIdentificacao()),
+                      _aba(1, _abaPercurso()),
+                      _aba(2, _abaDescargas()),
+                      _aba(3, _abaCarga()),
+                      _aba(4, _abaSeguro()),
+                      _aba(5, _abaContratantes()),
                     ],
                   ),
                 ),
-              ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: _enviando ? null : () => Navigator.pop(context, false),
-            child: const Text('Cancelar')),
-        FilledButton.icon(
-          onPressed: (_loading || _enviando) ? null : _emitir,
-          icon: _enviando
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.send),
-          label: const Text('Emitir'),
-        ),
-      ],
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(children: [
+                    TextButton(
+                      onPressed: _enviando ? null : () => Navigator.pop(context, false),
+                      child: const Text('Cancelar'),
+                    ),
+                    const Spacer(),
+                    OutlinedButton.icon(
+                      onPressed: (_tab.index == 0 || _enviando)
+                          ? null
+                          : () => _tab.animateTo(_tab.index - 1),
+                      icon: const Icon(Icons.chevron_left),
+                      label: const Text('Anterior'),
+                    ),
+                    const SizedBox(width: 8),
+                    if (!ultima)
+                      FilledButton.icon(
+                        onPressed: () => _tab.animateTo(_tab.index + 1),
+                        icon: const Icon(Icons.chevron_right),
+                        label: const Text('Próximo'),
+                      )
+                    else
+                      FilledButton.icon(
+                        onPressed: _enviando ? null : _emitir,
+                        icon: _enviando
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.send),
+                        label: const Text('Emitir'),
+                      ),
+                  ]),
+                ),
+              ],
+            ),
     );
   }
 }
