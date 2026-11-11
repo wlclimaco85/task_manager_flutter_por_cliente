@@ -18,6 +18,7 @@ import '../../widgets/app_loading_overlay.dart';
 import '../../widgets/brand_logo.dart';
 import '../services/network_caller.dart';
 import 'email_verification_screeen.dart';
+import 'login_modulos_vitrine.dart';
 import 'solicitacao_acesso_screen.dart';
 
 /// Tela de Login oficial do App Conta Própria (SaaS B2B Gestão Direta).
@@ -152,7 +153,14 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-                child: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
+                    const SizedBox(height: 28),
+                    LoginModulosVitrine(maxWidth: isDesktop ? 1000 : 440),
+                  ],
+                ),
               ),
             ),
           ),
