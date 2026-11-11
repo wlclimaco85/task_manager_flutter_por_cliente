@@ -152,7 +152,8 @@ class DynamicGridWindowsScreenState<T>
           label: a.label,
           onPressed: (context, itens) async {
             final linhas = itens.map(widget.toJson).toList();
-            await executarAcaoJava(context, a, linhas, idField: idField);
+            final recarregar = await executarAcaoJava(context, a, linhas, idField: idField);
+            if (recarregar && mounted) reload();
           },
         ),
     ];

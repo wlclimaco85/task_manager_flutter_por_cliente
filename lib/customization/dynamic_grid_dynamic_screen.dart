@@ -127,6 +127,9 @@ class _DynamicGridDynamicScreenState extends State<DynamicGridDynamicScreen> {
   /// Acoes Java cadastradas para esta tela (Dicionario de Dados); viram botoes por registro.
   List<AcaoJava> _acoesJava = const [];
 
+  /// Muda quando uma acao Java pede recarga: a nova chave recria a grid e ela busca os dados de novo.
+  int _gridVersao = 0;
+
   @override
   void initState() {
     super.initState();
@@ -153,8 +156,9 @@ class _DynamicGridDynamicScreenState extends State<DynamicGridDynamicScreen> {
             CustomAction(
               icon: iconeAcaoJava(a.icon),
               label: a.label,
-              onPressed: (context, item) {
-                executarAcaoJava(context, a, [item], idField: idField);
+              onPressed: (context, item) async {
+                final recarregar = await executarAcaoJava(context, a, [item], idField: idField);
+                if (recarregar && mounted) setState(() => _gridVersao++);
               },
             ),
         ];
@@ -914,6 +918,7 @@ Future<TelaConfig> _loadTelaConfig() async {
                   }).toList();
 
             return GenericMobileGridScreen(
+              key: ValueKey('grid_$_gridVersao'),
               title: widget.tituloOverride ?? tela.titulo,
               fetchEndpoint: _endpoint(
                 widget.fetchEndpointOverride,
