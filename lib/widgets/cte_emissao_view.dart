@@ -9,6 +9,7 @@ import '../utils/api_links.dart';
 import '../utils/app_logger.dart';
 import '../utils/file_saver_compat.dart';
 import '../utils/tenant_context.dart';
+import '../utils/grid_colors.dart';
 import 'documento_fiscal_grid.dart';
 import 'localidade_busca_field.dart';
 import 'mdfe_emissao_view.dart' show extrairChaves, listaMdfeDe;
@@ -748,12 +749,14 @@ class _CteEmissaoViewState extends State<CteEmissaoView> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : DocumentoFiscalGrid(
+                : DocumentoFiscalListagem(
                     itens: _itens,
                     colunas: _colunas,
                     acoes: _acoes(),
                     corStatus: _corStatus,
                     textoVazio: 'Nenhum CT-e emitido.',
+                        statusOpcoes: const ['AUTORIZADO', 'REJEITADO', 'DENEGADO', 'CANCELADO', 'PENDENTE', 'ERRO_COMUNICACAO'],
+                        tipos: kCteTipos,
                   ),
           ),
         ],
@@ -1293,12 +1296,26 @@ class _CteFormPageState extends State<_CteFormPage>
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Align(
-            alignment: Alignment.topLeft,
+            alignment: Alignment.topCenter,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: filhos,
+              constraints: const BoxConstraints(maxWidth: 960),
+              // Material (e nao DecoratedBox): ListTile/checkbox precisam de um Material ancestral para o toque.
+              child: Material(
+                color: GridColors.card,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: GridColors.borderSubtle),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: filhos,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -1583,7 +1600,10 @@ class _CteFormPageState extends State<_CteFormPage>
   Widget build(BuildContext context) {
     final ultima = _tab.index == _abas.length - 1;
     return Scaffold(
+      backgroundColor: GridColors.pageBackground,
       appBar: AppBar(
+        backgroundColor: GridColors.primary,
+        foregroundColor: Colors.white,
         title: const Text('Novo CT-e'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -1593,15 +1613,19 @@ class _CteFormPageState extends State<_CteFormPage>
         bottom: TabBar(
           controller: _tab,
           isScrollable: true,
+          tabAlignment: TabAlignment.center,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          indicatorWeight: 3,
           tabs: [
             for (var i = 0; i < _abas.length; i++)
               Tab(
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   if (_abasErro.contains(i))
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: Icon(Icons.error,
-                          size: 16, color: Colors.red.shade700),
+                    const Padding(
+                      padding: EdgeInsets.only(right: 6),
+                      child: Icon(Icons.error, size: 16, color: Colors.amberAccent),
                     ),
                   Text('${i + 1}. ${_abas[i]}'),
                 ]),
@@ -1635,42 +1659,49 @@ class _CteFormPageState extends State<_CteFormPage>
               ],
             ),
           ),
-          const Divider(height: 1),
-          Padding(
+          Container(
+            decoration: const BoxDecoration(
+              color: GridColors.card,
+              border: Border(top: BorderSide(color: GridColors.divider)),
+            ),
             padding: const EdgeInsets.all(12),
-            child: Row(children: [
-              TextButton(
-                onPressed:
-                    _enviando ? null : () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 960),
+                child: Row(children: [
+                  TextButton(
+                    onPressed: _enviando ? null : () => Navigator.pop(context, false),
+                    child: const Text('Cancelar'),
+                  ),
+                  const Spacer(),
+                  OutlinedButton.icon(
+                    onPressed: (_tab.index == 0 || _enviando)
+                        ? null
+                        : () => _tab.animateTo(_tab.index - 1),
+                    icon: const Icon(Icons.chevron_left),
+                    label: const Text('Anterior'),
+                  ),
+                  const SizedBox(width: 8),
+                  if (!ultima)
+                    FilledButton.icon(
+                      onPressed: () => _tab.animateTo(_tab.index + 1),
+                      icon: const Icon(Icons.chevron_right),
+                      label: const Text('Próximo'),
+                    )
+                  else
+                    FilledButton.icon(
+                      onPressed: _enviando ? null : _emitir,
+                      icon: _enviando
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.send),
+                      label: const Text('Emitir'),
+                    ),
+                ]),
               ),
-              const Spacer(),
-              OutlinedButton.icon(
-                onPressed: (_tab.index == 0 || _enviando)
-                    ? null
-                    : () => _tab.animateTo(_tab.index - 1),
-                icon: const Icon(Icons.chevron_left),
-                label: const Text('Anterior'),
-              ),
-              const SizedBox(width: 8),
-              if (!ultima)
-                FilledButton.icon(
-                  onPressed: () => _tab.animateTo(_tab.index + 1),
-                  icon: const Icon(Icons.chevron_right),
-                  label: const Text('Próximo'),
-                )
-              else
-                FilledButton.icon(
-                  onPressed: _enviando ? null : _emitir,
-                  icon: _enviando
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.send),
-                  label: const Text('Emitir'),
-                ),
-            ]),
+            ),
           ),
         ],
       ),

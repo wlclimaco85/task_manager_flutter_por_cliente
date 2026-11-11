@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/grid_colors.dart';
+
 /// Coluna da grid de documentos fiscais (MDF-e / CT-e).
 class DocColuna {
   final String titulo;
@@ -300,5 +302,230 @@ class _DocumentoFiscalGridState extends State<DocumentoFiscalGrid> {
         SizedBox(width: 56, child: _menuLinha(m)),
       ]),
     );
+  }
+}
+
+
+/// Listagem de documentos fiscais: painel de filtros (como o da NFS-e) + [DocumentoFiscalGrid].
+/// Filtra no cliente os itens ja carregados: busca (nº, chave, protocolo), situacao, ambiente e,
+/// quando [tipos] vem preenchido (CT-e), o tipo do documento. Abaixo de 720px o painel vira um
+/// bloco recolhivel acima da grid.
+class DocumentoFiscalListagem extends StatefulWidget {
+  final List<Map<String, dynamic>> itens;
+  final List<DocColuna> colunas;
+  final List<DocAcao> acoes;
+  final Color Function(String? status) corStatus;
+  final String textoVazio;
+  final List<String> statusOpcoes;
+
+  /// Filtro por tipo (campo `tipoCte`): codigo -> rotulo. Nulo = sem filtro de tipo.
+  final Map<int, String>? tipos;
+
+  const DocumentoFiscalListagem({
+    super.key,
+    required this.itens,
+    required this.colunas,
+    required this.acoes,
+    required this.corStatus,
+    required this.textoVazio,
+    required this.statusOpcoes,
+    this.tipos,
+  });
+
+  @override
+  State<DocumentoFiscalListagem> createState() => _DocumentoFiscalListagemState();
+}
+
+class _DocumentoFiscalListagemState extends State<DocumentoFiscalListagem> {
+  final _busca = TextEditingController();
+  String? _status;
+  int? _tpAmb;
+  int? _tipo;
+  bool _painelAberto = true;
+
+  @override
+  void dispose() {
+    _busca.dispose();
+    super.dispose();
+  }
+
+  bool get _ativo =>
+      _busca.text.trim().isNotEmpty || _status != null || _tpAmb != null || _tipo != null;
+
+  bool _aceita(Map<String, dynamic> m) {
+    final termo = _busca.text.trim().toLowerCase();
+    if (termo.isNotEmpty) {
+      final alvo = '${m['numero'] ?? ''} ${m['chaveAcesso'] ?? ''} ${m['protocolo'] ?? ''}'.toLowerCase();
+      if (!alvo.contains(termo)) return false;
+    }
+    if (_status != null && m['status']?.toString() != _status) return false;
+    if (_tpAmb != null && m['tpAmb'] != _tpAmb) return false;
+    if (_tipo != null && (m['tipoCte'] ?? 0) != _tipo) return false;
+    return true;
+  }
+
+  void _limpar() => setState(() {
+        _busca.clear();
+        _status = null;
+        _tpAmb = null;
+        _tipo = null;
+      });
+
+  InputDecoration _dec(String rotulo, {IconData? icone}) => InputDecoration(
+        labelText: rotulo,
+        isDense: true,
+        filled: true,
+        fillColor: GridColors.card,
+        prefixIcon: icone == null ? null : Icon(icone, size: 18),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: GridColors.borderSubtle),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: GridColors.borderSubtle),
+        ),
+      );
+
+  List<Widget> _campos(int total, int exibidos) => [
+        TextField(
+          controller: _busca,
+          decoration: _dec('Buscar nº, chave ou protocolo', icone: Icons.search),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String?>(
+          value: _status,
+          isExpanded: true,
+          decoration: _dec('Situação'),
+          items: [
+            const DropdownMenuItem<String?>(value: null, child: Text('Todas')),
+            for (final s in widget.statusOpcoes) DropdownMenuItem<String?>(value: s, child: Text(s)),
+          ],
+          onChanged: (v) => setState(() => _status = v),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int?>(
+          value: _tpAmb,
+          isExpanded: true,
+          decoration: _dec('Ambiente'),
+          items: const [
+            DropdownMenuItem<int?>(value: null, child: Text('Todos')),
+            DropdownMenuItem<int?>(value: 2, child: Text('Homologação')),
+            DropdownMenuItem<int?>(value: 1, child: Text('Produção')),
+          ],
+          onChanged: (v) => setState(() => _tpAmb = v),
+        ),
+        if (widget.tipos != null) ...[
+          const SizedBox(height: 12),
+          DropdownButtonFormField<int?>(
+            value: _tipo,
+            isExpanded: true,
+            decoration: _dec('Tipo'),
+            items: [
+              const DropdownMenuItem<int?>(value: null, child: Text('Todos')),
+              for (final e in widget.tipos!.entries)
+                DropdownMenuItem<int?>(value: e.key, child: Text(e.value)),
+            ],
+            onChanged: (v) => setState(() => _tipo = v),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Text(
+          _ativo ? '$exibidos de $total documento(s)' : '$total documento(s)',
+          style: const TextStyle(fontSize: 12),
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _ativo ? _limpar : null,
+            icon: const Icon(Icons.filter_alt_off, size: 18),
+            label: const Text('Limpar filtros'),
+          ),
+        ),
+      ];
+
+  Widget _painel(int total, int exibidos) => Container(
+        width: 240,
+        decoration: const BoxDecoration(
+          color: GridColors.filterBackground,
+          border: Border(right: BorderSide(color: GridColors.divider)),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              const Icon(Icons.tune, size: 16, color: GridColors.primary),
+              const SizedBox(width: 6),
+              const Text('Filtros', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.chevron_left, size: 18),
+                tooltip: 'Ocultar filtros',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => setState(() => _painelAberto = false),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            ..._campos(total, exibidos),
+          ]),
+        ),
+      );
+
+  Widget _faixaFechada() => Container(
+        width: 40,
+        decoration: const BoxDecoration(
+          color: GridColors.filterBackground,
+          border: Border(right: BorderSide(color: GridColors.divider)),
+        ),
+        child: Column(children: [
+          const SizedBox(height: 8),
+          IconButton(
+            icon: Icon(Icons.tune, color: _ativo ? GridColors.primary : null),
+            tooltip: _ativo ? 'Mostrar filtros (há filtros ativos)' : 'Mostrar filtros',
+            onPressed: () => setState(() => _painelAberto = true),
+          ),
+        ]),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final filtrados = widget.itens.where(_aceita).toList();
+    final grid = DocumentoFiscalGrid(
+      itens: filtrados,
+      colunas: widget.colunas,
+      acoes: widget.acoes,
+      corStatus: widget.corStatus,
+      textoVazio: widget.itens.isEmpty ? widget.textoVazio : 'Nenhum documento encontrado com os filtros.',
+    );
+    final total = widget.itens.length;
+    final largo = MediaQuery.sizeOf(context).width >= 720;
+    if (largo) {
+      return Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (_painelAberto) _painel(total, filtrados.length) else _faixaFechada(),
+        Expanded(child: Padding(padding: const EdgeInsets.only(left: 12), child: grid)),
+      ]);
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Container(
+        decoration: BoxDecoration(
+          color: GridColors.filterBackground,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: GridColors.divider),
+        ),
+        child: ExpansionTile(
+          shape: const Border(),
+          collapsedShape: const Border(),
+          leading: const Icon(Icons.tune, size: 18, color: GridColors.primary),
+          title: Text(_ativo ? 'Filtros (ativos)' : 'Filtros'),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          children: _campos(total, filtrados.length),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Expanded(child: grid),
+    ]);
   }
 }

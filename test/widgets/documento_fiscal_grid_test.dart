@@ -124,4 +124,106 @@ void main() {
     ));
     expect(find.text('Nenhum MDF-e emitido.'), findsOneWidget);
   });
+
+  group('DocumentoFiscalListagem (filtros)', () {
+    final docs = <Map<String, dynamic>>[
+      {'id': 1, 'numero': 10, 'status': 'AUTORIZADO', 'tpAmb': 2, 'chaveAcesso': 'AAA111', 'tipoCte': 0},
+      {'id': 2, 'numero': 11, 'status': 'REJEITADO', 'tpAmb': 2, 'chaveAcesso': 'BBB222', 'tipoCte': 1},
+      {'id': 3, 'numero': 12, 'status': 'AUTORIZADO', 'tpAmb': 1, 'protocolo': 'PROT333', 'tipoCte': 0},
+    ];
+
+    Widget montar(List<Map<String, dynamic>> itens, {Map<int, String>? tipos, double largura = 1200}) {
+      return MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(size: Size(largura, 800)),
+          child: Scaffold(
+            body: SizedBox(
+              width: largura,
+              height: 800,
+              child: DocumentoFiscalListagem(
+                itens: itens,
+                colunas: [
+                  DocColuna('Nº', (m) => '${m['numero']}', largura: 70),
+                  DocColuna('Série', (m) => '1', largura: 60),
+                ],
+                acoes: const [],
+                corStatus: (_) => Colors.green,
+                textoVazio: 'Nenhum documento emitido.',
+                statusOpcoes: const ['AUTORIZADO', 'REJEITADO'],
+                tipos: tipos,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('painel de filtros aparece mesmo com a lista vazia', (t) async {
+      await t.pumpWidget(montar(const []));
+      expect(find.text('Filtros'), findsOneWidget);
+      expect(find.text('Buscar nº, chave ou protocolo'), findsOneWidget);
+      expect(find.text('Nenhum documento emitido.'), findsOneWidget);
+    });
+
+    testWidgets('busca por numero, chave ou protocolo', (t) async {
+      await t.pumpWidget(montar(docs));
+      expect(find.text('3 documento(s)'), findsOneWidget);
+      await t.enterText(find.byType(TextField), 'prot333');
+      await t.pump();
+      expect(find.text('1 de 3 documento(s)'), findsOneWidget);
+      await t.enterText(find.byType(TextField), 'bbb');
+      await t.pump();
+      expect(find.text('1 de 3 documento(s)'), findsOneWidget);
+      await t.enterText(find.byType(TextField), 'zzz');
+      await t.pump();
+      expect(find.text('Nenhum documento encontrado com os filtros.'), findsOneWidget);
+    });
+
+    testWidgets('filtra por situacao e Limpar filtros restaura tudo', (t) async {
+      await t.pumpWidget(montar(docs));
+      await t.tap(find.text('Todas'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('REJEITADO').last);
+      await t.pumpAndSettle();
+      expect(find.text('1 de 3 documento(s)'), findsOneWidget);
+
+      await t.tap(find.text('Limpar filtros'));
+      await t.pumpAndSettle();
+      expect(find.text('3 documento(s)'), findsOneWidget);
+    });
+
+    testWidgets('filtra por ambiente', (t) async {
+      await t.pumpWidget(montar(docs));
+      await t.tap(find.text('Todos'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Produção').last);
+      await t.pumpAndSettle();
+      expect(find.text('1 de 3 documento(s)'), findsOneWidget);
+    });
+
+    testWidgets('filtro por tipo so existe quando tipos e informado (CT-e)', (t) async {
+      await t.pumpWidget(montar(docs));
+      expect(find.text('Tipo'), findsNothing);
+      await t.pumpWidget(montar(docs, tipos: const {0: 'Normal', 1: 'Complemento'}));
+      expect(find.text('Tipo'), findsOneWidget);
+    });
+
+    testWidgets('painel pode ser recolhido e reaberto', (t) async {
+      await t.pumpWidget(montar(docs));
+      await t.tap(find.byTooltip('Ocultar filtros'));
+      await t.pumpAndSettle();
+      expect(find.text('Filtros'), findsNothing);
+      await t.tap(find.byTooltip('Mostrar filtros'));
+      await t.pumpAndSettle();
+      expect(find.text('Filtros'), findsOneWidget);
+    });
+
+    testWidgets('no celular os filtros viram um bloco recolhivel acima da grid', (t) async {
+      await t.pumpWidget(montar(docs, largura: 380));
+      expect(find.byType(ExpansionTile), findsOneWidget);
+      await t.tap(find.text('Filtros'));
+      await t.pumpAndSettle();
+      expect(find.text('Buscar nº, chave ou protocolo'), findsOneWidget);
+    });
+  });
 }
