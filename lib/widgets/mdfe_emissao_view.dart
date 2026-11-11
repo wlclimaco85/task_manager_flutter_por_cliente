@@ -915,6 +915,8 @@ class _MdfeFormPageState extends State<_MdfeFormPage>
   final _abaKeys = List.generate(_abas.length, (_) => GlobalKey<FormState>());
   late final TabController _tab = TabController(length: _abas.length, vsync: this);
   Set<int> _abasErro = {};
+  /// UFs do cadastro (tabela estado); enquanto nao carrega, a lista fixa.
+  List<String> _ufsLista = List.of(kTransporteUfs);
   final _serie = TextEditingController(text: '1');
   final List<_MunicipioCtl> _carregs = [_MunicipioCtl()];
   final List<_DescargaCtl> _descargas = [_DescargaCtl()];
@@ -953,6 +955,11 @@ class _MdfeFormPageState extends State<_MdfeFormPage>
   void initState() {
     super.initState();
     _tab.addListener(() => setState(() {}));
+    carregarEstadosCadastrados().then((l) {
+      if (mounted && l.isNotEmpty) {
+        setState(() => _ufsLista = [for (final e in l) '${e['id']}']);
+      }
+    });
     _carregarCadastros();
   }
 
@@ -1468,7 +1475,7 @@ class _MdfeFormPageState extends State<_MdfeFormPage>
               '${_percurso.isEmpty ? 'nenhuma' : _percurso.join(' → ')}'),
           const SizedBox(height: 6),
           Wrap(spacing: 6, runSpacing: 6, children: [
-            for (final uf in kTransporteUfs)
+            for (final uf in _ufsLista)
               FilterChip(
                 label: Text(uf),
                 selected: _percurso.contains(uf),
