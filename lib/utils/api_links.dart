@@ -782,7 +782,7 @@ class ApiLinks {
   static String updateRolesLoginId(int loginId) =>
       '$_baseUrlNew/api/login/$loginId/roles';
   static String getAllRoles =
-      '$_baseUrlNew/api/role?size=1000'; // Aumentamos o size para pegar todas as roles
+      '$_baseUrlNew/api/role?tamanho=1000'; // o backend le 'tamanho' (default 25); 'size' era ignorado e roles novas nao apareciam
 
   /// GET /api/role/disponiveis — roles filtradas por módulos contratados
   static String get rolesDisponiveis => '$_baseUrlNew/api/role/disponiveis';

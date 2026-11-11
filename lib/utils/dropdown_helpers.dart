@@ -552,7 +552,10 @@ class DropdownHelpers {
     );
   }
 
-  static FieldConfigWindows aplicativoField({bool required = false}) =>
+  /// [travadoNoApp]: id do aplicativo logado. Na CRIACAO o campo ja vem selecionado e
+  /// desabilitado (a role nasce no app em que o usuario esta); na edicao segue editavel.
+  static FieldConfigWindows aplicativoField(
+          {bool required = false, int? travadoNoApp}) =>
       FieldConfigWindows(
         label: 'Aplicativo',
         fieldName: 'aplicativo',
@@ -561,6 +564,8 @@ class DropdownHelpers {
         dropdownValueField: 'id',
         dropdownDisplayField: 'nome',
         enabled: true,
+        defaultValue: travadoNoApp,
+        enabledOnInsert: travadoNoApp == null ? null : false,
         isInForm: true,
         isRequired: required,
         dropdownFutureBuilder: aplicativos,

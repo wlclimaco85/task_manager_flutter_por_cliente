@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../models/auth_utility.dart';
 import '../../../utils/dropdown_helpers.dart';
 import '../../../utils/security_matrix.dart';
+import '../../../utils/tenant_context.dart';
 import '../../../widgets/generic_grid_windows_screen.dart' show CustomAction;
 import '../../../customization/dynamic_grid_windows_screen.dart';
 import '../../../models/role_model.dart';
@@ -35,7 +36,7 @@ class WebRoleGridScreen extends StatelessWidget {
       fromJson: (json) => Role.fromJson(json),
       toJson: (a) => a.toJson(),
       fieldOverrides: [
-        DropdownHelpers.aplicativoField(),
+        DropdownHelpers.aplicativoField(travadoNoApp: TenantContext.aplicativoId),
       ],
       customActions: () => [
         CustomAction<Role>(
