@@ -721,6 +721,16 @@ class MenuConfig {
             label: 'Telas por Módulo',
             icon: FontAwesomeIcons.layerGroup,
             screenIndex: 205),
+        MenuItem(
+            id: 'dashboards_personalizados',
+            label: 'Dashboards Personalizados',
+            icon: FontAwesomeIcons.chartPie,
+            screenIndex: 210),
+        MenuItem(
+            id: 'relatorios_personalizados',
+            label: 'Relatórios Personalizados',
+            icon: FontAwesomeIcons.filePdf,
+            screenIndex: 211),
       ],
     ),
     MenuGroup(

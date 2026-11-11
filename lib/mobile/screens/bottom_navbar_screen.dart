@@ -49,6 +49,8 @@ import 'nfse_serie_screen.dart';
 import 'transporte_veiculo_screen.dart';
 import 'transporte_motorista_screen.dart';
 import 'cte_emissao_screen.dart';
+import 'dashboards_personalizados_screens.dart';
+import 'relatorios_personalizados_screens.dart';
 import 'mdfe_emissao_screen.dart';
 import 'nfse_servico_screen.dart';
 import 'nfse_config_screen.dart';
@@ -324,6 +326,8 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'Certificado Digital': (menuId: 'certificado_digital', appScreen: null),
     'Solicitações de Acesso': (menuId: 'solicitacoes_acesso', appScreen: null),
     'Permissões Multi-Empresa': (menuId: 'permissoes_multi_empresa', appScreen: null),
+    'Dashboards Personalizados': (menuId: 'dashboards_personalizados', appScreen: null),
+    'Relatórios Personalizados': (menuId: 'relatorios_personalizados', appScreen: null),
     'Query Builder': (menuId: 'query_builder', appScreen: null),
     'Sessões': (menuId: 'sessoes', appScreen: null),
     'Meu Perfil': (menuId: 'perfil', appScreen: AppScreen.perfil),
@@ -2412,6 +2416,12 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
       case "Solicitações de Acesso":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileSolicitacoesAcessoScreen()));
         break;
+      case "Relatórios Personalizados":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileRelatoriosPersonalizadosScreen()));
+        break;
+      case "Dashboards Personalizados":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDashboardsPersonalizadosScreen()));
+        break;
       case "Query Builder":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileQueryBuilderWindowScreen()));
         break;
@@ -2846,6 +2856,8 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
           _MoreMenuAction(Icons.vpn_key, 'Certificado Digital'),
           _MoreMenuAction(Icons.approval, 'Solicitações de Acesso'),
           _MoreMenuAction(Icons.switch_account, 'Permissões Multi-Empresa'),
+          _MoreMenuAction(Icons.pie_chart, 'Dashboards Personalizados'),
+          _MoreMenuAction(Icons.picture_as_pdf, 'Relatórios Personalizados'),
           _MoreMenuAction(Icons.terminal, 'Query Builder'),
           _MoreMenuAction(Icons.devices, 'Sessões'),
           _MoreMenuAction(Icons.account_circle, 'Meu Perfil'),

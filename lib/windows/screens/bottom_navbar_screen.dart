@@ -162,6 +162,8 @@ import '../../web/screens/modulo_tela_grid_screen.dart';
 import '../../web/screens/transporte_veiculo_grid_screen.dart';
 import '../../web/screens/transporte_motorista_grid_screen.dart';
 import '../../widgets/cte_emissao_view.dart';
+import '../../widgets/dashboards_personalizados_view.dart';
+import '../../widgets/relatorios_personalizados_view.dart';
 import '../../widgets/mdfe_emissao_view.dart';
 import '../../widgets/dashboard_executivo_screen.dart';
 
@@ -622,6 +624,8 @@ class _WindowsBottomNavBarScreenState extends State<WindowsBottomNavBarScreen> {
             hasPermission: _screenPermission(AppScreen.transporteMdfe)), // 208: MDF-e
         CteEmissaoView(
             hasPermission: _screenPermission(AppScreen.transporteCte)), // 209: CT-e
+        const DashboardsPersonalizadosView(), // 210: Dashboards Personalizados
+        const RelatoriosPersonalizadosView(), // 211: Relatorios Personalizados
       ];
 
   String get userName {

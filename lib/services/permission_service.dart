@@ -144,6 +144,8 @@ class PermissionService {
     'transporte_motoristas': 'transporte_motoristas',
     'transporte_mdfe': 'transporte_mdfe',
     'transporte_cte': 'transporte_cte',
+    'dashboards_personalizados': 'dashboards_personalizados',
+    'relatorios_personalizados': 'relatorios_personalizados',
 
     // Financeiro
     'calendario': 'Calendario',

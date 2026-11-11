@@ -1248,6 +1248,19 @@ class ApiLinks {
       '$_baseUrlNew/api/eventos-tabela?tabela=${Uri.encodeQueryComponent(tabela)}';
   static String moduloJavaClasses(String id) =>
       '$_baseUrlNew/api/modulos-java/$id/classes';
+  static String get dashboardsPersonalizados => '$_baseUrlNew/api/dashboards-personalizados';
+  static String get dashboardsPersonalizadosTodos => '$_baseUrlNew/api/dashboards-personalizados/todos';
+  static String get dashboardsPersonalizadosTestar => '$_baseUrlNew/api/dashboards-personalizados/testar';
+  static String dashboardPersonalizado(String id) => '$_baseUrlNew/api/dashboards-personalizados/$id';
+  static String dashboardPersonalizadoAdmin(String id) => '$_baseUrlNew/api/dashboards-personalizados/$id/admin';
+  static String dashboardPersonalizadoExecutar(String id) => '$_baseUrlNew/api/dashboards-personalizados/$id/executar';
+  static String get relatoriosPersonalizados => '$_baseUrlNew/api/relatorios-personalizados';
+  static String get relatoriosPersonalizadosTodos => '$_baseUrlNew/api/relatorios-personalizados/todos';
+  static String get relatoriosPersonalizadosPrevia => '$_baseUrlNew/api/relatorios-personalizados/previa';
+  static String get relatoriosPersonalizadosTestar => '$_baseUrlNew/api/relatorios-personalizados/testar';
+  static String relatorioPersonalizado(String id) => '$_baseUrlNew/api/relatorios-personalizados/$id';
+  static String relatorioPersonalizadoAdmin(String id) => '$_baseUrlNew/api/relatorios-personalizados/$id/admin';
+  static String relatorioPersonalizadoPdf(String id) => '$_baseUrlNew/api/relatorios-personalizados/$id/pdf';
   static String get transporteConfig =>
       '$_baseUrlNew/api/transporte/config';
   static String get allTransporteMotoristas =>
