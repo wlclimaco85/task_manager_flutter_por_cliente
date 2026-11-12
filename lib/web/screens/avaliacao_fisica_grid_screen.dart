@@ -31,7 +31,7 @@ class WebAvaliacaoFisicaGridScreen extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F4C81)),
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1F6B4F)),
           icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
           label: const Text('Exportar PDF', style: TextStyle(color: Colors.white)),
           onPressed: () => PdfExportHelper.exportarListaGenerica(

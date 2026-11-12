@@ -4,9 +4,9 @@ import '../../../services/ai_analise_service.dart';
 import '../../../services/lancamento_contabil_service.dart';
 import '../../../services/periodo_contabil_service.dart';
 
-const _primary = Color(0xFF0F4C81);
+const _primary = Color(0xFF1F6B4F);
 const _bg = Color(0xFFF5F5F5);
-const _green = Color(0xFF0E7C99);
+const _green = Color(0xFF3C9A73);
 const _red = Color(0xFFD32F2F);
 const _orange = Color(0xFFE65100);
 const _blue = Color(0xFF1565C0);

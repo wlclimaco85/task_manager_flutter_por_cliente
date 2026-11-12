@@ -19,7 +19,7 @@ void main() {
     await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Gestão Conta Própria'), findsOneWidget);
+    expect(find.text('Prumo Contábil'), findsOneWidget);
     expect(find.byType(TextFormField), findsNWidgets(2)); // Email e Senha
     expect(find.text('Entrar no Sistema'), findsOneWidget);
     expect(find.text('Esqueci minha senha'), findsOneWidget);
@@ -34,7 +34,7 @@ void main() {
     await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Gestão Direta &\nConta Própria'), findsOneWidget);
+    expect(find.text('Prumo\nContábil'), findsOneWidget);
     expect(find.text('Fluxo de Caixa e Extrato Unificado'), findsOneWidget);
     expect(find.text('Contas a Pagar e Receber Sem Fricção'), findsOneWidget);
     expect(find.text('Vendas e Emissão de Cupons/Notas'), findsOneWidget);

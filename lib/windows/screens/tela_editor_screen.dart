@@ -67,9 +67,9 @@ class _TelaEditorScreenState extends State<TelaEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF071E36),
+      backgroundColor: const Color(0xFF06231A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B3A63),
+        backgroundColor: const Color(0xFF0C3A2B),
         title: const Text('Editor de Telas', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -80,7 +80,7 @@ class _TelaEditorScreenState extends State<TelaEditorScreen> {
         children: [
           // Barra de busca
           Container(
-            color: const Color(0xFF0B3A63),
+            color: const Color(0xFF0C3A2B),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _search,
@@ -91,7 +91,7 @@ class _TelaEditorScreenState extends State<TelaEditorScreen> {
                 hintStyle: const TextStyle(color: Colors.white38),
                 prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18),
                 filled: true,
-                fillColor: const Color(0xFF071E36),
+                fillColor: const Color(0xFF06231A),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
                 contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -144,7 +144,7 @@ class _TelaCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B3A63),
+        color: const Color(0xFF0C3A2B),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white12),
       ),
@@ -256,9 +256,9 @@ class _FieldEditorScreenState extends State<_FieldEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF071E36),
+      backgroundColor: const Color(0xFF06231A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B3A63),
+        backgroundColor: const Color(0xFF0C3A2B),
         title: Text('Editar: ${widget.telaTitulo}', style: const TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -270,12 +270,12 @@ class _FieldEditorScreenState extends State<_FieldEditorScreen> {
                 SizedBox(
                   width: 300,
                   child: Container(
-                    color: const Color(0xFF0B3A63),
+                    color: const Color(0xFF0C3A2B),
                     child: Column(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(12),
-                          color: const Color(0xFF124F85),
+                          color: const Color(0xFF14503C),
                           child: Row(children: [
                             const Icon(Icons.list, color: Colors.white54, size: 16),
                             const SizedBox(width: 8),
@@ -606,7 +606,7 @@ class _FieldPropertiesPanelState extends State<_FieldPropertiesPanel> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-          filled: true, fillColor: const Color(0xFF0B3A63),
+          filled: true, fillColor: const Color(0xFF0C3A2B),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Colors.white12)),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Colors.white12)),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: GridColors.success)),
@@ -624,12 +624,12 @@ class _FieldPropertiesPanelState extends State<_FieldPropertiesPanel> {
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
         initialValue: options.contains(value) ? value : options.first,
-        dropdownColor: const Color(0xFF0B3A63),
+        dropdownColor: const Color(0xFF0C3A2B),
         style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-          filled: true, fillColor: const Color(0xFF0B3A63),
+          filled: true, fillColor: const Color(0xFF0C3A2B),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Colors.white12)),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Colors.white12)),
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

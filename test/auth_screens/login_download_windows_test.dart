@@ -20,8 +20,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
-    // No mobile exibe 'Gestão Conta Própria' e o formulário vertical
-    expect(find.text('Gestão Conta Própria'), findsOneWidget);
+    // No mobile exibe 'Prumo Contábil' e o formulário vertical
+    expect(find.text('Prumo Contábil'), findsOneWidget);
     expect(find.text('Acesse o painel executivo da sua empresa'), findsOneWidget);
     expect(find.text('Entrar no Sistema'), findsOneWidget);
 

@@ -21,7 +21,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     // Painel lateral sereno (Hero Branding)
-    expect(find.text('Gestão Direta &\nConta Própria'), findsOneWidget);
+    expect(find.text('Prumo\nContábil'), findsOneWidget);
     expect(find.text('Fluxo de Caixa e Extrato Unificado'), findsOneWidget);
     expect(find.text('Contas a Pagar e Receber Sem Fricção'), findsOneWidget);
     expect(find.text('Vendas e Emissão de Cupons/Notas'), findsOneWidget);
@@ -52,7 +52,7 @@ void main() {
 
       expect(tester.takeException(), isNull,
           reason: 'LoginScreen nao deve lancar exception em $size');
-      expect(find.text('Gestão Direta &\nConta Própria'), findsOneWidget);
+      expect(find.text('Prumo\nContábil'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();

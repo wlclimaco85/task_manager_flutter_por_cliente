@@ -23,7 +23,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Header
-    expect(find.text('Conta Própria'), findsOneWidget);
+    expect(find.text('Prumo Contábil'), findsOneWidget);
     expect(
       find.text('Visão consolidada do fluxo de caixa e compromissos do negócio.'),
       findsOneWidget,
@@ -88,7 +88,7 @@ void main() {
     await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Conta Própria'), findsOneWidget);
+    expect(find.text('Prumo Contábil'), findsOneWidget);
     expect(find.text('+ Nova Receita'), findsOneWidget);
     expect(find.text('+ Nova Despesa'), findsOneWidget);
     expect(find.text('Saldo em Caixa / Bancos'), findsOneWidget);

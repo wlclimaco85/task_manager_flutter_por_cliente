@@ -493,9 +493,9 @@ class _CadastroEmpresaWizardState extends State<CadastroEmpresaWizard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF071E36),
+      backgroundColor: const Color(0xFF06231A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B3A63),
+        backgroundColor: const Color(0xFF0C3A2B),
         title: const Text('Cadastro de Empresa', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -537,7 +537,7 @@ class _CadastroEmpresaWizardState extends State<CadastroEmpresaWizard> {
 
   Widget _buildStepper() {
     return Container(
-      color: const Color(0xFF0B3A63),
+      color: const Color(0xFF0C3A2B),
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -583,7 +583,7 @@ class _CadastroEmpresaWizardState extends State<CadastroEmpresaWizard> {
   Widget _buildNavButtons() {
     final isLast = _step == _steps.length - 1;
     return Container(
-      color: const Color(0xFF0B3A63),
+      color: const Color(0xFF0C3A2B),
       padding: const EdgeInsets.all(12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -741,7 +741,7 @@ class _StepClientesState extends State<_StepClientes> {
             final c = entry.value;
             return _WizCard(
               title: 'Cliente ${i + 1}',
-              color: const Color(0xFF0E7C99),
+              color: const Color(0xFF3C9A73),
               child: Column(
                 children: [
                   _field('Nome *', Icons.person, (v) => c.nome = v ?? '', initial: c.nome, required: true),
@@ -1149,7 +1149,7 @@ class _WizCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B3A63),
+        color: const Color(0xFF0C3A2B),
         borderRadius: BorderRadius.circular(10),
         border: Border(left: BorderSide(color: color, width: 3)),
       ),
@@ -1192,7 +1192,7 @@ Widget _field(
         labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
         prefixIcon: Icon(icon, size: 16, color: Colors.white38),
         filled: true,
-        fillColor: const Color(0xFF071E36),
+        fillColor: const Color(0xFF06231A),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: GridColors.success)),
@@ -1238,14 +1238,14 @@ class _WizDropdownState extends State<_WizDropdown> {
       padding: const EdgeInsets.only(bottom: 10),
       child: DropdownButtonFormField<dynamic>(
         initialValue: _val,
-        dropdownColor: const Color(0xFF0B3A63),
+        dropdownColor: const Color(0xFF0C3A2B),
         style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
           labelText: widget.label,
           labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
           prefixIcon: Icon(widget.icon, size: 16, color: Colors.white38),
           filled: true,
-          fillColor: const Color(0xFF071E36),
+          fillColor: const Color(0xFF06231A),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white12)),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1317,7 +1317,7 @@ class _WizMultiSelectState extends State<_WizMultiSelect> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFF071E36),
+          color: const Color(0xFF06231A),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.white12),
         ),
@@ -1363,7 +1363,7 @@ class _MultiSelectDialogState extends State<_MultiSelectDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF0B3A63),
+      backgroundColor: const Color(0xFF0C3A2B),
       title: const Text('Selecionar Roles', style: TextStyle(color: Colors.white)),
       content: SizedBox(
         width: 400,

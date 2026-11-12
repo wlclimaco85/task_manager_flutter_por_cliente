@@ -219,7 +219,7 @@ class _CartaoModulo extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: GridColors.accent,
+                  color: GridColors.primaryLight,
                 ),
               ),
             ],

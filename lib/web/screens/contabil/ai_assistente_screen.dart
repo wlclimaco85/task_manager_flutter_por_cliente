@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import '../../../models/auth_utility.dart';
 import '../../../services/ai_analise_service.dart';
 
-const _primary = Color(0xFF0F4C81);
+const _primary = Color(0xFF1F6B4F);
 const _bg = Color(0xFFF5F5F5);
 const _botBg = Color(0xFFE8EAF6);
-const _userBg = Color(0xFF0F4C81);
+const _userBg = Color(0xFF1F6B4F);
 
 class WebAiAssistenteScreen extends StatefulWidget {
   const WebAiAssistenteScreen({super.key});

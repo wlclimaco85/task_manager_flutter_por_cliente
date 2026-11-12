@@ -16,7 +16,7 @@ class TaskManagerWebApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Gestão Empresarial - Conta Própria',
+      title: 'Prumo Contábil',
       theme: ZenTheme.lightTheme,
       home: const WebSplashScreen(),
     );

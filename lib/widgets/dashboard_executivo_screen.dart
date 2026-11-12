@@ -161,6 +161,13 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
     }
   }
 
+  /// Teto do eixo Y do gráfico de barras (maior valor + 15% de folga).
+  double get _maxY {
+    final todos = [..._spotsReceitas, ..._spotsDespesas].map((s) => s.y);
+    final maior = todos.isEmpty ? 0.0 : todos.reduce((a, b) => a > b ? a : b);
+    return maior <= 0 ? 1000 : maior * 1.15;
+  }
+
   void _navegar(int screenIndex) {
     if (widget.onNavigateToScreen != null) {
       widget.onNavigateToScreen!(screenIndex);
@@ -240,7 +247,7 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Text(
-                        'Conta Própria',
+                        'Prumo Contábil',
                         style: TextStyle(
                           color: GridColors.primaryDark,
                           fontSize: 12,
@@ -401,6 +408,7 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
             subtitle: 'Disponibilidade imediata',
             color: GridColors.primary,
             icon: FontAwesomeIcons.wallet,
+            destaque: true,
           ),
           _buildKpiCard(
             title: 'A Receber Hoje',
@@ -456,12 +464,15 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
     required String subtitle,
     required Color color,
     required FaIconData icon,
+    bool destaque = false,
   }) {
+    final corTitulo = destaque ? Colors.white70 : GridColors.textSecondary;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: ZenTheme.zenCardDecoration(
-        backgroundColor: Colors.white,
+        backgroundColor: destaque ? GridColors.primaryDark : Colors.white,
         radius: 16,
+        withBorder: !destaque,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,8 +483,8 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
-                    color: GridColors.textSecondary,
+                  style: TextStyle(
+                    color: corTitulo,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -484,10 +495,13 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: destaque
+                      ? GridColors.accent.withValues(alpha: 0.2)
+                      : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: FaIcon(icon, size: 14, color: color),
+                child: FaIcon(icon,
+                    size: 14, color: destaque ? GridColors.accent : color),
               ),
             ],
           ),
@@ -495,8 +509,8 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
           Text(
             value,
             style: TextStyle(
-              color: GridColors.textPrimary,
-              fontSize: 22,
+              color: destaque ? Colors.white : GridColors.textPrimary,
+              fontSize: 26,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.3,
             ),
@@ -504,8 +518,8 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: GridColors.textMuted,
+            style: TextStyle(
+              color: destaque ? GridColors.accent : GridColors.textMuted,
               fontSize: 12,
             ),
           ),
@@ -568,9 +582,9 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildLegendIndicator('Receitas', GridColors.success),
+                  _buildLegendIndicator('Receitas', GridColors.primaryDark),
                   const SizedBox(width: 14),
-                  _buildLegendIndicator('Despesas', GridColors.error),
+                  _buildLegendIndicator('Despesas', GridColors.accent),
                 ],
               ),
             ],
@@ -578,8 +592,21 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
           const SizedBox(height: 24),
           SizedBox(
             height: 240,
-            child: LineChart(
-              LineChartData(
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: _maxY,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipItem: (group, _, rod, rodIndex) => BarTooltipItem(
+                      _currency.format(rod.toY),
+                      const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
@@ -595,7 +622,6 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 28,
-                      interval: 1,
                       getTitlesWidget: (value, meta) {
                         const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
                         final idx = value.toInt() - 1;
@@ -632,33 +658,30 @@ class _DashboardExecutivoScreenState extends State<DashboardExecutivoScreen> {
                   ),
                 ),
                 borderData: FlBorderData(show: false),
-                lineBarsData: [
-                  // Linha de Receitas (Verde Eucalipto)
-                  LineChartBarData(
-                    spots: _spotsReceitas,
-                    isCurved: true,
-                    color: GridColors.success,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: GridColors.success.withValues(alpha: 0.08),
+                barGroups: [
+                  for (var i = 0; i < _spotsReceitas.length; i++)
+                    BarChartGroupData(
+                      x: _spotsReceitas[i].x.toInt(),
+                      barsSpace: 4,
+                      barRods: [
+                        // Receitas: verde escuro da marca
+                        BarChartRodData(
+                          toY: _spotsReceitas[i].y,
+                          color: GridColors.primaryDark,
+                          width: 14,
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(4)),
+                        ),
+                        // Despesas: lima de destaque
+                        BarChartRodData(
+                          toY: i < _spotsDespesas.length ? _spotsDespesas[i].y : 0,
+                          color: GridColors.accent,
+                          width: 14,
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(4)),
+                        ),
+                      ],
                     ),
-                  ),
-                  // Linha de Despesas (Rosa Veludo)
-                  LineChartBarData(
-                    spots: _spotsDespesas,
-                    isCurved: true,
-                    color: GridColors.error,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: GridColors.error.withValues(alpha: 0.05),
-                    ),
-                  ),
                 ],
               ),
             ),

@@ -5,9 +5,9 @@ class GridTexts {
       'Fechar a folha de $label? Esta ação não pode ser desfeita.';
   static String genericError(String error) => 'Erro: $error';
 
-  static const String appTitle = 'Portal Cont';
+  static const String appTitle = 'Prumo Contábil';
   static const String appShortTitle = 'PORTAL CONT';
-  static const String companyName = 'Portal Cont';
+  static const String companyName = 'Prumo Contábil';
   static const String companyTagline = 'Seu escritório contábil conectado.';
   static const String footerCompany = 'PORTALCONT';
   static const String footerAddress =

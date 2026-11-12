@@ -72,9 +72,9 @@ class _SystemTestScreenState extends State<SystemTestScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF071E36),
+      backgroundColor: const Color(0xFF06231A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B3A63),
+        backgroundColor: const Color(0xFF0C3A2B),
         title: const Text('Testes de Integração', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
@@ -702,7 +702,7 @@ class _CrudTestTabState extends State<_CrudTestTab> {
         // action buttons row
         if (_errorReport.isNotEmpty || (!_isRunning && _logs.isNotEmpty))
           Container(
-            color: const Color(0xFF0B3A63),
+            color: const Color(0xFF0C3A2B),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -746,7 +746,7 @@ class _CrudTestTabState extends State<_CrudTestTab> {
         bool copied = false;
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
-            backgroundColor: const Color(0xFF0B3A63),
+            backgroundColor: const Color(0xFF0C3A2B),
             title: const Text('Relatório de Falhas', style: TextStyle(color: Colors.white)),
             content: SizedBox(
               width: 600,
@@ -801,7 +801,7 @@ class _CrudTestTabState extends State<_CrudTestTab> {
     final totalTests = scenarios.fold<int>(0, (prev, s) => prev + s.steps.length);
 
     return Container(
-      color: const Color(0xFF0B3A63),
+      color: const Color(0xFF0C3A2B),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Row(
         children: [
@@ -861,7 +861,7 @@ class _CrudTestTabState extends State<_CrudTestTab> {
 
   Widget _buildProgressBar() {
     return Container(
-      color: const Color(0xFF0B3A63),
+      color: const Color(0xFF0C3A2B),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -952,7 +952,7 @@ class _CrudTestTabState extends State<_CrudTestTab> {
     }
 
     return Container(
-      color: const Color(0xFF071E36),
+      color: const Color(0xFF06231A),
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(12),
@@ -1037,7 +1037,7 @@ class _TelasTestTabState extends State<_TelasTestTab> {
         bool copied = false;
         return StatefulBuilder(
           builder: (ctx, setDialogState) => AlertDialog(
-            backgroundColor: const Color(0xFF0B3A63),
+            backgroundColor: const Color(0xFF0C3A2B),
             title: const Text('Relatório de Falhas — Telas', style: TextStyle(color: Colors.white)),
             content: SizedBox(
               width: 620,
@@ -1470,7 +1470,7 @@ class _TelasTestTabState extends State<_TelasTestTab> {
       children: [
         // header
         Container(
-          color: const Color(0xFF0B3A63),
+          color: const Color(0xFF0C3A2B),
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: Row(
             children: [
@@ -1531,7 +1531,7 @@ class _TelasTestTabState extends State<_TelasTestTab> {
         // progress
         if (_isRunning || _progress > 0)
           Container(
-            color: const Color(0xFF0B3A63),
+            color: const Color(0xFF0C3A2B),
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: Column(
               children: [
@@ -1582,7 +1582,7 @@ class _TelasTestTabState extends State<_TelasTestTab> {
                   ),
                 )
               : Container(
-                  color: const Color(0xFF071E36),
+                  color: const Color(0xFF06231A),
                   child: ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(12),

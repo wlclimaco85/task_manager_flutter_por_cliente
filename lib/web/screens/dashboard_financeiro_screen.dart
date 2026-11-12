@@ -1327,8 +1327,8 @@ class _WebDashboardFinanceiroScreenState
 
     final colors = [
       const Color(0xFF1976D2), // Blue
-      const Color(0xFF0F4C81), // Primary Red
-      const Color(0xFF0E7C99), // Secondary Green
+      const Color(0xFF1F6B4F), // Primary Red
+      const Color(0xFF3C9A73), // Secondary Green
       const Color(0xFFE65100), // Orange
       const Color(0xFF6A1B9A), // Purple
       const Color(0xFF00838F), // Teal

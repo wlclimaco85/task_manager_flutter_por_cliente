@@ -16,19 +16,19 @@ class DesignTokens {
   // ─────────────────────────────────────────────────────────────────────────────
 
   /// Cor primária — Azul Portal Cont
-  static const Color primary = Color(0xFF0F4C81);
+  static const Color primary = Color(0xFF1F6B4F);
 
   /// Variante escura da cor primária
-  static const Color primaryDark = Color(0xFF0B3A63);
+  static const Color primaryDark = Color(0xFF0C3A2B);
 
   /// Variante clara/soft da cor primária — para backgrounds
-  static const Color primarySoft = Color(0xFFEAF4FB);
+  static const Color primarySoft = Color(0xFFE8F5EE);
 
   /// Variante light da cor primária — para elementos secundários
-  static const Color primaryLight = Color(0xFF4A8BC2);
+  static const Color primaryLight = Color(0xFF4FA07C);
 
   /// Cor secundária — Ciano Portal Cont
-  static const Color secondary = Color(0xFF0E7C99);
+  static const Color secondary = Color(0xFF3C9A73);
 
   /// Variante soft da cor secundária
   static const Color secondarySoft = Color(0xFFEEF9FC);
@@ -105,8 +105,8 @@ class DesignTokens {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF0F4C81), // blue primary
-      Color(0xFF0E7C99), // cyan secondary
+      Color(0xFF1F6B4F), // blue primary
+      Color(0xFF3C9A73), // cyan secondary
     ],
     stops: [0.0, 1.0],
   );
@@ -116,7 +116,7 @@ class DesignTokens {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [
-      Color(0xFFEAF4FB), // primarySoft
+      Color(0xFFE8F5EE), // primarySoft
       Color(0xFFEEF9FC), // secondarySoft
     ],
     stops: [0.0, 1.0],

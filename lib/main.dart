@@ -206,7 +206,7 @@ class TaskManagerApp extends StatelessWidget {
     return MaterialApp(
       navigatorKey: SessionExpiredHandler.navigatorKey,
       debugShowCheckedModeBanner: false,
-      title: 'Gestão Empresarial - Conta Própria',
+      title: 'Prumo Contábil',
       theme: ZenTheme.lightTheme,
 
       locale: const Locale('pt', 'BR'),

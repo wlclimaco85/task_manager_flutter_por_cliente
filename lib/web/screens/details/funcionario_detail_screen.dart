@@ -40,9 +40,9 @@ class _WebFuncionarioDetailScreenState extends State<WebFuncionarioDetailScreen>
     final funcId = widget.item['id'];
     final nome = widget.item['nome']?.toString() ?? 'Funcionário';
     return Scaffold(
-      backgroundColor: const Color(0xFF071E36),
+      backgroundColor: const Color(0xFF06231A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B3A63),
+        backgroundColor: const Color(0xFF0C3A2B),
         title: Text(nome, style: const TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
@@ -225,7 +225,7 @@ class _PontoTabState extends State<_PontoTab> {
                           margin: const EdgeInsets.only(bottom: 6),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0B3A63),
+                            color: const Color(0xFF0C3A2B),
                             borderRadius: BorderRadius.circular(8),
                             border: Border(left: BorderSide(
                               color: isEntrada ? GridColors.success : const Color(0xFFEF5350),
@@ -413,7 +413,7 @@ class _Card extends StatelessWidget {
       width: 160,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B3A63),
+        color: const Color(0xFF0C3A2B),
         borderRadius: BorderRadius.circular(10),
         border: Border(left: BorderSide(color: color, width: 3)),
       ),
@@ -441,7 +441,7 @@ class _TabelaDetalhes extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0B3A63),
+            color: const Color(0xFF0C3A2B),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.white12),
           ),
@@ -465,7 +465,7 @@ class _TabelaDetalhes extends StatelessWidget {
   }
 
   TableRow _headerRow() => TableRow(
-    decoration: const BoxDecoration(color: Color(0xFF124F85)),
+    decoration: const BoxDecoration(color: Color(0xFF14503C)),
     children: ['Data', 'Dia', 'Batidas', 'Trabalhado', 'Extra', 'Falta']
         .map((h) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -481,7 +481,7 @@ class _TabelaDetalhes extends StatelessWidget {
     final batidas = (d['batidas'] as List?)?.join(' | ') ?? '';
     return TableRow(
       decoration: BoxDecoration(
-        color: fimSemana ? const Color(0xFF0B3A63).withValues(alpha: 0.5) : Colors.transparent,
+        color: fimSemana ? const Color(0xFF0C3A2B).withValues(alpha: 0.5) : Colors.transparent,
       ),
       children: [
         _cell(d['data']?.toString() ?? '', fimSemana ? Colors.white38 : Colors.white70),
@@ -516,7 +516,7 @@ class _DateButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF0B3A63),
+          color: const Color(0xFF0C3A2B),
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: Colors.white12),
         ),
@@ -584,7 +584,7 @@ class _DependentesTabState extends State<_DependentesTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDState) => AlertDialog(
-          backgroundColor: const Color(0xFF0B3A63),
+          backgroundColor: const Color(0xFF0C3A2B),
           title: Text(item == null ? 'Novo Dependente' : 'Editar Dependente', style: const TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Column(
@@ -604,7 +604,7 @@ class _DependentesTabState extends State<_DependentesTab> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: parentesco,
-                  dropdownColor: const Color(0xFF0B3A63),
+                  dropdownColor: const Color(0xFF0C3A2B),
                   style: const TextStyle(color: Colors.white),
                   decoration: const InputDecoration(labelText: 'Parentesco', labelStyle: TextStyle(color: Colors.white70)),
                   items: const [
@@ -698,7 +698,7 @@ class _DependentesTabState extends State<_DependentesTab> {
                     itemBuilder: (ctx, i) {
                       final dep = _dependentes[i];
                       return Card(
-                        color: const Color(0xFF0B3A63),
+                        color: const Color(0xFF0C3A2B),
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
                           leading: const CircleAvatar(backgroundColor: Color(0xFF14558F), child: Icon(Icons.person, color: Colors.white)),
@@ -787,7 +787,7 @@ class _AfastamentosTabState extends State<_AfastamentosTab> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0B3A63),
+        backgroundColor: const Color(0xFF0C3A2B),
         title: Text(item == null ? 'Registrar Afastamento' : 'Editar Afastamento', style: const TextStyle(color: Colors.white)),
         content: SingleChildScrollView(
           child: Column(
@@ -901,7 +901,7 @@ class _AfastamentosTabState extends State<_AfastamentosTab> {
                       final af = _afastamentos[i];
                       final acima15 = (af['dias'] as num? ?? 0) > 15 || af['inssAcima15Dias'] == true;
                       return Card(
-                        color: const Color(0xFF0B3A63),
+                        color: const Color(0xFF0C3A2B),
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListTile(
                           leading: CircleAvatar(

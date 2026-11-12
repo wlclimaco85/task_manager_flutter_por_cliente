@@ -156,7 +156,7 @@ class _WebSuplementoScreenState extends State<WebSuplementoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       //  floatingActionButton: getHomeFab(context, listModels, refreshPage),
-      backgroundColor: const Color(0xFF0F4C81),
+      backgroundColor: const Color(0xFF1F6B4F),
       appBar: UserBannerAppBar(
         onTapped: () {
           Navigator.push(

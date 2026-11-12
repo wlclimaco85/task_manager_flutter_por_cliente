@@ -135,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final isDesktop = size.width >= 900;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF071E36),
+      backgroundColor: const Color(0xFF06231A),
       body: Stack(
         children: [
           Positioned.fill(
@@ -144,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF071E36), Color(0xFF0B3A63), GridColors.primary],
+                  colors: [Color(0xFF06231A), Color(0xFF0C3A2B), GridColors.primary],
                 ),
               ),
             ),
@@ -194,7 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF0B3A63), GridColors.primary],
+                    colors: [Color(0xFF0C3A2B), GridColors.primary],
                   ),
                 ),
                 padding: const EdgeInsets.all(48),
@@ -212,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 28),
                     const Text(
-                      'Gestão Direta &\nConta Própria',
+                      'Prumo\nContábil',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 30,
@@ -223,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Tome decisões com serenidade. Fluxo de caixa em tempo real, controle de itens e emissão ágil para o seu negócio.',
+                      'Resultado, custo e caixa no prumo. Fluxo de caixa em tempo real, controle de itens e emissão ágil para o seu negócio.',
                       style: TextStyle(
                         color: Colors.white.withValues(alpha: 0.85),
                         fontSize: 15,
@@ -280,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 20),
           const Text(
-            'Gestão Conta Própria',
+            'Prumo Contábil',
             style: TextStyle(
               color: GridColors.textPrimary,
               fontSize: 22,
@@ -442,7 +442,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildFeaturePill(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF7FD3E8), size: 16),
+        Icon(icon, color: const Color(0xFFB8E62E), size: 16),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
