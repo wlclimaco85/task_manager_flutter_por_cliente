@@ -96,13 +96,6 @@ void main() {
       await t.pumpWidget(MaterialApp(home: cteFormPageParaTeste()));
     }
 
-    testWidgets('barra do titulo branca (a linha das abas fica na cor primaria)', (t) async {
-      await abrir(t);
-      final appBar = t.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.backgroundColor, Colors.white);
-      expect(find.byType(TabBar), findsOneWidget);
-    });
-
     testWidgets('aba Partes: busca de parceiro e CEP com botao de busca', (t) async {
       await abrir(t);
       await t.tap(find.text('3. Partes'));

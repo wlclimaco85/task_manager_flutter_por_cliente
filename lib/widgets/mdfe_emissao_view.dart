@@ -1924,24 +1924,15 @@ isExpanded: true,
     return Scaffold(
       backgroundColor: GridColors.pageBackground,
       appBar: AppBar(
-        // Barra do titulo branca; so a linha das abas fica na cor primaria (sem linha dupla azul).
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
+        backgroundColor: GridColors.primary,
+        foregroundColor: Colors.white,
         title: const Text('Novo MDF-e'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Voltar',
           onPressed: _enviando ? null : () => Navigator.pop(context, false),
         ),
-        bottom: _loading
-            ? null
-            : PreferredSize(
-          preferredSize: const Size.fromHeight(kTextTabBarHeight),
-          child: ColoredBox(
-            color: GridColors.primary,
-            child: TabBar(
+        bottom: _loading ? null : TabBar(
           controller: _tab,
           isScrollable: true,
           tabAlignment: TabAlignment.center,
@@ -1962,8 +1953,6 @@ isExpanded: true,
                 ]),
               ),
           ],
-        ),
-          ),
         ),
       ),
       body: _loading
