@@ -347,7 +347,7 @@ class _AppSidebarState extends State<AppSidebar> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Column(
           children: [
-            // Logo PortalCont (versão compacta — só o avatar/ícone)
+            // Logo Prumo (versão compacta — só o avatar/ícone)
             const BrandLogo(size: 30),
             const SizedBox(height: 10),
             _buildUserAvatar(18),
@@ -371,7 +371,7 @@ class _AppSidebarState extends State<AppSidebar> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Logo do PortalCont
+          // Logo do Prumo
           Row(
             children: [
               const BrandLogo(size: 32),

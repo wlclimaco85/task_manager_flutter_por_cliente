@@ -4,9 +4,9 @@ class AssetsUtils {
   AssetsUtils._();
   static const String _images = 'assets/images';
   static const String backgroundSVG = '$_images/background.svg';
-  // Logo institucional PortalCont
+  // Logo institucional Prumo Contábil
   static const String logoJPG = 'assets/images/portal_cont_logo.png';
-  static const String logoSVG = 'assets/images/portalcont_logo.svg';
+  static const String logoSVG = 'assets/images/prumo_mark.svg';
   static const List<String> newsFallbackImages = [
     'assets/images/Screenshot_1.png',
     'assets/images/Screenshot_2.png',

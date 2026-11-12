@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 /// Tipografia: Roboto 14px body, 24px H1, line-height 1.5
 class ManifestacaoDesignTokens {
   // ======== COLORS ========
-  static const Color colorPrimary = Color(0xFF1F6B4F); // Azul Portal Cont
+  static const Color colorPrimary = Color(0xFF1F6B4F); // Verde Prumo
   static const Color colorSuccess = Color(0xFF2E7D32); // Verde
   static const Color colorError = Color(0xFFD32F2F); // Vermelho error
   static const Color colorWarning = Color(0xFFF57C00); // Laranja

@@ -15,7 +15,7 @@ class DesignTokens {
   // 🎨 CORES (Consolidado de GridColors existente)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  /// Cor primária — Azul Portal Cont
+  /// Cor primária — Verde Prumo
   static const Color primary = Color(0xFF1F6B4F);
 
   /// Variante escura da cor primária
@@ -27,11 +27,11 @@ class DesignTokens {
   /// Variante light da cor primária — para elementos secundários
   static const Color primaryLight = Color(0xFF4FA07C);
 
-  /// Cor secundária — Ciano Portal Cont
+  /// Cor secundária — Lima Prumo
   static const Color secondary = Color(0xFF3C9A73);
 
   /// Variante soft da cor secundária
-  static const Color secondarySoft = Color(0xFFEEF9FC);
+  static const Color secondarySoft = Color(0xFFE8F5EE);
 
   /// Variante light da cor secundária
   static const Color secondaryLight = Color(0xFF2E7D32);
@@ -105,8 +105,8 @@ class DesignTokens {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF1F6B4F), // blue primary
-      Color(0xFF3C9A73), // cyan secondary
+      Color(0xFF1F6B4F), // verde primário
+      Color(0xFF3C9A73), // lima secundário
     ],
     stops: [0.0, 1.0],
   );
@@ -117,7 +117,7 @@ class DesignTokens {
     end: Alignment.bottomCenter,
     colors: [
       Color(0xFFE8F5EE), // primarySoft
-      Color(0xFFEEF9FC), // secondarySoft
+      Color(0xFFE8F5EE), // secondarySoft
     ],
     stops: [0.0, 1.0],
   );

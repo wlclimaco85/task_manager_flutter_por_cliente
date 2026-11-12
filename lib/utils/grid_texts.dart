@@ -6,10 +6,10 @@ class GridTexts {
   static String genericError(String error) => 'Erro: $error';
 
   static const String appTitle = 'Prumo Contábil';
-  static const String appShortTitle = 'PORTAL CONT';
+  static const String appShortTitle = 'PRUMO';
   static const String companyName = 'Prumo Contábil';
-  static const String companyTagline = 'Seu escritório contábil conectado.';
-  static const String footerCompany = 'PORTALCONT';
+  static const String companyTagline = 'Resultado, custo e caixa no prumo.';
+  static const String footerCompany = 'PRUMO CONTÁBIL';
   static const String footerAddress =
       'Rua Marques do Paraná, 250 - Estados Unidos, Uberaba - MG';
   static const String footerPhone = '(34) 3321-6689';
