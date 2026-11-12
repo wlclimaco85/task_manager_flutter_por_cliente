@@ -125,6 +125,40 @@ void main() {
     expect(find.text('Nenhum MDF-e emitido.'), findsOneWidget);
   });
 
+  testWidgets('acao que lanca excecao mostra SnackBar e libera o menu (sem estourar)', (t) async {
+    await t.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SizedBox(
+          width: 1000,
+          height: 800,
+          child: DocumentoFiscalGrid(
+            itens: itens,
+            colunas: [DocColuna('Nº', (m) => '${m['numero']}', largura: 70)],
+            corStatus: (_) => Colors.green,
+            textoVazio: 'vazio',
+            acoes: [
+              DocAcao(
+                icone: Icons.sync,
+                rotulo: 'Consultar',
+                habilitada: (l) => l.isNotEmpty,
+                executar: (l) async => throw Exception('falha simulada'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ));
+    await t.tap(find.byType(Checkbox).first);
+    await t.pump();
+    await t.tap(find.text('Ações (2)'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Consultar'));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Falha ao executar "Consultar"'), findsOneWidget);
+    final menu = t.widget<PopupMenuButton<DocAcao>>(find.byType(PopupMenuButton<DocAcao>).first);
+    expect(menu.enabled, isTrue);
+  });
+
   group('DocumentoFiscalListagem (filtros)', () {
     final docs = <Map<String, dynamic>>[
       {'id': 1, 'numero': 10, 'status': 'AUTORIZADO', 'tpAmb': 2, 'chaveAcesso': 'AAA111', 'tipoCte': 0},

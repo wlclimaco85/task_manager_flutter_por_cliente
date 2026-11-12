@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/app_logger.dart';
 import '../utils/grid_colors.dart';
 
 /// Coluna da grid de documentos fiscais (MDF-e / CT-e).
@@ -81,6 +82,13 @@ class _DocumentoFiscalGridState extends State<DocumentoFiscalGrid> {
     setState(() => _executando = true);
     try {
       await a.executar(alvo);
+    } catch (e, st) {
+      AppLogger.i.error('[DOC-FISCAL] falha ao executar "${a.rotulo}" em ${alvo.length} documento(s): $e', st);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Falha ao executar "${a.rotulo}": $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _executando = false);
     }
