@@ -1361,21 +1361,34 @@ class _CteFormPageState extends State<_CteFormPage>
   /// (soma dos itens que nao sao servico) e produto predominante (maior quantidade). Chave sem
   /// cadastro nao bloqueia: os campos ficam liberados para preenchimento manual.
   Future<void> _buscarNotas() async {
-    final invalidas = <String>[];
-    final chaves = extrairChaves(_chaves.text, invalidas: invalidas);
-    if (invalidas.isNotEmpty) {
-      setState(() => _msgNfe =
-          'Chave(s) com tamanho inválido (esperado 44 dígitos): ${invalidas.join(', ')}');
-      return;
-    }
-    if (chaves.isEmpty) {
-      setState(() => _msgNfe = 'Informe ao menos uma chave de NF-e.');
-      return;
-    }
     setState(() {
       _buscandoNfe = true;
       _msgNfe = null;
     });
+    // Itens de ate 9 digitos sao numeros de NF-e: viram a chave cadastrada no proprio campo.
+    final resolucao = await resolverNumerosNfe(_chaves.text);
+    if (!mounted) return;
+    if (resolucao.texto != _chaves.text) _chaves.text = resolucao.texto;
+    final invalidas = <String>[];
+    final chaves = extrairChaves(_chaves.text, invalidas: invalidas);
+    if (invalidas.isNotEmpty) {
+      setState(() {
+        _buscandoNfe = false;
+        _msgNfe = [
+          ...resolucao.avisos,
+          if (resolucao.avisos.isEmpty)
+            'Informe chave (44 dígitos) ou número da NF-e (até 9 dígitos): ${invalidas.join(', ')}',
+        ].join('; ');
+      });
+      return;
+    }
+    if (chaves.isEmpty) {
+      setState(() {
+        _buscandoNfe = false;
+        _msgNfe = 'Informe ao menos uma chave ou número de NF-e.';
+      });
+      return;
+    }
     final erros = <String>[];
     for (final c in chaves) {
       if (_nfeCache.containsKey(c)) continue;
@@ -1405,6 +1418,7 @@ class _CteFormPageState extends State<_CteFormPage>
         partes.add('$semCadastro sem cadastro (preencha valor e produto manualmente)');
       }
       if (erros.isNotEmpty) partes.add('${erros.length} com erro na consulta, tente de novo');
+      partes.addAll(resolucao.avisos);
       _msgNfe = partes.join('; ');
     });
   }
@@ -1858,7 +1872,7 @@ isExpanded: true,
               if (_cargaTravada) setState(() => _cargaTravada = false);
             },
             decoration: const InputDecoration(
-                labelText: 'Chaves das NF-e (44 dígitos, uma por linha)'),
+                labelText: 'Chaves (44 dígitos) ou números das NF-e, um por linha'),
             validator: _obrigatorio,
           ),
           const SizedBox(height: 8),

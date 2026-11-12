@@ -124,7 +124,7 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.text('Buscar NF-e cadastradas'));
       await t.pumpAndSettle();
-      expect(find.text('Informe ao menos uma chave de NF-e.'), findsOneWidget);
+      expect(find.text('Informe ao menos uma chave ou número de NF-e.'), findsOneWidget);
     });
 
     testWidgets('sem overflow nos dropdowns da aba Dados gerais', (t) async {
@@ -138,6 +138,32 @@ void main() {
       await t.pumpWidget(MaterialApp(home: cteFormPageParaTeste()));
       await t.pumpAndSettle();
       expect(erros.where((e) => e.exceptionAsString().contains('overflowed')), isEmpty);
+    });
+  });
+
+  group('resolverNumerosNfe', () {
+    const chave = '35260112345678000190550010000001231000001234';
+
+    test('troca numero de NF-e pela chave e mantem as chaves de 44 digitos', () async {
+      final r = await resolverNumerosNfe('123\n$chave', buscar: (n) async => [
+            {'chave': chave, 'numero': n}
+          ]);
+      expect(r.texto, '$chave\n$chave');
+      expect(r.avisos, isEmpty);
+    });
+
+    test('numero sem cadastro, com erro ou com varias NF-e fica no texto e gera aviso', () async {
+      final r = await resolverNumerosNfe('1 2 3', buscar: (n) async {
+        if (n == '1') return [];
+        if (n == '2') return null;
+        return [
+          {'chave': 'A'},
+          {'chave': 'B'}
+        ];
+      });
+      expect(r.texto, '1\n2\n3');
+      expect(r.avisos, hasLength(3));
+      expect(r.avisos.last, contains('A, B'));
     });
   });
 }

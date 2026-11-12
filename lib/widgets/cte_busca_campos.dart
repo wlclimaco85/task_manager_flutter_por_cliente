@@ -145,6 +145,60 @@ Future<BuscaNfeCte> buscarNfePorChave(String chave) async {
   }
 }
 
+/// NF-e da empresa pelo numero (ate 9 digitos). Lista vazia = sem cadastro; null = erro na consulta.
+Future<List<Map<String, dynamic>>?> buscarNfesPorNumero(String numero) async {
+  try {
+    final r = await NetworkCaller().getRequest('${ApiLinks.baseUrl}/api/nfe/por-chave/$numero');
+    if (r.isSuccess) return listaMdfeDe(r.body);
+    if (r.statusCode == 404) return [];
+    AppLogger.i.warn('buscarNfesPorNumero: HTTP ${r.statusCode}');
+    return null;
+  } catch (e, st) {
+    AppLogger.i.error('buscarNfesPorNumero: erro: $e', st);
+    return null;
+  }
+}
+
+/// Texto das chaves com os numeros de NF-e ja trocados pela chave de 44 digitos.
+class ResolucaoNumerosNfe {
+  final String texto;
+  final List<String> avisos;
+  const ResolucaoNumerosNfe(this.texto, this.avisos);
+}
+
+/// Cada item de ate 9 digitos e tratado como numero da NF-e e trocado pela chave cadastrada.
+/// Numero sem cadastro, com erro ou com varias NF-e (series/emitentes) fica como esta e gera aviso.
+Future<ResolucaoNumerosNfe> resolverNumerosNfe(
+  String texto, {
+  Future<List<Map<String, dynamic>>?> Function(String) buscar = buscarNfesPorNumero,
+}) async {
+  final avisos = <String>[];
+  final itens = <String>[];
+  for (final item in texto.split(RegExp(r'[\n;,\s]+'))) {
+    final t = item.trim();
+    if (t.isEmpty) continue;
+    if (t.length > 9 || _soDigitos(t) != t) {
+      itens.add(t);
+      continue;
+    }
+    final achadas = await buscar(t);
+    if (achadas == null) {
+      avisos.add('nº $t: erro na consulta, tente de novo');
+      itens.add(t);
+    } else if (achadas.isEmpty) {
+      avisos.add('nº $t: NF-e não cadastrada');
+      itens.add(t);
+    } else if (achadas.length == 1 && _txt(achadas.first['chave']).length == 44) {
+      itens.add(_txt(achadas.first['chave']));
+    } else {
+      final chaves = achadas.map((e) => _txt(e['chave'])).where((c) => c.isNotEmpty).join(', ');
+      avisos.add('nº $t tem ${achadas.length} NF-e; informe a chave: $chaves');
+      itens.add(t);
+    }
+  }
+  return ResolucaoNumerosNfe(itens.join('\n'), avisos);
+}
+
 /// Valor da carga e produto predominante calculados a partir das NF-e cadastradas.
 class CargaCalculadaCte {
   final num valor;
