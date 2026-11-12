@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "task_manager_flutter_por_cliente" "\0"
+            VALUE "FileDescription", "Prumo Contabil" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "task_manager_flutter_por_cliente" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "task_manager_flutter_por_cliente.exe" "\0"
-            VALUE "ProductName", "task_manager_flutter_por_cliente" "\0"
+            VALUE "ProductName", "Prumo Contabil" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
