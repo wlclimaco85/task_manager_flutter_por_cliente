@@ -12,6 +12,9 @@ import '../utils/tenant_context.dart';
 import '../utils/grid_colors.dart';
 import 'documento_fiscal_grid.dart';
 import 'localidade_busca_field.dart';
+import 'cte_busca_campos.dart';
+import 'searchable_dropdown.dart';
+import '../services/consulta_cep_service.dart';
 import 'mdfe_emissao_view.dart' show extrairChaves, listaMdfeDe;
 
 const String kCteAutorizado = 'AUTORIZADO';
@@ -926,6 +929,52 @@ class _ParteCtl {
   final cep = TextEditingController();
   String? uf;
 
+  /// Parceiro escolhido na busca: os campos preenchidos por ele ficam travados (disabled).
+  Map<String, dynamic>? parceiro;
+  String? rotuloParceiro;
+  final itensBusca = <Map<String, dynamic>>[];
+  final Set<TextEditingController> travados = {};
+
+  /// Muda quando o municipio e preenchido por fora (parceiro/CEP) para o campo de busca se redesenhar.
+  int versaoMunicipio = 0;
+
+  bool travado(TextEditingController c) => parceiro != null && travados.contains(c);
+  bool get municipioTravado => parceiro != null && travados.contains(ibge);
+
+  void aplicarParceiro(Map<String, dynamic> p) {
+    final d = parteDoParceiro(p);
+    parceiro = p;
+    travados.clear();
+    void pr(TextEditingController c, String v) {
+      c.text = v;
+      if (v.isNotEmpty) travados.add(c);
+    }
+
+    pr(documento, d.documento);
+    pr(nome, d.nome);
+    pr(ie, d.ie);
+    pr(telefone, d.telefone);
+    pr(cep, d.cep);
+    pr(logradouro, d.logradouro);
+    pr(numero, d.numero);
+    pr(bairro, d.bairro);
+    pr(ibge, d.ibge);
+    municipio.text = d.municipio;
+    uf = d.uf.isEmpty ? null : d.uf;
+    versaoMunicipio++;
+  }
+
+  void limparParceiro() {
+    parceiro = null;
+    rotuloParceiro = null;
+    travados.clear();
+    for (final c in [documento, ie, nome, telefone, logradouro, numero, bairro, ibge, municipio, cep]) {
+      c.clear();
+    }
+    uf = null;
+    versaoMunicipio++;
+  }
+
   Map<String, dynamic> montar() => montarParteCte(
         documento: documento.text,
         inscricaoEstadual: ie.text,
@@ -961,6 +1010,11 @@ class _ParteCtl {
 class _CompCtl {
   final nome = TextEditingController(text: 'FRETE VALOR');
   final valor = TextEditingController();
+
+  /// Servico (produto do tipo servico) escolhido na busca: o nome do componente fica travado.
+  Map<String, dynamic>? servico;
+  String? rotuloServico;
+  final itensBusca = <Map<String, dynamic>>[];
 
   void dispose() {
     nome.dispose();
@@ -1039,6 +1093,12 @@ class _CteFormPageState extends State<_CteFormPage>
   bool _usaReceb = false;
   bool _enviando = false;
   String? _erro;
+
+  // Carga preenchida a partir de NF-e cadastradas (chave -> resumo; null = sem cadastro).
+  final Map<String, Map<String, dynamic>?> _nfeCache = {};
+  bool _buscandoNfe = false;
+  bool _cargaTravada = false;
+  String? _msgNfe;
 
   @override
   void initState() {
@@ -1126,11 +1186,13 @@ class _CteFormPageState extends State<_CteFormPage>
   Widget _campo(String rotulo, TextEditingController c,
           {double largura = 200,
           String? Function(String?)? validator,
-          TextInputType? teclado}) =>
+          TextInputType? teclado,
+          bool enabled = true}) =>
       SizedBox(
         width: larguraCte(context, largura),
         child: TextFormField(
           controller: c,
+          enabled: enabled,
           keyboardType: teclado,
           decoration: InputDecoration(labelText: rotulo),
           validator: validator ?? _obrigatorio,
@@ -1147,30 +1209,205 @@ class _CteFormPageState extends State<_CteFormPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _secao(titulo),
-          Wrap(spacing: 8, runSpacing: 4, children: [
-            _campo('CPF/CNPJ', p.documento,
-                validator: (v) => documentoValidoCte(v ?? '')
-                    ? null
-                    : 'CPF (11) ou CNPJ (14)'),
-            _campo('Nome / razão social', p.nome, largura: 260),
-            _campo('IE (opcional)', p.ie, validator: (_) => null),
-            _campo('Telefone (opcional)', p.telefone, validator: (_) => null),
-            _campo('Logradouro', p.logradouro, largura: 240),
-            _campo('Número', p.numero, largura: 90),
-            _campo('Bairro', p.bairro),
-            _campo('CEP (opcional)', p.cep, largura: 120, validator: (_) => null),
-            SizedBox(
-              width: larguraCte(context, 440, reserva: 90),
-              child: MunicipioBuscaField(
-                label: 'Município',
-                ibge: p.ibge,
-                nome: p.municipio,
-                onUf: (v) => setState(() => p.uf = v),
-              ),
-            ),
-          ]),
+          Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: larguraCte(context, 440, reserva: 90),
+                  child: SearchableDropdownField(
+                    label: 'Parceiro (buscar cadastro)',
+                    value: p.parceiro == null ? null : '${p.parceiro!['id']}',
+                    items: p.itensBusca,
+                    valueField: 'id',
+                    displayField: 'nome',
+                    nullable: false,
+                    hintText: p.rotuloParceiro ?? 'Buscar parceiro',
+                    onSearch: buscarParceirosCte,
+                    onChanged: (_) {},
+                    onItemSelected: (item) {
+                      if (item == null) return;
+                      final raw = Map<String, dynamic>.from(item['raw'] as Map);
+                      setState(() {
+                        p.aplicarParceiro(raw);
+                        p.rotuloParceiro = '${item['nome']}';
+                        if (!p.itensBusca.any((e) => e['id'] == item['id'])) {
+                          p.itensBusca.insert(0, item);
+                        }
+                      });
+                    },
+                  ),
+                ),
+                if (p.parceiro != null)
+                  IconButton(
+                      tooltip: 'Limpar parceiro',
+                      onPressed: () => setState(p.limparParceiro),
+                      icon: const Icon(Icons.close)),
+                _campo('CPF/CNPJ', p.documento,
+                    enabled: !p.travado(p.documento),
+                    validator: (v) => documentoValidoCte(v ?? '')
+                        ? null
+                        : 'CPF (11) ou CNPJ (14)'),
+                _campo('Nome / razão social', p.nome,
+                    largura: 260, enabled: !p.travado(p.nome)),
+                _campo('IE (opcional)', p.ie,
+                    enabled: !p.travado(p.ie), validator: (_) => null),
+                _campo('Telefone (opcional)', p.telefone,
+                    enabled: !p.travado(p.telefone), validator: (_) => null),
+                // CEP e o primeiro campo do endereco; o botao (so icone) busca logradouro/bairro/municipio.
+                SizedBox(
+                  width: larguraCte(context, 190),
+                  child: Row(children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: p.cep,
+                        enabled: !p.travado(p.cep),
+                        keyboardType: TextInputType.number,
+                        decoration:
+                            const InputDecoration(labelText: 'CEP (opcional)'),
+                      ),
+                    ),
+                    IconButton(
+                        tooltip: 'Buscar CEP',
+                        onPressed:
+                            p.travado(p.cep) ? null : () => _buscarCep(p),
+                        icon: const Icon(Icons.search)),
+                  ]),
+                ),
+                _campo('Logradouro', p.logradouro,
+                    largura: 240, enabled: !p.travado(p.logradouro)),
+                _campo('Número', p.numero,
+                    largura: 90, enabled: !p.travado(p.numero)),
+                _campo('Bairro', p.bairro, enabled: !p.travado(p.bairro)),
+                SizedBox(
+                  width: larguraCte(context, 440, reserva: 90),
+                  child: MunicipioBuscaField(
+                    key: ValueKey('mun-${p.versaoMunicipio}'),
+                    label: 'Município',
+                    ibge: p.ibge,
+                    nome: p.municipio,
+                    enabled: !p.municipioTravado,
+                    onUf: (v) => setState(() => p.uf = v),
+                  ),
+                ),
+              ]),
         ],
       );
+
+  /// Consulta o CEP (ViaCEP/BrasilAPI) e preenche logradouro, bairro e o municipio cadastrado (com IBGE).
+  Future<void> _buscarCep(_ParteCtl p) async {
+    final r = await ConsultaCepService.consultar(p.cep.text);
+    if (!mounted) return;
+    if (r == null) {
+      _avisoCep('Não foi possível consultar o CEP agora.');
+      return;
+    }
+    if (r['erro'] == true) {
+      _avisoCep('CEP não encontrado.');
+      return;
+    }
+    final cidade = '${r['localidade'] ?? ''}'.trim();
+    final uf = '${r['uf'] ?? ''}'.trim();
+    final achados = cidade.isEmpty
+        ? <Map<String, dynamic>>[]
+        : await buscarMunicipiosCadastrados(cidade);
+    if (!mounted) return;
+    Map<String, dynamic>? municipio;
+    for (final m in achados) {
+      if ('${m['uf']}' == uf &&
+          '${m['cidade']}'.toLowerCase() == cidade.toLowerCase()) {
+        municipio = m;
+        break;
+      }
+    }
+    setState(() {
+      p.logradouro.text = '${r['logradouro'] ?? ''}';
+      p.bairro.text = '${r['bairro'] ?? ''}';
+      if (municipio != null) {
+        p.ibge.text = '${municipio['id']}';
+        p.municipio.text = '${municipio['cidade']}';
+        p.uf = '${municipio['uf']}';
+        p.versaoMunicipio++;
+      }
+    });
+    if (municipio == null && cidade.isNotEmpty) {
+      _avisoCep('Município "$cidade - $uf" não está no cadastro: selecione na busca.');
+    }
+  }
+
+  void _avisoCep(String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
+  /// Servico escolhido no cadastro: preenche o componente (nome travado) e o valor padrao (preco).
+  void _aplicarServico(_CompCtl c, Map<String, dynamic> item) {
+    c.servico = item;
+    c.rotuloServico = '${item['nome']}';
+    c.nome.text = '${item['nome']}';
+    final preco = item['preco'];
+    if (preco is num && preco > 0) c.valor.text = preco.toStringAsFixed(2);
+    if (!c.itensBusca.any((e) => e['id'] == item['id'])) c.itensBusca.insert(0, item);
+    final soma = _componentes.fold<num>(0, (a, e) => a + (_numero(e.valor.text) ?? 0));
+    _valor.text = soma.toStringAsFixed(2);
+  }
+
+  void _limparServico(_CompCtl c) {
+    c.servico = null;
+    c.rotuloServico = null;
+    c.nome.text = 'FRETE VALOR';
+  }
+
+  /// Busca no sistema as NF-e das chaves informadas (uma por linha) e preenche valor da carga
+  /// (soma dos itens que nao sao servico) e produto predominante (maior quantidade). Chave sem
+  /// cadastro nao bloqueia: os campos ficam liberados para preenchimento manual.
+  Future<void> _buscarNotas() async {
+    final invalidas = <String>[];
+    final chaves = extrairChaves(_chaves.text, invalidas: invalidas);
+    if (invalidas.isNotEmpty) {
+      setState(() => _msgNfe =
+          'Chave(s) com tamanho inválido (esperado 44 dígitos): ${invalidas.join(', ')}');
+      return;
+    }
+    if (chaves.isEmpty) {
+      setState(() => _msgNfe = 'Informe ao menos uma chave de NF-e.');
+      return;
+    }
+    setState(() {
+      _buscandoNfe = true;
+      _msgNfe = null;
+    });
+    final erros = <String>[];
+    for (final c in chaves) {
+      if (_nfeCache.containsKey(c)) continue;
+      final r = await buscarNfePorChave(c);
+      if (r.erro != null) {
+        erros.add(c);
+      } else {
+        _nfeCache[c] = r.dados;
+      }
+    }
+    if (!mounted) return;
+    final encontradas = [
+      for (final c in chaves)
+        if (_nfeCache[c] != null) _nfeCache[c]!
+    ];
+    final semCadastro = chaves.where((c) => _nfeCache.containsKey(c) && _nfeCache[c] == null).length;
+    setState(() {
+      _buscandoNfe = false;
+      if (encontradas.isNotEmpty) {
+        final carga = calcularCargaCte(encontradas);
+        _cargaValor.text = carga.valor.toStringAsFixed(2);
+        if (carga.produto != null) _produto.text = carga.produto!;
+      }
+      _cargaTravada = encontradas.isNotEmpty && semCadastro == 0 && erros.isEmpty;
+      final partes = <String>['${encontradas.length} NF-e encontrada(s)'];
+      if (semCadastro > 0) {
+        partes.add('$semCadastro sem cadastro (preencha valor e produto manualmente)');
+      }
+      if (erros.isNotEmpty) partes.add('${erros.length} com erro na consulta, tente de novo');
+      _msgNfe = partes.join('; ');
+    });
+  }
 
   Future<void> _emitir() async {
     if (_validarAbas() != null) return;
@@ -1327,6 +1564,7 @@ class _CteFormPageState extends State<_CteFormPage>
           SizedBox(
             width: larguraCte(context, 160),
             child: DropdownButtonFormField<int>(
+isExpanded: true,
               value: _tpAmb,
               decoration: const InputDecoration(labelText: 'Ambiente'),
               items: const [
@@ -1351,6 +1589,7 @@ class _CteFormPageState extends State<_CteFormPage>
           SizedBox(
             width: larguraCte(context, 240),
             child: DropdownButtonFormField<int>(
+isExpanded: true,
               value: _tipoCte,
               decoration: const InputDecoration(labelText: 'Tipo do CT-e'),
               items: [
@@ -1416,6 +1655,7 @@ class _CteFormPageState extends State<_CteFormPage>
           SizedBox(
             width: larguraCte(context, 200),
             child: DropdownButtonFormField<int>(
+isExpanded: true,
               value: _tomador,
               decoration: const InputDecoration(labelText: 'Tomador'),
               items: [
@@ -1428,6 +1668,7 @@ class _CteFormPageState extends State<_CteFormPage>
           SizedBox(
             width: larguraCte(context, 240),
             child: DropdownButtonFormField<int>(
+isExpanded: true,
               value: _indIeTomador,
               decoration: const InputDecoration(labelText: 'IE do tomador'),
               items: [
@@ -1478,7 +1719,34 @@ class _CteFormPageState extends State<_CteFormPage>
             runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _campo('Componente', _componentes[i].nome, largura: 260),
+              SizedBox(
+                width: larguraCte(context, 300),
+                child: SearchableDropdownField(
+                  label: 'Serviço (buscar cadastro)',
+                  value: _componentes[i].servico == null
+                      ? null
+                      : '${_componentes[i].servico!['id']}',
+                  items: _componentes[i].itensBusca,
+                  valueField: 'id',
+                  displayField: 'nome',
+                  nullable: false,
+                  hintText: _componentes[i].rotuloServico ?? 'Buscar serviço',
+                  onSearch: buscarServicosCte,
+                  onChanged: (_) {},
+                  onItemSelected: (item) {
+                    if (item == null) return;
+                    setState(() => _aplicarServico(_componentes[i], item));
+                  },
+                ),
+              ),
+              if (_componentes[i].servico != null)
+                IconButton(
+                    tooltip: 'Limpar serviço',
+                    onPressed: () =>
+                        setState(() => _limparServico(_componentes[i])),
+                    icon: const Icon(Icons.close)),
+              _campo('Componente', _componentes[i].nome,
+                  largura: 260, enabled: _componentes[i].servico == null),
               _campo('Valor (R\$)', _componentes[i].valor,
                   teclado: TextInputType.number, validator: _numeroObrigatorio),
               if (_componentes.length > 1)
@@ -1499,6 +1767,7 @@ class _CteFormPageState extends State<_CteFormPage>
           SizedBox(
             width: larguraCte(context, 220),
             child: DropdownButtonFormField<String>(
+isExpanded: true,
               value: _cst,
               decoration:
                   const InputDecoration(labelText: 'Situação tributária'),
@@ -1553,11 +1822,14 @@ class _CteFormPageState extends State<_CteFormPage>
           _secao('Carga'),
           Wrap(spacing: 8, runSpacing: 4, children: [
             _campo('Valor da carga (R\$)', _cargaValor,
+                enabled: !_cargaTravada,
                 teclado: TextInputType.number, validator: _numeroObrigatorio),
-            _campo('Produto predominante', _produto, largura: 260),
+            _campo('Produto predominante', _produto,
+                largura: 260, enabled: !_cargaTravada),
             SizedBox(
               width: 140,
               child: DropdownButtonFormField<String>(
+isExpanded: true,
                 value: _unidade,
                 decoration: const InputDecoration(labelText: 'Unidade'),
                 items: [
@@ -1582,10 +1854,35 @@ class _CteFormPageState extends State<_CteFormPage>
             controller: _chaves,
             minLines: 2,
             maxLines: 5,
+            onChanged: (_) {
+              if (_cargaTravada) setState(() => _cargaTravada = false);
+            },
             decoration: const InputDecoration(
                 labelText: 'Chaves das NF-e (44 dígitos, uma por linha)'),
             validator: _obrigatorio,
           ),
+          const SizedBox(height: 8),
+          Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: _buscandoNfe ? null : _buscarNotas,
+                  icon: _buscandoNfe
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.search),
+                  label: const Text('Buscar NF-e cadastradas'),
+                ),
+                if (_msgNfe != null)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    child: Text(_msgNfe!, style: const TextStyle(fontSize: 12)),
+                  ),
+              ]),
         ],
         const SizedBox(height: 8),
         TextFormField(
@@ -1602,15 +1899,22 @@ class _CteFormPageState extends State<_CteFormPage>
     return Scaffold(
       backgroundColor: GridColors.pageBackground,
       appBar: AppBar(
-        backgroundColor: GridColors.primary,
-        foregroundColor: Colors.white,
+        // Barra do titulo branca; so a linha das abas fica na cor primaria (sem linha dupla azul).
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         title: const Text('Novo CT-e'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Voltar',
           onPressed: _enviando ? null : () => Navigator.pop(context, false),
         ),
-        bottom: TabBar(
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(kTextTabBarHeight),
+          child: ColoredBox(
+            color: GridColors.primary,
+            child: TabBar(
           controller: _tab,
           isScrollable: true,
           tabAlignment: TabAlignment.center,
@@ -1631,6 +1935,8 @@ class _CteFormPageState extends State<_CteFormPage>
                 ]),
               ),
           ],
+        ),
+          ),
         ),
       ),
       body: Column(

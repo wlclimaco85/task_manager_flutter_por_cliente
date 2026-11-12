@@ -82,6 +82,7 @@ class MunicipioBuscaField extends StatefulWidget {
   final TextEditingController nome;
   final ValueChanged<String?>? onUf;
   final bool obrigatorio;
+  final bool enabled;
 
   const MunicipioBuscaField({
     super.key,
@@ -90,6 +91,7 @@ class MunicipioBuscaField extends StatefulWidget {
     required this.nome,
     this.onUf,
     this.obrigatorio = true,
+    this.enabled = true,
   });
 
   @override
@@ -105,6 +107,7 @@ class _MunicipioBuscaFieldState extends State<MunicipioBuscaField> {
     final atual = widget.ibge.text.trim();
     return SearchableDropdownField(
       label: widget.label,
+      enabled: widget.enabled,
       value: atual.isEmpty ? null : atual,
       items: _itens,
       valueField: 'id',
