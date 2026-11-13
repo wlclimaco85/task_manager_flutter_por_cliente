@@ -194,11 +194,13 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                               },
                             ),
                           );
-                          if (r == null) return;
+                          if (r == null || !mounted) return;
                           setStateDialog(() => diretorioSelecionado = r.isEmpty
                               ? null
                               : int.tryParse(r['value']?.toString() ?? ''));
                           state.didChange(diretorioSelecionado);
+                          // revalida: some o "Selecione um diretório" ja mostrado ao escolher um
+                          state.validate();
                         },
                         child: InputDecorator(
                           decoration: InputDecoration(
