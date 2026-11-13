@@ -67,3 +67,12 @@ refletir na grid, sem cache de roles antigas. Dois sistemas de permissão (`Secu
   de push pra `main`. `analyze` é só apoio.
 - NUNCA find-replace em massa `const`→`final` (quebra `*.fromEnvironment` em runtime).
 - **Push para `main` → code review OBRIGATÓRIO.** Branch base: `desenv`. Encoding UTF-8.
+
+## Telas EXCLUSIVAS deste projeto (NAO replicar para nenhum outro)
+
+- `lib/auth_screens/solicitacao_acesso_screen.dart`: cadastro gamificado em etapas (empresa ->
+  usuario master -> pacote de modulos com termo de aceite -> parabens). Exclusivo do Conta Propria.
+- `lib/auth_screens/login_modulos_vitrine.dart`: vitrine de modulos do login.
+- Marca/tema/login: ver "Cores/Tema/Marca Sao EXCLUSIVOS" acima.
+- Replicacao de LOGICA vinda de outro projeto nunca sobrescreve esses arquivos; lista completa na
+  tabela "Telas que NAO se Replicam" do `C:\App_Academia\CLAUDE.md`.
