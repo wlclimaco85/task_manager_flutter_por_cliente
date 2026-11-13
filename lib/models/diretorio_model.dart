@@ -30,7 +30,13 @@ class Diretorio {
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'nome': nome, 'descricao': descricao, 'empresa': empresa};
+    return {
+      'id': id,
+      'nome': nome,
+      'descricao': descricao,
+      // serializa o objeto: o grid le 'empresa.nome' do mapa; objeto cru aparece como "Instance of ..."
+      'empresa': empresa?.toJson(),
+    };
   }
 
   static Future<List<Map<String, dynamic>>> loadCategorias() async {

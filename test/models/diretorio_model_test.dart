@@ -66,4 +66,26 @@ void main() {
       expect(diretorio.empresa!.id, 10);
     });
   });
+
+  group('Diretorio.toJson', () {
+    test('serializa a empresa como mapa (grid le empresa.nome; objeto cru vira "Instance of")', () {
+      final diretorio = Diretorio.fromJson({
+        'id': 5,
+        'nome': 'Boletos',
+        'descricao': 'Boletos',
+        'empresa': {'id': 1, 'nome': 'Empresa Teste'},
+      });
+
+      final json = diretorio.toJson();
+
+      expect(json['empresa'], isA<Map<String, dynamic>>());
+      expect((json['empresa'] as Map)['nome'], 'Empresa Teste');
+    });
+
+    test('empresa nula continua nula no JSON', () {
+      final json = Diretorio(nome: 'A', descricao: 'B').toJson();
+
+      expect(json['empresa'], isNull);
+    });
+  });
 }
