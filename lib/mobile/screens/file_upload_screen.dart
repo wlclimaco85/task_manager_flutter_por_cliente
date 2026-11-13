@@ -7,6 +7,9 @@ import 'package:http/http.dart' as http;
 
 import '../../constants/custom_colors.dart';
 import '../../services/diretorio_caller.dart';
+import '../../utils/diretorio_busca.dart';
+import '../../widgets/generic_grid_windows_screen.dart'
+    show PaginaDropdown, RemoteDropdownSearchDialog;
 import '../../services/file_caller.dart';
 import '../../services/parceiro_caller.dart';
 import '../../services/upload_file_caller.dart';
@@ -161,23 +164,65 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    decoration: const InputDecoration(
-                      labelText: "Diretório",
-                      border: OutlineInputBorder(
-                          borderSide: BorderSide(color: GridColors.primary)),
-                      focusedBorder: OutlineInputBorder(
-                          borderSide:
-                              BorderSide(color: GridColors.primary, width: 2)),
-                    ),
-                    items: diretorios
-                        .map((e) => DropdownMenuItem<int>(
-                            value: e['value'], child: Text(e['label'])))
-                        .toList(),
-                    onChanged: (v) =>
-                        setStateDialog(() => diretorioSelecionado = v),
-                    validator: (v) =>
-                        v == null ? "Selecione um diretório" : null,
+                  // Diretório: popup com busca (mesmo componente do Parceiro/Cliente no GED)
+                  FormField<int>(
+                    validator: (_) => diretorioSelecionado == null
+                        ? "Selecione um diretório"
+                        : null,
+                    builder: (state) {
+                      String? nomeSel;
+                      for (final d in diretorios) {
+                        if (d['value'] == diretorioSelecionado) {
+                          nomeSel = d['label']?.toString();
+                        }
+                      }
+                      return InkWell(
+                        onTap: () async {
+                          final r = await showDialog<Map<String, dynamic>>(
+                            context: context,
+                            builder: (_) => RemoteDropdownSearchDialog(
+                              title: 'Diretório',
+                              valueField: 'value',
+                              displayField: 'label',
+                              currentValue: diretorioSelecionado?.toString(),
+                              loadPage: ({busca, required pagina}) async {
+                                final lista = filtrarDiretoriosPorNome(
+                                    diretorios, busca,
+                                    campo: 'label');
+                                return PaginaDropdown(
+                                    pagina == 0 ? lista : const [], lista.length);
+                              },
+                            ),
+                          );
+                          if (r == null) return;
+                          setStateDialog(() => diretorioSelecionado = r.isEmpty
+                              ? null
+                              : int.tryParse(r['value']?.toString() ?? ''));
+                          state.didChange(diretorioSelecionado);
+                        },
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: "Diretório",
+                            errorText: state.errorText,
+                            suffixIcon: const Icon(Icons.arrow_drop_down),
+                            border: const OutlineInputBorder(
+                                borderSide:
+                                    BorderSide(color: GridColors.primary)),
+                            focusedBorder: const OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: GridColors.primary, width: 2)),
+                          ),
+                          child: Text(
+                            nomeSel ?? 'Selecione um diretório',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: nomeSel == null
+                                    ? GridColors.textSecondary
+                                    : null),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<int>(

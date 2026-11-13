@@ -968,7 +968,7 @@ class _GedArquivosScreenState extends State<GedArquivosScreen> {
   }) {
     String? nome;
     for (final d in _diretorios) {
-      if (d['id'] == valorId) nome = d['nome']?.toString();
+      if (int.tryParse(d['id']?.toString() ?? '') == valorId) nome = d['nome']?.toString();
     }
     return InkWell(
       onTap: () async {

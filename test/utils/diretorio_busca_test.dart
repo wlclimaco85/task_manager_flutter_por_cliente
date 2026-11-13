@@ -46,4 +46,16 @@ void main() {
       expect(filtrarDiretoriosPorNome(lista, 'zzz'), isEmpty);
     });
   });
+
+  group('campo alternativo (itens de dropdown usam "label")', () {
+    final itens = <Map<String, dynamic>>[
+      {'value': 1, 'label': 'Rescisões'},
+      {'value': 2, 'label': 'admissões'},
+    ];
+
+    test('ordena e filtra pela chave informada', () {
+      expect(ordenarDiretoriosPorNome(itens, campo: 'label').map((d) => d['value']), [2, 1]);
+      expect(filtrarDiretoriosPorNome(itens, 'RESCISOES', campo: 'label').map((d) => d['value']), [1]);
+    });
+  });
 }
