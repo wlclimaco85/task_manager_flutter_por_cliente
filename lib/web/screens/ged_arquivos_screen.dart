@@ -12,8 +12,9 @@ import '../../../utils/grid_texts.dart';
 import '../../../utils/ged_file_type.dart';
 import '../../../utils/ged_upload_scope.dart';
 import '../../../utils/tenant_context.dart';
+import '../../../utils/diretorio_busca.dart';
 import '../../../widgets/generic_grid_windows_screen.dart'
-    show RemoteDropdownSearchDialog;
+    show PaginaDropdown, RemoteDropdownSearchDialog;
 import '../../../widgets/user_banners.dart'
     show AppBarActions, UserBannerAppBar;
 import '../../services/ai_assistant_service.dart';
@@ -180,7 +181,8 @@ class _GedArquivosScreenState extends State<GedArquivosScreen> {
   }
 
   Future<void> _carregarDiretorios() async {
-    final r = await NetworkCaller().getRequest(ApiLinks.allDiretorios);
+    // tamanho alto: sem ele o backend devolve so 25 e diretorios ficavam de fora do seletor
+    final r = await NetworkCaller().getRequest('${ApiLinks.allDiretorios}?tamanho=1000');
     if (!mounted) return;
     if (r.isSuccess && r.body != null) {
       final raw = r.body!['data']?['dados'] ??
@@ -192,6 +194,7 @@ class _GedArquivosScreenState extends State<GedArquivosScreen> {
           _diretorios = raw
               .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
               .toList();
+          _diretorios = ordenarDiretoriosPorNome(_diretorios);
         });
       }
     }
@@ -820,22 +823,12 @@ class _GedArquivosScreenState extends State<GedArquivosScreen> {
                   const SizedBox(height: 12),
                 ],
                 // Diretório
-                _buildDropdown<int>(
-                  label: 'Diretório',
-                  value: _diretorioUploadId,
-                  items: [
-                    const DropdownMenuItem<int>(
-                        value: null, child: Text('Sem diretório')),
-                    ..._diretorios.map((d) => DropdownMenuItem<int>(
-                          value: d['id'] as int?,
-                          child: Text(d['nome']?.toString() ?? ''),
-                        )),
-                  ],
-                  onChanged: (v) {
-                    setState(() => _diretorioUploadId = v);
+                _buildDiretorioBuscaField(
+                  valorId: _diretorioUploadId,
+                  onSelecionado: (id) {
+                    setState(() => _diretorioUploadId = id);
                     setStateDialog(() {});
                   },
-                  icon: Icons.folder,
                 ),
                 const SizedBox(height: 12),
                 if (!_contextoParceiro) ...[
@@ -959,6 +952,49 @@ class _GedArquivosScreenState extends State<GedArquivosScreen> {
       decoration: _inputDecoration(label, icon),
       items: items,
       onChanged: enabled ? onChanged : null,
+    );
+  }
+
+  /// Diretorios ja carregados (ordem alfabetica), filtrados sem acento/caixa. Uma unica pagina.
+  Future<PaginaDropdown> _diretoriosPagina({String? busca, required int pagina}) async {
+    final lista = filtrarDiretoriosPorNome(_diretorios, busca);
+    return PaginaDropdown(pagina == 0 ? lista : const [], lista.length);
+  }
+
+  /// Campo Diretorio com popup de busca (mesmo componente do Parceiro/Cliente).
+  Widget _buildDiretorioBuscaField({
+    required int? valorId,
+    required void Function(int? id) onSelecionado,
+  }) {
+    String? nome;
+    for (final d in _diretorios) {
+      if (d['id'] == valorId) nome = d['nome']?.toString();
+    }
+    return InkWell(
+      onTap: () async {
+        final resultado = await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (_) => RemoteDropdownSearchDialog(
+            title: 'Diretório',
+            valueField: 'id',
+            displayField: 'nome',
+            currentValue: valorId?.toString(),
+            loadPage: _diretoriosPagina,
+          ),
+        );
+        if (resultado == null) return;
+        onSelecionado(resultado.isEmpty ? null : int.tryParse(resultado['id']?.toString() ?? ''));
+      },
+      child: InputDecorator(
+        decoration: _inputDecoration('Diretório', Icons.folder).copyWith(
+          suffixIcon: const Icon(Icons.arrow_drop_down),
+        ),
+        child: Text(
+          nome ?? 'Sem diretório',
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: nome == null ? Colors.grey.shade600 : null),
+        ),
+      ),
     );
   }
 
