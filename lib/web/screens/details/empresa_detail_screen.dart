@@ -1,3 +1,5 @@
+import '../../../widgets/email_modelos_tab.dart';
+import '../../../widgets/email_fila_tab.dart';
 import 'package:flutter/material.dart';
 import '../../../utils/api_links.dart';
 import '../../../services/network_caller.dart';
@@ -319,6 +321,20 @@ class _WebEmpresaDetailScreenState extends State<WebEmpresaDetailScreen> {
                   id: empresaId,
                   nome: empresaNome,
                 )
+              : const Center(child: Text('ID da empresa não disponível')),
+        ),
+        RelatedGridTab(
+          title: 'Modelos de e-mail',
+          icon: Icons.mark_email_read_outlined,
+          customWidget: empresaId > 0
+              ? EmailModelosTab(scope: SmtpConfigScope.empresa, id: empresaId, nome: empresaNome)
+              : const Center(child: Text('ID da empresa não disponível')),
+        ),
+        RelatedGridTab(
+          title: 'Fila de e-mails',
+          icon: Icons.outgoing_mail,
+          customWidget: empresaId > 0
+              ? EmailFilaTab(scope: SmtpConfigScope.empresa, id: empresaId, nome: empresaNome)
               : const Center(child: Text('ID da empresa não disponível')),
         ),
         RelatedGridTab(

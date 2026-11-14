@@ -1,3 +1,6 @@
+import '../../../widgets/email_modelos_tab.dart';
+import '../../../widgets/email_fila_tab.dart';
+import '../../../widgets/smtp_config_tab.dart' show SmtpConfigScope;
 import 'package:flutter/material.dart';
 import '../../../services/network_caller.dart';
 import '../../../utils/api_links.dart';
@@ -238,6 +241,20 @@ class _WindowsEmpresaDetailScreenState
             empresaId: empresaId,
             onModulosChanged: (_) {},
           ),
+        ),
+        RelatedGridTab(
+          title: 'Modelos de e-mail',
+          icon: Icons.mark_email_read_outlined,
+          customWidget: empresaId > 0
+              ? EmailModelosTab(scope: SmtpConfigScope.empresa, id: empresaId, nome: empresaNome)
+              : const Center(child: Text('ID da empresa não disponível')),
+        ),
+        RelatedGridTab(
+          title: 'Fila de e-mails',
+          icon: Icons.outgoing_mail,
+          customWidget: empresaId > 0
+              ? EmailFilaTab(scope: SmtpConfigScope.empresa, id: empresaId, nome: empresaNome)
+              : const Center(child: Text('ID da empresa não disponível')),
         ),
       ],
     );

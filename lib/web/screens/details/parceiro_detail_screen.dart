@@ -1,3 +1,5 @@
+import '../../../widgets/email_modelos_tab.dart';
+import '../../../widgets/email_fila_tab.dart';
 import 'package:flutter/material.dart';
 import '../../../widgets/generic_detail_form_screen.dart';
 import '../../../widgets/generic_grid_windows_screen.dart'
@@ -282,6 +284,20 @@ class WebParceiroDetailScreen extends StatelessWidget {
                   id: parceiroId,
                   nome: parceiroNome,
                 )
+              : const Center(child: Text('ID do parceiro não disponível')),
+        ),
+        RelatedGridTab(
+          title: 'Modelos de e-mail',
+          icon: Icons.mark_email_read_outlined,
+          customWidget: parceiroId > 0
+              ? EmailModelosTab(scope: SmtpConfigScope.parceiro, id: parceiroId, nome: parceiroNome)
+              : const Center(child: Text('ID do parceiro não disponível')),
+        ),
+        RelatedGridTab(
+          title: 'Fila de e-mails',
+          icon: Icons.outgoing_mail,
+          customWidget: parceiroId > 0
+              ? EmailFilaTab(scope: SmtpConfigScope.parceiro, id: parceiroId, nome: parceiroNome)
               : const Center(child: Text('ID do parceiro não disponível')),
         ),
         // ── Certificado Digital do Parceiro ──────────────────────────────

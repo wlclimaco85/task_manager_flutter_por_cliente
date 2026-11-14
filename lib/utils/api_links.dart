@@ -275,6 +275,14 @@ class ApiLinks {
       '$_baseUrlNew/api/smtp-config/empresa/$empresaId';
   static String smtpConfigParceiro(int parceiroId) =>
       '$_baseUrlNew/api/smtp-config/parceiro/$parceiroId';
+  static String get emailModelos => '$_baseUrlNew/api/email-modelos';
+  static String get emailModelosPrevia => '$_baseUrlNew/api/email-modelos/previa';
+  static String emailModeloPorId(dynamic id) => '$_baseUrlNew/api/email-modelos/$id';
+  static String get emailFila => '$_baseUrlNew/api/email-fila';
+  static String get emailFilaResumo => '$_baseUrlNew/api/email-fila/resumo';
+  static String get emailFilaEnviarTeste => '$_baseUrlNew/api/email-fila/enviar-teste';
+  static String emailFilaPorId(dynamic id) => '$_baseUrlNew/api/email-fila/$id';
+  static String emailFilaAcao(dynamic id, String acao) => '$_baseUrlNew/api/email-fila/$id/$acao';
   static String atualizarDadosPessoais(dynamic id) =>
       '$_baseUrlNew/api/dadospessoais/$id';
 
