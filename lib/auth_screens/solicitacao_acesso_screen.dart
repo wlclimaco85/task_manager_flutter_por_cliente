@@ -168,7 +168,7 @@ class _SolicitacaoAcessoScreenState extends State<SolicitacaoAcessoScreen> {
 
   bool get _podeFinalizar =>
       !_enviando &&
-      _termo != null &&
+      '${_termo?['conteudo'] ?? ''}'.isNotEmpty &&
       _aceite &&
       (_modulos.isEmpty || _escolhidos.isNotEmpty);
 
@@ -232,6 +232,7 @@ class _SolicitacaoAcessoScreenState extends State<SolicitacaoAcessoScreen> {
 
   String? _validarSenha(String? v) {
     if (v == null || v.isEmpty) return 'Senha é obrigatória';
+    if (v.length > 72) return 'A senha deve ter no máximo 72 caracteres';
     return v.length < 8 ? 'A senha deve ter pelo menos 8 caracteres' : null;
   }
 
