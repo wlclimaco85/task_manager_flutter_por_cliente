@@ -48,6 +48,7 @@ class _SystemTestRunPanelState extends State<SystemTestRunPanel> {
     'EMAIL_MODELO': 'Modelos de e-mail (Empresa/Parceiro)',
     'EMAIL_FILA': 'Fila de e-mails (Empresa/Parceiro)',
     'DP_EXPORTACAO_FOLHA': 'DP - exportação do ponto para a folha',
+    'DP_FECHAMENTO_RELATORIOS': 'Depto. Pessoal: fechamento e relatórios de ponto (leitura)',
     'FINANCEIRO_AVANCADO': 'Financeiro avançado',
     'TRADING': 'Bolsa de valores',
     'GME': 'GME',

@@ -52,6 +52,8 @@ import 'transporte_motorista_screen.dart';
 import 'cte_emissao_screen.dart';
 import 'dashboards_personalizados_screens.dart';
 import 'relatorios_personalizados_screens.dart';
+import 'dp_fechamento_empresa_screen.dart';
+import 'dp_relatorios_ponto_screen.dart';
 import 'mdfe_emissao_screen.dart';
 import 'nfse_servico_screen.dart';
 import 'nfse_config_screen.dart';
@@ -254,6 +256,8 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'Dashboard DP': (menuId: 'dashboard_dp', appScreen: AppScreen.dashDpArea),
     'Relatórios DP/RH': (menuId: 'relatorio_dp_rh', appScreen: AppScreen.relatorioDpRh),
     'Exportar p/ Folha': (menuId: 'dp_exportacao_folha', appScreen: AppScreen.dpExportacaoFolha),
+    'Fechamento do Ponto': (menuId: 'dp_fechamento_empresa', appScreen: null),
+    'Relatórios de Ponto': (menuId: 'dp_relatorios', appScreen: null),
     'Plano de Contas': (menuId: 'conta_contabil', appScreen: null),
     'Lançamentos Contábeis': (menuId: 'lancamento_contabil', appScreen: AppScreen.lancamentoContabil),
     'Balancete': (menuId: 'balancete', appScreen: AppScreen.balancete),
@@ -380,6 +384,8 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'cobranca_automatica': 'Financeiro',
     'dre_gerencial': 'Financeiro',
     'cnab_remessa': 'Financeiro',
+    'dp_fechamento_empresa': 'Departamento Pessoal',
+    'dp_relatorios': 'Departamento Pessoal',
     'kanban_pagamentos': 'Financeiro',
     'aprovacao_pagamento': 'Financeiro',
     'calendario_guias': 'Financeiro',
@@ -2424,6 +2430,12 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
       case "Solicitações de Acesso":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileSolicitacoesAcessoScreen()));
         break;
+      case "Fechamento do Ponto":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpFechamentoEmpresaScreen()));
+        break;
+      case "Relatórios de Ponto":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpRelatoriosPontoScreen()));
+        break;
       case "Relatórios Personalizados":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileRelatoriosPersonalizadosScreen()));
         break;
@@ -2719,6 +2731,8 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
             _MoreMenuAction(Icons.timelapse, 'Horários Funcionário'),
             _MoreMenuAction(Icons.badge, 'Dashboard DP'),
             _MoreMenuAction(Icons.analytics, 'Relatórios DP/RH'),
+            _MoreMenuAction(Icons.lock_clock, 'Fechamento do Ponto'),
+            _MoreMenuAction(Icons.summarize, 'Relatórios de Ponto'),
           ],
         ),
       if (!ModuloAccess.hasModulosConfigurados || sec.isMaster || temContabil)

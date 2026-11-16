@@ -1030,6 +1030,8 @@ class ModuloAccess {
     'dashboard_dp': 'Departamento Pessoal',
     'relatorio_dp_rh': 'Departamento Pessoal',
     'dp_exportacao_folha': 'Departamento Pessoal',
+    'dp_fechamento_empresa': 'Departamento Pessoal',
+    'dp_relatorios': 'Departamento Pessoal',
 
     // Contábil
     'conta_contabil': 'Contábil',

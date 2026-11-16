@@ -486,6 +486,16 @@ class MenuConfig {
             label: 'Exportar p/ Folha',
             icon: FontAwesomeIcons.fileExport,
             screenIndex: 196),
+        MenuItem(
+            id: 'dp_fechamento_empresa',
+            label: 'Fechamento do Ponto',
+            icon: FontAwesomeIcons.lock,
+            screenIndex: 212),
+        MenuItem(
+            id: 'dp_relatorios',
+            label: 'Relatórios de Ponto',
+            icon: FontAwesomeIcons.fileLines,
+            screenIndex: 213),
       ],
     ),
     MenuGroup(

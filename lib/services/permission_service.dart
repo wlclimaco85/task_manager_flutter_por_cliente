@@ -146,6 +146,9 @@ class PermissionService {
     'transporte_cte': 'transporte_cte',
     'dashboards_personalizados': 'dashboards_personalizados',
     'relatorios_personalizados': 'relatorios_personalizados',
+    // Departamento Pessoal: fechamento da empresa e relatorios de ponto (telaNome = id do menu, mesmo nome do backend)
+    'dp_fechamento_empresa': 'dp_fechamento_empresa',
+    'dp_relatorios': 'dp_relatorios',
 
     // Financeiro
     'calendario': 'Calendario',

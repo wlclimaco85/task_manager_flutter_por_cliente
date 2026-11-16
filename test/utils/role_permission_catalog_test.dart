@@ -182,6 +182,18 @@ void main() {
     expect(nfseImportXml.telaNome, 'nfse_import_xml');
   });
 
+  // DP: fechamento da empresa e relatorios de ponto (mesma regra de Controle de Acesso dinamico).
+  test('catalogo de permissoes mostra telas de fechamento e relatorios de ponto do DP', () {
+    final todas = RolePermissionCatalog.groups().expand((g) => g.entries).toList();
+    final fechamento = todas.firstWhere((t) => t.menuItemId == 'dp_fechamento_empresa');
+    final relatorios = todas.firstWhere((t) => t.menuItemId == 'dp_relatorios');
+
+    expect(fechamento.label, 'Fechamento do Ponto');
+    expect(fechamento.telaNome, 'dp_fechamento_empresa');
+    expect(relatorios.label, 'Relatórios de Ponto');
+    expect(relatorios.telaNome, 'dp_relatorios');
+  });
+
   test('catalogo de permissoes mostra telas de aprovacao de acesso', () {
     final porAcesso = RolePermissionCatalog.groups(query: 'acesso')
         .expand((grupo) => grupo.entries)

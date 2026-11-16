@@ -165,6 +165,8 @@ import '../../web/screens/transporte_motorista_grid_screen.dart';
 import '../../widgets/cte_emissao_view.dart';
 import '../../widgets/dashboards_personalizados_view.dart';
 import '../../widgets/relatorios_personalizados_view.dart';
+import '../../web/screens/dp_fechamento_empresa_screen.dart';
+import '../../web/screens/dp_relatorios_ponto_screen.dart';
 import '../../widgets/mdfe_emissao_view.dart';
 import '../../widgets/dashboard_executivo_screen.dart';
 
@@ -627,6 +629,8 @@ class _WindowsBottomNavBarScreenState extends State<WindowsBottomNavBarScreen> {
             hasPermission: _screenPermission(AppScreen.transporteCte)), // 209: CT-e
         const DashboardsPersonalizadosView(), // 210: Dashboards Personalizados
         const RelatoriosPersonalizadosView(), // 211: Relatorios Personalizados
+        const DpFechamentoEmpresaScreen(), // 212: Fechamento do Ponto (DP)
+        const DpRelatoriosPontoScreen(), // 213: Relatorios de Ponto (DP)
       ];
 
   String get userName {
