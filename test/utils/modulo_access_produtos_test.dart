@@ -19,9 +19,9 @@ void main() {
     expect(ModuloAccess.isMenuItemAllowed('produtos'), isTrue);
   });
 
-  test('produtos bloqueado com modulos que nao cobrem produto', () {
-    ModuloAccess.setContratadosParaTeste(['Financeiro']);
-    expect(ModuloAccess.isMenuItemAllowed('produtos'), isFalse);
+  test('produtos e base inclusa no Conta Propria: liberado mesmo sem modulo que o cubra', () {
+    ModuloAccess.setContratadosParaTeste(['Departamento Pessoal']);
+    expect(ModuloAccess.isMenuItemAllowed('produtos'), isTrue);
   });
 
   test('sem modulos configurados nao bloqueia (RBAC decide)', () {

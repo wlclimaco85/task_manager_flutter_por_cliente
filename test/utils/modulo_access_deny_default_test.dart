@@ -41,9 +41,9 @@ void main() {
   // ========================================================================
 
   group('ModuloAccess.isScreenAllowed — lista vazia = deny', () {
-    test('tela de modulo (contasPagar/Financeiro) NEGADA quando lista vazia', () {
+    test('tela de modulo (nfeEntrada/Notas Fiscais) NEGADA quando lista vazia', () {
       ModuloAccess.setContratadosParaTeste([]);
-      expect(ModuloAccess.isScreenAllowed(AppScreen.contasPagar), isFalse);
+      expect(ModuloAccess.isScreenAllowed(AppScreen.nfeEntrada), isFalse);
     });
 
     test('tela de modulo (chamados/Chamados) NEGADA quando lista vazia', () {
@@ -51,9 +51,9 @@ void main() {
       expect(ModuloAccess.isScreenAllowed(AppScreen.chamados), isFalse);
     });
 
-    test('tela de modulo (nfeSaida/Notas Fiscais) NEGADA quando lista vazia', () {
+    test('tela de modulo (funcionarios/DP) NEGADA quando lista vazia', () {
       ModuloAccess.setContratadosParaTeste([]);
-      expect(ModuloAccess.isScreenAllowed(AppScreen.nfeSaida), isFalse);
+      expect(ModuloAccess.isScreenAllowed(AppScreen.funcionarios), isFalse);
     });
 
     test('tela de modulo (ponto/DP) NEGADA quando lista vazia', () {
@@ -174,12 +174,12 @@ void main() {
       expect(matrix.canView(AppScreen.contasPagar), isTrue);
     });
 
-    test('usuario nao-MASTER com modulos configurados SEM cobrir a tela NAO pode ver contasPagar', () {
+    test('usuario nao-MASTER com modulos configurados SEM cobrir a tela NAO pode ver nfeEntrada', () {
       final info = buildCliente(
         modulosContratados: ['Chamados'],
         permissoes: [
           RolePermissaoItem(
-            telaNome: 'contasPagar',
+            telaNome: 'nfeEntrada',
             podeVer: true,
             podeInserir: true,
             podeEditar: true,
@@ -189,7 +189,7 @@ void main() {
       );
       final matrix = SecurityMatrix.of(info);
       // Com modulos efetivamente configurados, a tela do modulo Financeiro e negada.
-      expect(matrix.canView(AppScreen.contasPagar), isFalse);
+      expect(matrix.canView(AppScreen.nfeEntrada), isFalse);
     });
 
     test('usuario nao-MASTER sem modulos PODE ver tela livre (roles)', () {

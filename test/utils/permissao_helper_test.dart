@@ -109,10 +109,10 @@ void main() {
 
     test('respeita bloqueio por módulo não contratado (mesmo com permissão)', () {
       final info = buildUserInfo(
-        modulosContratados: ['Chamados'], // Sem Financeiro
+        modulosContratados: ['Chamados'], // Sem Departamento Pessoal
         permissoes: [
           RolePermissaoItem(
-            telaNome: 'contasPagar',
+            telaNome: 'funcionarios',
             podeVer: true,
             podeInserir: true,
             podeEditar: false,
@@ -123,7 +123,7 @@ void main() {
       final matrix = SecurityMatrix.of(info);
 
       // Tem permissão mas módulo não contratado
-      expect(matrix.canActionInModulo(AppAction.view, 'Financeiro'), isFalse);
+      expect(matrix.canActionInModulo(AppAction.view, 'Departamento Pessoal'), isFalse);
     });
   });
 

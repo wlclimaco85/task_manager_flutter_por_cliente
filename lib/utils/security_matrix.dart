@@ -803,12 +803,36 @@ class ModuloAccess {
       // MASTER ja e tratado acima e nunca chega aqui.
       _modulosContratados = [];
     }
-    if (_modulosContratados.isNotEmpty &&
-        !_financeiroCompleto.any(_modulosContratados.contains)) {
-      _modulosContratados.add('Financeiro Limitado');
-    }
+    // Conta Propria: pagar e receber ja vem no sistema (ver _menuBaseIncluso); nao existe "Financeiro Limitado".
     _loaded = true;
   }
+
+  /// Menus que "ja vem no sistema" no Conta Propria (Fluxo de caixa, Pagar e receber, Contatos, Produtos e
+  /// servicos, DRE, Vendas e emissao): liberados mesmo sem o modulo contratado. O que sobra depende de modulo.
+  static const Set<String> _menuBaseIncluso = {
+    // Fluxo de caixa
+    'importar_extrato', 'conciliacao_bancaria', 'lancamentos_financeiros', 'conta_bancaria',
+    'categorias_financeiras', 'centros_custo', 'dashboard', 'dashboard_financeiro',
+    // Pagar e receber
+    'contas_pagar', 'contas_receber', 'formas_pagamento', 'importar_boletos_lote',
+    // Contatos
+    'parceiros', 'fornecedores', 'tipo_parceiro',
+    // Produtos e servicos
+    'produtos', 'catalogo_produto', 'unidade_medida',
+    // DRE
+    'dre_gerencial',
+    // Vendas e emissao
+    'orcamentos', 'pedidos_venda', 'pdv_nfce', 'nfe_saida', 'nfce_grid', 'nfe_serie',
+    'nfe_finalidade', 'nfe_tipo_operacao', 'nfe_import_xml', 'nfse', 'nfse_serie',
+    'nfse_import_xml', 'config_fiscal',
+  };
+
+  static const Set<AppScreen> _telaBaseIncluso = {
+    AppScreen.contasPagar, AppScreen.contasReceber, AppScreen.contasBancarias, AppScreen.contaBancaria,
+    AppScreen.formasPagamento, AppScreen.produto, AppScreen.unidadeMedida, AppScreen.catalogoProduto,
+    AppScreen.nfeSerie, AppScreen.nfeSaida, AppScreen.pdvNfce, AppScreen.nfceGrid, AppScreen.configFiscal,
+    AppScreen.parceiros, AppScreen.tipoParceiro,
+  };
 
   static const Map<String, List<String>> _moduloAliases = {
     'Notas Fiscais': [
@@ -864,6 +888,7 @@ class ModuloAccess {
 
   static bool isScreenAllowed(AppScreen screen) {
     if (!_loaded) return true;
+    if (_telaBaseIncluso.contains(screen)) return true;
 
     // Verifica se a tela pertence a algum modulo
     bool pertenceAAlgumModulo = false;
@@ -1082,6 +1107,7 @@ class ModuloAccess {
 
   static bool isMenuItemAllowed(String menuItemId) {
     if (!_loaded) return true;
+    if (_menuBaseIncluso.contains(menuItemId)) return true;
     final modulo = _menuItemToModulo[menuItemId];
     if (modulo == null) return true;
 
