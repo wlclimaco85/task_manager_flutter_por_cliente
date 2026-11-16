@@ -117,7 +117,9 @@ class _LoginScreenState extends State<LoginScreen> {
     } else if (mounted) {
       setState(() => _loginInProgress = false);
       _passwordController.clear();
-      final msg = resp.statusCode == 400 || resp.statusCode == 401
+      final msg = resp.statusCode == 423
+          ? GridTexts.loginCadastroEmAnalise
+          : resp.statusCode == 400 || resp.statusCode == 401
           ? GridTexts.loginInvalidCredentials
           : resp.statusCode == -1
               ? GridTexts.loginNoConnection

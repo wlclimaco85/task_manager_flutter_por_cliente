@@ -24,6 +24,8 @@ class GridTexts {
   static const String loginPasswordRequired = 'Informe a senha';
   static const String loginTokenMissing = 'Token não recebido';
   static const String loginInvalidCredentials = 'Email ou senha inválidos';
+  static const String loginCadastroEmAnalise =
+      'Seu cadastro está em análise. Você será avisado por email quando o acesso for liberado.';
   static const String loginNoConnection = 'Sem conexão com o servidor';
   static const String forgotPassword = 'Esqueceu a senha?';
   static const String requestAccess = 'Solicitar acesso';

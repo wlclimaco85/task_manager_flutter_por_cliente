@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/theme/zen_theme.dart';
+import '../services/consulta_cnpj_service.dart';
 import '../utils/api_links.dart';
 import '../utils/app_logger.dart';
 import '../utils/grid_colors.dart';
@@ -56,12 +57,15 @@ class SolicitacaoAcessoScreen extends StatefulWidget {
   final Future<List<Map<String, dynamic>>> Function() carregarModulos;
   final Future<Map<String, dynamic>?> Function() carregarTermo;
   final Future<String?> Function(Map<String, dynamic>) enviar;
+  /// Consulta de CNPJ (publica: o cadastro roda sem login). Retorna os dados cadastrais ou null.
+  final Future<Map<String, dynamic>?> Function(String cnpj) consultarCnpj;
 
   const SolicitacaoAcessoScreen({
     super.key,
     this.carregarModulos = carregarModulosPublicos,
     this.carregarTermo = carregarTermoContrato,
     this.enviar = enviarCadastroConta,
+    this.consultarCnpj = ConsultaCnpjService.consultarPublico,
   });
 
   @override
@@ -109,8 +113,56 @@ class _SolicitacaoAcessoScreenState extends State<SolicitacaoAcessoScreen> {
   bool _carregandoPacote = false;
   bool _pacoteFalhou = false;
 
+  bool _buscandoCnpj = false;
+  String? _cnpjConsultado;
+
+  @override
+  void initState() {
+    super.initState();
+    _cnpj.addListener(_aoMudarCnpj);
+  }
+
+  /// Ao completar os 14 digitos busca os dados da empresa e preenche o formulario.
+  void _aoMudarCnpj() {
+    final d = _digitos(_cnpj.text);
+    if (d.length != 14 || d == _cnpjConsultado) return;
+    _cnpjConsultado = d;
+    _buscarCnpj(d);
+  }
+
+  Future<void> _buscarCnpj(String cnpj) async {
+    setState(() => _buscandoCnpj = true);
+    Map<String, dynamic>? dados;
+    try {
+      dados = await widget.consultarCnpj(cnpj);
+    } catch (e) {
+      AppLogger.i.warn('Cadastro de conta: consulta de CNPJ falhou: $e');
+    }
+    if (!mounted || _digitos(_cnpj.text) != cnpj) return; // usuario ja trocou o CNPJ
+    setState(() => _buscandoCnpj = false);
+    if (dados == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Não encontramos esse CNPJ. Preencha os dados manualmente.')));
+      return;
+    }
+    void preencher(TextEditingController c, dynamic v) {
+      final t = (v ?? '').toString().trim();
+      if (t.isNotEmpty && t.toLowerCase() != 'null') c.text = t;
+    }
+    preencher(_razao, dados['razaoSocial'] ?? dados['nome']);
+    preencher(_fantasia, dados['nomeFantasia']);
+    preencher(_logradouro, dados['logradouro'] ?? dados['rua']);
+    preencher(_numero, dados['numero']);
+    preencher(_bairro, dados['bairro']);
+    preencher(_cidade, dados['municipio'] ?? dados['cidade']);
+    preencher(_uf, dados['uf'] ?? dados['estado']);
+    final cep = _digitos((dados['cep'] ?? '').toString());
+    if (cep.length == 8) _cep.text = '${cep.substring(0, 5)}-${cep.substring(5)}';
+  }
+
   @override
   void dispose() {
+    _cnpj.removeListener(_aoMudarCnpj);
     for (final c in [
       _cnpj, _razao, _fantasia, _ie, _im, _cep, _logradouro, _numero, _bairro,
       _cidade, _uf, _nome, _email, _cpf, _senha, _confirmar,
@@ -429,6 +481,12 @@ class _SolicitacaoAcessoScreenState extends State<SolicitacaoAcessoScreen> {
           _campo(_cnpj, 'CNPJ', Icons.badge_outlined,
               formatters: [_CnpjInputFormatter()],
               teclado: TextInputType.number,
+              sufixo: _buscandoCnpj
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                          width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+                  : null,
               validator: _validarCnpj),
           _campo(_razao, 'Razão social', Icons.business_outlined,
               validator: (v) => _obrigatorio(v, 'Razão social')),
@@ -462,7 +520,7 @@ class _SolicitacaoAcessoScreenState extends State<SolicitacaoAcessoScreen> {
   Widget _passoMaster() => Form(
         key: _formMaster,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _titulo('Quem vai mandar no sistema?',
+          _titulo('Usuário master',
               'O usuário master tem acesso total à conta da empresa.'),
           _campo(_nome, 'Nome completo', Icons.person_outline,
               validator: (v) => _obrigatorio(v, 'Nome')),

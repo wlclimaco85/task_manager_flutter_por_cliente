@@ -13,6 +13,7 @@ Future<void> _abrir(
   Map<String, dynamic>? termo = _termo,
   Future<String?> Function(Map<String, dynamic>)? enviar,
   Size tamanho = const Size(1300, 1500),
+  Future<Map<String, dynamic>?> Function(String)? consultarCnpj,
 }) async {
   t.view.physicalSize = tamanho;
   t.view.devicePixelRatio = 1.0;
@@ -22,6 +23,7 @@ Future<void> _abrir(
       carregarModulos: () async => _modulos,
       carregarTermo: () async => termo,
       enviar: enviar ?? (_) async => null,
+      consultarCnpj: consultarCnpj ?? (_) async => <String, dynamic>{}, // nunca vai a rede; vazio = sem snackbar tapando o botao
     ),
   ));
   await t.pump();
@@ -62,6 +64,42 @@ Future<void> _ate_pacote(WidgetTester t) async {
 }
 
 void main() {
+  testWidgets('ao completar o CNPJ busca e preenche os dados da empresa', (t) async {
+    final consultados = <String>[];
+    await _abrir(t, consultarCnpj: (c) async {
+      consultados.add(c);
+      return {
+        'razaoSocial': 'Arena 34 Esportes LTDA',
+        'nomeFantasia': 'Arena 34',
+        'logradouro': 'Rua das Flores',
+        'numero': '575',
+        'bairro': 'Centro',
+        'municipio': 'Uberaba',
+        'uf': 'MG',
+        'cep': '38026360',
+      };
+    });
+    await _digitar(t, 'CNPJ', '68656011000168');
+    await t.pumpAndSettle();
+
+    expect(consultados, ['68656011000168']);
+    String valor(String label) =>
+        (t.widget<TextFormField>(find.widgetWithText(TextFormField, label)).controller!.text);
+    expect(valor('Razão social'), 'Arena 34 Esportes LTDA');
+    expect(valor('Nome fantasia (opcional)'), 'Arena 34');
+    expect(valor('Endereço (rua)'), 'Rua das Flores');
+    expect(valor('Cidade'), 'Uberaba');
+    expect(valor('UF'), 'MG');
+    expect(valor('CEP'), '38026-360');
+  });
+
+  testWidgets('CNPJ nao encontrado avisa e deixa preencher a mao', (t) async {
+    await _abrir(t, consultarCnpj: (_) async => null);
+    await _digitar(t, 'CNPJ', '68656011000168');
+    await t.pumpAndSettle();
+    expect(find.text('Não encontramos esse CNPJ. Preencha os dados manualmente.'), findsOneWidget);
+  });
+
   testWidgets('missao 1 exige CNPJ e razao social antes de avancar', (t) async {
     await _abrir(t);
     await _continuar(t);
