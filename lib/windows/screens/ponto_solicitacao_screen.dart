@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import '../../../models/auth_utility.dart';
 import '../../../utils/api_links.dart';
 import '../../../utils/tenant_context.dart';
+import '../../utils/app_logger.dart';
 import '../../utils/grid_texts.dart';
+import '../../widgets/dp_ferias_solicitacoes_view.dart';
 
 const _primary = GridColors.primary;
 const _green = GridColors.secondary;
@@ -19,14 +21,30 @@ class WindowsPontoSolicitacaoScreen extends StatefulWidget {
       _WindowsPontoSolicitacaoScreenState();
 }
 
-class _WindowsPontoSolicitacaoScreenState extends State<WindowsPontoSolicitacaoScreen> {
+class _WindowsPontoSolicitacaoScreenState extends State<WindowsPontoSolicitacaoScreen>
+    with SingleTickerProviderStateMixin {
   List<dynamic> _solicitacoes = [];
   bool _loading = true;
+  late final TabController _tabs;
+  final _feriasKey = GlobalKey<DpFeriasSolicitacoesViewState>();
+
+  bool get _podeDecidir => dpPodeDecidir(
+      AuthUtility.userInfo?.login?.roles?.map((r) => r.role) ?? const []);
 
   @override
   void initState() {
     super.initState();
+    _tabs = TabController(length: 2, vsync: this)
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
     _carregar();
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
   }
 
   Future<void> _carregar() async {
@@ -35,7 +53,7 @@ class _WindowsPontoSolicitacaoScreenState extends State<WindowsPontoSolicitacaoS
       final id = AuthUtility.userInfo?.login?.id;
       final empresaId = TenantContext.empresaId;
       final roles = AuthUtility.userInfo?.login?.roles?.map((r) => r.role?.toUpperCase()).toList() ?? [];
-      final isMaster = roles.contains('MASTER') || roles.contains('GESTOR');
+      final isMaster = _podeDecidir;
 
       String url = '${ApiLinks.baseUrl}/api/ponto-ajuste/solicitacoes';
       if (isMaster && empresaId != null) {
@@ -47,14 +65,20 @@ class _WindowsPontoSolicitacaoScreenState extends State<WindowsPontoSolicitacaoS
       final resp = await TenantContext.get(url);
       if (resp.statusCode == 200) {
         setState(() => _solicitacoes = jsonDecode(resp.body) as List);
+      } else {
+        AppLogger.i.warn('[DP] solicitacoes de ajuste respondeu ${resp.statusCode}');
+        _snack('Não foi possível carregar os ajustes (${resp.statusCode}).');
       }
-    } catch (_) {}
+    } catch (e) {
+      AppLogger.i.warn('[DP] erro ao carregar solicitacoes de ajuste: $e');
+      _snack('Sem conexão com o servidor.');
+    }
     if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _avaliarSolicitacao(Map<String, dynamic> solicitacao) async {
     final roles = AuthUtility.userInfo?.login?.roles?.map((r) => r.role?.toUpperCase()).toList() ?? [];
-    final isMaster = roles.contains('MASTER') || roles.contains('GESTOR');
+    final isMaster = _podeDecidir;
     if (!isMaster || solicitacao['status'] != 'PENDENTE') return;
 
     final obsCtrl = TextEditingController();
@@ -126,6 +150,13 @@ class _WindowsPontoSolicitacaoScreenState extends State<WindowsPontoSolicitacaoS
   Future<void> _novaSolicitacao() async {
     DateTime? dataSelecionada;
     final motivoCtrl = TextEditingController();
+    final funcionarios = await carregarFuncionariosDp();
+    if (!mounted) return;
+    if (funcionarios.isEmpty) {
+      _snack('Nenhum funcionário encontrado para a sua empresa.');
+      return;
+    }
+    int? funcionarioId = funcionarios.first.id;
 
     await showDialog(
         context: context,
@@ -136,6 +167,19 @@ class _WindowsPontoSolicitacaoScreenState extends State<WindowsPontoSolicitacaoS
                 content: SizedBox(
                     width: 400,
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      DropdownButtonFormField<int>(
+                        initialValue: funcionarioId,
+                        decoration: const InputDecoration(
+                            labelText: 'Funcionário',
+                            border: OutlineInputBorder(),
+                            isDense: true),
+                        items: [
+                          for (final f in funcionarios)
+                            DropdownMenuItem(value: f.id, child: Text(f.nome))
+                        ],
+                        onChanged: (v) => setS(() => funcionarioId = v),
+                      ),
+                      const SizedBox(height: 8),
                       ListTile(
                         leading:
                             const Icon(Icons.calendar_today, color: _primary),
@@ -172,10 +216,9 @@ class _WindowsPontoSolicitacaoScreenState extends State<WindowsPontoSolicitacaoS
                     onPressed: () async {
                       if (dataSelecionada == null || motivoCtrl.text.isEmpty)
                         return;
-                      final loginId = AuthUtility.userInfo?.login?.id;
                       final empresaId = TenantContext.empresaId;
                       final body = {
-                        'funcionario': {'id': loginId},
+                        'funcionario': {'id': funcionarioId},
                         if (empresaId != null) 'empresa': {'id': empresaId},
                         'dataPonto':
                             DateFormat('yyyy-MM-dd').format(dataSelecionada!),
@@ -233,18 +276,56 @@ class _WindowsPontoSolicitacaoScreenState extends State<WindowsPontoSolicitacaoS
               style: TextStyle(fontWeight: FontWeight.bold)),
         ]),
         actions: [
-          IconButton(onPressed: _carregar, icon: const Icon(Icons.refresh)),
+          IconButton(
+              onPressed: () =>
+                  _tabs.index == 0 ? _carregar() : _feriasKey.currentState?.recarregar(),
+              icon: const Icon(Icons.refresh)),
           const SizedBox(width: 8),
         ],
+        bottom: TabBar(
+          controller: _tabs,
+          indicatorColor: _white,
+          labelColor: _white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(icon: Icon(Icons.edit_calendar, size: 18), text: 'Ajustes de ponto'),
+            Tab(icon: Icon(Icons.beach_access, size: 18), text: 'Férias'),
+          ],
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _novaSolicitacao,
-        backgroundColor: _primary,
-        foregroundColor: _white,
-        icon: const Icon(Icons.add),
-        label: const Text('Nova Solicitação'),
+      floatingActionButton: _tabs.index == 0
+          ? FloatingActionButton.extended(
+              onPressed: _novaSolicitacao,
+              backgroundColor: _primary,
+              foregroundColor: _white,
+              icon: const Icon(Icons.add),
+              label: const Text('Nova Solicitação'),
+            )
+          : FloatingActionButton.extended(
+              key: const Key('ferias_nova'),
+              onPressed: () => _feriasKey.currentState?.solicitar(),
+              backgroundColor: _primary,
+              foregroundColor: _white,
+              icon: const Icon(Icons.beach_access),
+              label: const Text('Solicitar férias'),
+            ),
+      body: TabBarView(
+        controller: _tabs,
+        children: [
+          _abaAjustes(),
+          DpFeriasSolicitacoesView(key: _feriasKey, podeDecidir: _podeDecidir),
+        ],
       ),
-      body: _loading
+    );
+  }
+
+  Widget _abaAjustes() {
+    return Builder(builder: (context) => _corpoAjustes());
+  }
+
+  Widget _corpoAjustes() {
+    return Container(
+      child: _loading
           ? const Center(child: CircularProgressIndicator(color: _primary))
           : _solicitacoes.isEmpty
               ? const Center(

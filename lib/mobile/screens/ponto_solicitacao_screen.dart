@@ -6,6 +6,7 @@ import '../../utils/api_links.dart';
 import '../../utils/tenant_context.dart';
 import '../../models/auth_utility.dart';
 import '../../widgets/user_banners.dart';
+import '../../widgets/dp_ferias_solicitacoes_view.dart';
 
 class PontoSolicitacaoScreen extends StatefulWidget {
   const PontoSolicitacaoScreen({super.key});
@@ -14,9 +15,21 @@ class PontoSolicitacaoScreen extends StatefulWidget {
   State<PontoSolicitacaoScreen> createState() => _PontoSolicitacaoScreenState();
 }
 
-class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen> {
+class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen>
+    with SingleTickerProviderStateMixin {
   bool _loading = false;
   List<Map<String, dynamic>> _solicitacoes = [];
+  late final TabController _tabs;
+  final _feriasKey = GlobalKey<DpFeriasSolicitacoesViewState>();
+
+  bool get _podeDecidir => dpPodeDecidir(
+      AuthUtility.userInfo?.login?.roles?.map((r) => r.key) ?? const []);
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
 
   final _green = const Color(0xFF2E7D32);
   final _primary = GridColors.primary;
@@ -26,6 +39,10 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen> {
   @override
   void initState() {
     super.initState();
+    _tabs = TabController(length: 2, vsync: this)
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
     _carregar();
   }
 
@@ -48,7 +65,7 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen> {
 
   Future<void> _avaliarSolicitacao(Map<String, dynamic> solicitacao) async {
     final roles = AuthUtility.userInfo?.login?.roles?.map((r) => r.key).toList() ?? [];
-    final isMaster = roles.contains('MASTER') || roles.contains('GESTOR');
+    final isMaster = _podeDecidir;
     if (!isMaster || solicitacao['status'] != 'PENDENTE') return;
 
     final obsCtrl = TextEditingController();
@@ -104,12 +121,27 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen> {
   Future<void> _novaSolicitacao() async {
     DateTime? dataSelecionada;
     final motivoCtrl = TextEditingController();
+    final funcionarios = await carregarFuncionariosDp();
+    if (!mounted) return;
+    if (funcionarios.isEmpty) {
+      _snack('Nenhum funcionário encontrado para a sua empresa.');
+      return;
+    }
+    int? funcionarioId = funcionarios.first.id;
 
     await showDialog(context: context, builder: (ctx) => StatefulBuilder(
       builder: (ctx, setS) => AlertDialog(
         title: Text('Solicitar Ajuste', style: TextStyle(color: _primary)),
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+            DropdownButtonFormField<int>(
+              initialValue: funcionarioId,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Funcionário', border: OutlineInputBorder(), isDense: true),
+              items: [for (final f in funcionarios) DropdownMenuItem(value: f.id, child: Text(f.nome, overflow: TextOverflow.ellipsis))],
+              onChanged: (v) => setS(() => funcionarioId = v),
+            ),
+            const SizedBox(height: 8),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.calendar_today, color: _primary),
@@ -141,10 +173,9 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen> {
                  _snack('Preencha a data e o motivo.');
                  return;
               }
-              final loginId = AuthUtility.userInfo?.login?.id;
               final empresaId = TenantContext.empresaId;
               final body = {
-                'funcionario': {'id': loginId},
+                'funcionario': {'id': funcionarioId},
                 if (empresaId != null) 'empresa': {'id': empresaId},
                 'dataPonto': DateFormat('yyyy-MM-dd').format(dataSelecionada!),
                 'motivo': motivoCtrl.text,
@@ -189,12 +220,41 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen> {
         showBackButton: true,
         onRefresh: _carregar,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _novaSolicitacao,
-        backgroundColor: _primary, foregroundColor: _white,
-        icon: const Icon(Icons.add), label: const Text('Nova Solicitação'),
-      ),
-      body: _loading
+      floatingActionButton: _tabs.index == 0
+          ? FloatingActionButton.extended(
+              onPressed: _novaSolicitacao,
+              backgroundColor: _primary, foregroundColor: _white,
+              icon: const Icon(Icons.add), label: const Text('Nova Solicitação'),
+            )
+          : FloatingActionButton.extended(
+              key: const Key('ferias_nova'),
+              onPressed: () => _feriasKey.currentState?.solicitar(),
+              backgroundColor: _primary, foregroundColor: _white,
+              icon: const Icon(Icons.beach_access), label: const Text('Solicitar férias'),
+            ),
+      body: Column(children: [
+        TabBar(
+          controller: _tabs,
+          labelColor: _primary,
+          indicatorColor: _primary,
+          tabs: const [Tab(text: 'Ajustes de ponto'), Tab(text: 'Férias')],
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabs,
+            children: [
+              _corpoAjustes(),
+              DpFeriasSolicitacoesView(key: _feriasKey, podeDecidir: _podeDecidir),
+            ],
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _corpoAjustes() {
+    return Container(
+      child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _solicitacoes.isEmpty
               ? const Center(child: Text('Nenhuma solicitação encontrada.', style: TextStyle(color: Colors.grey)))
