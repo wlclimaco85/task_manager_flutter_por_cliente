@@ -636,8 +636,8 @@ class _SolicitacaoAcessoScreenState extends State<SolicitacaoAcessoScreen> {
               color: GridColors.primarySoft, borderRadius: BorderRadius.circular(12)),
           child: Text(
               'Recebemos o cadastro da ${_razao.text.trim()} com ${_escolhidos.length} '
-              'módulo(s) (${_brl(_total)}/mês). Nossa equipe vai analisar e liberar o '
-              'seu acesso. Você será avisado por email.',
+              'módulo(s) (${_brl(_total)}/mês). Seu acesso já está liberado: '
+              'entre com o email e a senha que você acabou de criar.',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13)),
         ),
