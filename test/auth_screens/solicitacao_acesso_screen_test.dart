@@ -14,6 +14,7 @@ Future<void> _abrir(
   Future<String?> Function(Map<String, dynamic>)? enviar,
   Size tamanho = const Size(1300, 1500),
   Future<Map<String, dynamic>?> Function(String)? consultarCnpj,
+  Future<Map<String, dynamic>?> Function(String)? consultarCep,
 }) async {
   t.view.physicalSize = tamanho;
   t.view.devicePixelRatio = 1.0;
@@ -24,6 +25,7 @@ Future<void> _abrir(
       carregarTermo: () async => termo,
       enviar: enviar ?? (_) async => null,
       consultarCnpj: consultarCnpj ?? (_) async => <String, dynamic>{}, // nunca vai a rede; vazio = sem snackbar tapando o botao
+      consultarCep: consultarCep ?? (_) async => <String, dynamic>{},
     ),
   ));
   await t.pump();
@@ -91,6 +93,33 @@ void main() {
     expect(valor('Cidade'), 'Uberaba');
     expect(valor('UF'), 'MG');
     expect(valor('CEP'), '38026-360');
+  });
+
+  testWidgets('ao completar o CEP busca e preenche rua, bairro, cidade e UF', (t) async {
+    final consultados = <String>[];
+    await _abrir(t, consultarCep: (c) async {
+      consultados.add(c);
+      return {'logradouro': 'Av. Leopoldino de Oliveira', 'bairro': 'Centro', 'localidade': 'Uberaba', 'uf': 'MG'};
+    });
+    await _digitar(t, 'CEP', '38026360');
+    await t.pumpAndSettle();
+
+    expect(consultados, ['38026360']);
+    String valor(String label) =>
+        t.widget<TextFormField>(find.widgetWithText(TextFormField, label)).controller!.text;
+    expect(valor('Endereço (rua)'), 'Av. Leopoldino de Oliveira');
+    expect(valor('Bairro'), 'Centro');
+    expect(valor('Cidade'), 'Uberaba');
+    expect(valor('UF'), 'MG');
+  });
+
+  testWidgets('CEP inexistente avisa e nao apaga o que ja foi digitado', (t) async {
+    await _abrir(t, consultarCep: (_) async => {'erro': true});
+    await _digitar(t, 'Bairro', 'Meu bairro');
+    await _digitar(t, 'CEP', '00000000');
+    await t.pumpAndSettle();
+    expect(find.text('CEP não encontrado. Confira o número ou preencha manualmente.'), findsOneWidget);
+    expect(t.widget<TextFormField>(find.widgetWithText(TextFormField, 'Bairro')).controller!.text, 'Meu bairro');
   });
 
   testWidgets('CNPJ nao encontrado avisa e deixa preencher a mao', (t) async {

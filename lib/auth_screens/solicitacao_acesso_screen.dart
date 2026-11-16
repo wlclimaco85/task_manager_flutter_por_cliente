@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/theme/zen_theme.dart';
+import '../services/consulta_cep_service.dart';
 import '../services/consulta_cnpj_service.dart';
 import '../utils/api_links.dart';
 import '../utils/app_logger.dart';
@@ -59,6 +60,8 @@ class SolicitacaoAcessoScreen extends StatefulWidget {
   final Future<String?> Function(Map<String, dynamic>) enviar;
   /// Consulta de CNPJ (publica: o cadastro roda sem login). Retorna os dados cadastrais ou null.
   final Future<Map<String, dynamic>?> Function(String cnpj) consultarCnpj;
+  /// Consulta de CEP (publica). `{'erro': true}` se nao existe; null se o servico falhou.
+  final Future<Map<String, dynamic>?> Function(String cep) consultarCep;
 
   const SolicitacaoAcessoScreen({
     super.key,
@@ -66,6 +69,7 @@ class SolicitacaoAcessoScreen extends StatefulWidget {
     this.carregarTermo = carregarTermoContrato,
     this.enviar = enviarCadastroConta,
     this.consultarCnpj = ConsultaCnpjService.consultarPublico,
+    this.consultarCep = ConsultaCepService.consultar,
   });
 
   @override
@@ -120,6 +124,42 @@ class _SolicitacaoAcessoScreenState extends State<SolicitacaoAcessoScreen> {
   void initState() {
     super.initState();
     _cnpj.addListener(_aoMudarCnpj);
+    _cep.addListener(_aoMudarCep);
+  }
+
+  String? _cepConsultado;
+
+  /// Ao completar os 8 digitos do CEP preenche rua, bairro, cidade e UF.
+  void _aoMudarCep() {
+    final d = _digitos(_cep.text);
+    if (d.length != 8 || d == _cepConsultado) return;
+    _cepConsultado = d;
+    _buscarCep(d);
+  }
+
+  Future<void> _buscarCep(String cep) async {
+    Map<String, dynamic>? dados;
+    try {
+      dados = await widget.consultarCep(cep);
+    } catch (e) {
+      AppLogger.i.warn('Cadastro de conta: consulta de CEP falhou: $e');
+    }
+    if (!mounted || _digitos(_cep.text) != cep) return;
+    if (dados == null || dados['erro'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(dados == null
+              ? 'Não foi possível consultar o CEP agora. Preencha o endereço manualmente.'
+              : 'CEP não encontrado. Confira o número ou preencha manualmente.')));
+      return;
+    }
+    void preencher(TextEditingController c, dynamic v) {
+      final t = (v ?? '').toString().trim();
+      if (t.isNotEmpty) c.text = t;
+    }
+    preencher(_logradouro, dados['logradouro']);
+    preencher(_bairro, dados['bairro']);
+    preencher(_cidade, dados['localidade']);
+    preencher(_uf, dados['uf']);
   }
 
   /// Ao completar os 14 digitos busca os dados da empresa e preenche o formulario.
@@ -163,6 +203,7 @@ class _SolicitacaoAcessoScreenState extends State<SolicitacaoAcessoScreen> {
   @override
   void dispose() {
     _cnpj.removeListener(_aoMudarCnpj);
+    _cep.removeListener(_aoMudarCep);
     for (final c in [
       _cnpj, _razao, _fantasia, _ie, _im, _cep, _logradouro, _numero, _bairro,
       _cidade, _uf, _nome, _email, _cpf, _senha, _confirmar,
