@@ -151,6 +151,7 @@ import './historico_treino_screen.dart';
 import './query_builder_window_screen.dart';
 import '../../customization/dynamic_grid_dynamic_screen.dart';
 import '../../widgets/dp/dp_dashboard_screen.dart';
+import '../../widgets/dp/dp_exportacao_folha_screen.dart';
 import '../../widgets/importacao_fiscal_automacao_screen.dart';
 import '../../widgets/sessoes_screen.dart';
 import 'certificado_empresa_screen.dart';
@@ -604,7 +605,7 @@ class _WindowsBottomNavBarScreenState extends State<WindowsBottomNavBarScreen> {
         const SizedBox.shrink(), // 193: reservado
         const SizedBox.shrink(), // 194: reservado
         const SizedBox.shrink(), // 195: reservado
-        const SizedBox.shrink(), // 196: reservado
+        const DpExportacaoFolhaScreen(), // 196: Exportar ponto p/ folha
         const SizedBox.shrink(), // 197: reservado
         const SizedBox.shrink(), // 198: reservado
         const SizedBox.shrink(), // 199: reservado

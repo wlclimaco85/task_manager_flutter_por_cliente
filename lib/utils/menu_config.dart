@@ -481,6 +481,11 @@ class MenuConfig {
             label: 'Relatórios DP/RH',
             icon: FontAwesomeIcons.filePdf,
             screenIndex: 144),
+        MenuItem(
+            id: 'dp_exportacao_folha',
+            label: 'Exportar p/ Folha',
+            icon: FontAwesomeIcons.fileExport,
+            screenIndex: 196),
       ],
     ),
     MenuGroup(

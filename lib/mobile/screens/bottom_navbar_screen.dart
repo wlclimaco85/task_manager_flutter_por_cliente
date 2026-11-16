@@ -1,6 +1,7 @@
 import 'package:task_manager_flutter/services/permission_service.dart';
 import 'package:task_manager_flutter/utils/string_utils.dart';
 import '../../widgets/dp/dp_dashboard_screen.dart';
+import '../../widgets/dp/dp_exportacao_folha_screen.dart';
 import 'nfe_serie_grid_screen.dart';
 import 'dart:async';
 
@@ -252,6 +253,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'Horários Funcionário': (menuId: 'horario_func', appScreen: null),
     'Dashboard DP': (menuId: 'dashboard_dp', appScreen: AppScreen.dashDpArea),
     'Relatórios DP/RH': (menuId: 'relatorio_dp_rh', appScreen: AppScreen.relatorioDpRh),
+    'Exportar p/ Folha': (menuId: 'dp_exportacao_folha', appScreen: AppScreen.dpExportacaoFolha),
     'Plano de Contas': (menuId: 'conta_contabil', appScreen: null),
     'Lançamentos Contábeis': (menuId: 'lancamento_contabil', appScreen: AppScreen.lancamentoContabil),
     'Balancete': (menuId: 'balancete', appScreen: AppScreen.balancete),
@@ -2273,6 +2275,12 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
         break;
       case "Horários Funcionário":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileHorarioFuncGridScreen()));
+        break;
+      case "Exportar p/ Folha":
+        nav = Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const DpExportacaoFolhaScreen()),
+        );
         break;
       case "Relatórios DP/RH":
         nav = Navigator.push(

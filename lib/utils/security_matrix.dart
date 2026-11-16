@@ -74,7 +74,7 @@ enum AppScreen {
   transporteVeiculos, transporteMotoristas, transporteMdfe, transporteCte,
   // Paridade Web/Windows/Mobile
   regraFiscal, cobrancaAutomatica, aprovacaoPagamentos, sistemaTest,
-  rateioFinanceiro, baixaAutomatica, renegociacao, contaContabil, relatorioDpRh,
+  rateioFinanceiro, baixaAutomatica, renegociacao, contaContabil, relatorioDpRh, dpExportacaoFolha,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -185,6 +185,7 @@ const _escritorioScreens = {
   AppScreen.renegociacao: _allFinanceiro,
   AppScreen.contaContabil: _allFinanceiro,
   AppScreen.relatorioDpRh: _ro,
+  AppScreen.dpExportacaoFolha: _ro,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -438,6 +439,7 @@ class SecurityMatrix {
     AppScreen.renegociacao: ['renegociacao'],
     AppScreen.contaContabil: ['conta_contabil', 'contacontabil', 'planocontas'],
     AppScreen.relatorioDpRh: ['relatorio_dp_rh', 'relatoriodprh'],
+    AppScreen.dpExportacaoFolha: ['dp_exportacao_folha', 'dpexportacaofolha'],
   };
 
   /// Procura permissões de uma tela considerando nome direto, lowercase e aliases
@@ -673,7 +675,7 @@ const Map<String, Set<AppScreen>> _moduloToScreens = {
   'Departamento Pessoal': {
     AppScreen.ponto, AppScreen.pontoWeb, AppScreen.solicitacaoAjustePonto,
     AppScreen.ajustePonto, AppScreen.funcionarios, AppScreen.feriados,
-    AppScreen.dashDpArea, AppScreen.relatorioDpRh,
+    AppScreen.dashDpArea, AppScreen.relatorioDpRh, AppScreen.dpExportacaoFolha,
   },
   'Chamados': {
     AppScreen.chamados, AppScreen.kanbanChamados,
@@ -1027,6 +1029,7 @@ class ModuloAccess {
     'horario_func': 'Departamento Pessoal',
     'dashboard_dp': 'Departamento Pessoal',
     'relatorio_dp_rh': 'Departamento Pessoal',
+    'dp_exportacao_folha': 'Departamento Pessoal',
 
     // Contábil
     'conta_contabil': 'Contábil',

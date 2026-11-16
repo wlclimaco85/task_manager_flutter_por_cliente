@@ -47,6 +47,7 @@ class _SystemTestRunPanelState extends State<SystemTestRunPanel> {
     'MODULO_JAVA': 'Módulo Java (cadastro e jars)',
     'EMAIL_MODELO': 'Modelos de e-mail (Empresa/Parceiro)',
     'EMAIL_FILA': 'Fila de e-mails (Empresa/Parceiro)',
+    'DP_EXPORTACAO_FOLHA': 'DP - exportação do ponto para a folha',
     'FINANCEIRO_AVANCADO': 'Financeiro avançado',
     'TRADING': 'Bolsa de valores',
     'GME': 'GME',

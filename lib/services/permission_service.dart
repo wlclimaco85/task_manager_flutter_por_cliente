@@ -182,6 +182,7 @@ class PermissionService {
     'solicitar_ajuste': 'SolicitarAjuste',
     'dashboard_dp': 'DashboardDP',
     'relatorio_dp_rh': 'RelatorioDpRh',
+    'dp_exportacao_folha': 'dp_exportacao_folha',
     'horario_func': 'HorarioFunc',
 
     // Suporte / Comunicação

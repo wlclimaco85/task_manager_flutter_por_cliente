@@ -1403,6 +1403,7 @@ class ApiLinks {
       '$_baseUrlNew/api/dp/relatorios/resumo';
   static String dpExportDominio(String competencia) =>
       '$_baseUrlNew/api/dp/export/dominio?competencia=${Uri.encodeComponent(competencia)}';
+  static String get dpExportacaoFolha => '$_baseUrlNew/api/dp/exportacao-folha';
   static String dpPortal(String funcionarioId) =>
       '$_baseUrlNew/api/dp/portal/$funcionarioId';
   static String get dpEsocialImportar => '$_baseUrlNew/api/dp/esocial/importar';

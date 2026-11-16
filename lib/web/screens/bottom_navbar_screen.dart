@@ -159,6 +159,7 @@ import './home_saude_aluno_screen.dart';
 import './historico_treino_screen.dart';
 import '../../customization/dynamic_grid_dynamic_screen.dart';
 import '../../widgets/dp/dp_dashboard_screen.dart';
+import '../../widgets/dp/dp_exportacao_folha_screen.dart';
 import '../../widgets/importacao_fiscal_automacao_screen.dart';
 import '../../widgets/sessoes_screen.dart';
 import 'certificado_empresa_screen.dart';
@@ -630,7 +631,7 @@ class _WebBottomNavBarScreenState extends State<WebBottomNavBarScreen> {
       const SizedBox.shrink(), // 193
       const SizedBox.shrink(), // 194
       const SizedBox.shrink(), // 195
-      const SizedBox.shrink(), // 196
+      const DpExportacaoFolhaScreen(), // 196: Exportar ponto p/ folha
       const SizedBox.shrink(), // 197
       const SizedBox.shrink(), // 198
       const SizedBox.shrink(), // 199
