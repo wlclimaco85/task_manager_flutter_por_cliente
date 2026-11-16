@@ -52,7 +52,7 @@ class _WebPontoScreenState extends State<WebPontoScreen> {
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(snackBatidaRegistrada(context, 'Ponto registrado!'));
     } else {
-      _snack('Erro ao registrar ponto');
+      _snack(PontoService.ultimoErro ?? 'Erro ao registrar ponto');
     }
     if (ok) await _carregar();
     if (mounted) setState(() => _registering = false);

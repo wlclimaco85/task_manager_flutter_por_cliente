@@ -125,7 +125,7 @@ class _PontoScreenState extends State<PontoScreen> {
         }
         await _carregarPontos();
       } else {
-        _mostrarSnack('Erro ao registrar ponto');
+        _mostrarSnack(PontoService.ultimoErro ?? 'Erro ao registrar ponto');
       }
     } catch (e) {
       _mostrarSnack('Erro: $e');

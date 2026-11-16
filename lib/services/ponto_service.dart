@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:typed_data';
+import '../utils/tenant_context.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../models/auth_utility.dart';
@@ -143,15 +145,42 @@ class PontoService {
         if (latReal != null) "latitude": latReal,
         if (lngReal != null) "longitude": lngReal,
       };
-      final response =
-          await NetworkCaller().postRequest(ApiLinks.pontoRegistrar, body);
-      ultimoPontoId = response.isSuccess ? (response.body?['id'] as int?) : null;
+      ultimoErro = null;
+      final resp = await TenantContext.post(ApiLinks.pontoRegistrar, body);
+      final ok = resp.statusCode >= 200 && resp.statusCode < 300;
+      ultimoPontoId = null;
+      if (ok) {
+        try {
+          final b = jsonDecode(utf8.decode(resp.bodyBytes));
+          if (b is Map && b['id'] is int) ultimoPontoId = b['id'] as int;
+        } catch (_) {}
+      } else {
+        ultimoErro = _mensagemDoErro(resp.bodyBytes, resp.statusCode);
+        AppLogger.i.warn('[Ponto] registrar respondeu ${resp.statusCode}: $ultimoErro');
+      }
       ultimaEmpresaId = login?.empresa?.id;
-      return response.isSuccess;
+      return ok;
     } catch (e, st) {
       AppLogger.i.error('[Ponto] falha ao registrar: $e', st);
+      ultimoErro = 'Sem conexão com o servidor.';
       return false;
     }
+  }
+
+  /// Motivo da ultima falha ao registrar (mostrado ao usuario); null quando deu certo.
+  static String? ultimoErro;
+
+  /// O backend responde texto puro ("Trabalhador sem cadastro...") ou JSON com `message`.
+  static String _mensagemDoErro(List<int> bytes, int status) {
+    var texto = '';
+    try {
+      texto = utf8.decode(bytes).trim();
+      final b = jsonDecode(texto);
+      if (b is Map && b['message'] is String) texto = b['message'] as String;
+    } catch (_) {}
+    texto = texto.replaceFirst('Erro ao registrar ponto: ', '');
+    if (texto.isEmpty || texto.length > 200) return 'Erro ao registrar ponto ($status).';
+    return texto;
   }
 
   /// Lista pontos do dia atual
