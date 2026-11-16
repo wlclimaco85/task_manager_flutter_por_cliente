@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../utils/api_links.dart';
+import '../utils/file_saver_compat.dart';
 import '../utils/app_logger.dart';
 import '../utils/grid_colors.dart';
 import '../utils/tenant_context.dart';
@@ -116,11 +117,22 @@ class DpFeriasSolicitacoesViewState extends State<DpFeriasSolicitacoesView> {
     int? funcionarioId = funcionarios.first.id;
     DateTime? inicio;
     DateTime? fim;
+    String saldoTexto = 'Consultando saldo...';
     final obs = TextEditingController();
+    Future<void> atualizarSaldo(StateSetter setS, int id) async {
+      final t = await _saldoDe(id);
+      if (ctx0Mounted) setS(() => saldoTexto = t);
+    }
+    var abriu = false;
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
+        builder: (ctx, setS) {
+          if (!abriu && funcionarioId != null) {
+            abriu = true;
+            atualizarSaldo(setS, funcionarioId!);
+          }
+          return AlertDialog(
           title: const Text('Solicitar férias', style: TextStyle(color: GridColors.primary)),
           content: SizedBox(
             width: 420,
@@ -130,7 +142,22 @@ class DpFeriasSolicitacoesViewState extends State<DpFeriasSolicitacoesView> {
                 initialValue: funcionarioId,
                 decoration: const InputDecoration(labelText: 'Funcionário', border: OutlineInputBorder(), isDense: true),
                 items: [for (final f in funcionarios) DropdownMenuItem(value: f.id, child: Text(f.nome))],
-                onChanged: (v) => setS(() => funcionarioId = v),
+                onChanged: (v) {
+                  setS(() {
+                    funcionarioId = v;
+                    saldoTexto = 'Consultando saldo...';
+                  });
+                  if (v != null) atualizarSaldo(setS, v);
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(saldoTexto,
+                      key: const Key('ferias_saldo'),
+                      style: const TextStyle(fontSize: 12, color: GridColors.textSecondary)),
+                ),
               ),
               const SizedBox(height: 8),
               ListTile(
@@ -206,13 +233,81 @@ class DpFeriasSolicitacoesViewState extends State<DpFeriasSolicitacoesView> {
               child: const Text('Enviar'),
             ),
           ],
-        ),
+        );
+        },
       ),
     );
     obs.dispose();
   }
 
+  bool get ctx0Mounted => mounted;
+
+  /// Texto do saldo de ferias do funcionario (primeiro periodo aquisitivo completo com saldo).
+  Future<String> _saldoDe(int funcionarioId) async {
+    try {
+      final resp = await TenantContext.get('${ApiLinks.baseUrl}$_url/saldo?funcionarioId=$funcionarioId');
+      if (resp.statusCode != 200) return 'Saldo indisponível (${resp.statusCode}).';
+      final lista = jsonDecode(utf8.decode(resp.bodyBytes));
+      if (lista is! List) return 'Saldo indisponível.';
+      final p = lista.whereType<Map>().firstWhere(
+            (m) => m['situacao'] != 'EM_AQUISICAO' && (m['saldoDias'] ?? 0) > 0,
+            orElse: () => {},
+          );
+      if (p.isEmpty) return 'Sem período aquisitivo completo com saldo de férias.';
+      final venc = _data(p['concessivoFim']);
+      final aviso = p['situacao'] == 'VENCIDA'
+          ? ' — VENCIDO (pagamento em dobro)'
+          : p['situacao'] == 'VENCENDO'
+              ? ' — vence em $venc'
+              : '';
+      return 'Saldo: ${p['saldoDias']} dia(s) · aquisitivo ${_data(p['aquisitivoInicio'])} a ${_data(p['aquisitivoFim'])}$aviso';
+    } catch (e) {
+      AppLogger.i.warn('[DP] falha ao consultar saldo de ferias: $e');
+      return 'Saldo indisponível.';
+    }
+  }
+
+  Future<void> _baixarAviso(int id) async {
+    try {
+      final resp = await TenantContext.get('${ApiLinks.baseUrl}$_url/$id/aviso');
+      if (resp.statusCode != 200) {
+        _snack(_mensagem(resp.bodyBytes, 'Não foi possível gerar o aviso (${resp.statusCode}).'));
+        return;
+      }
+      await FileSaver.instance.saveFile(
+          name: 'aviso_ferias_$id', bytes: resp.bodyBytes, fileExtension: 'pdf', mimeType: MimeType.pdf);
+      _snack('Aviso de férias gerado.');
+    } catch (e, st) {
+      AppLogger.i.error('[DP] erro ao baixar aviso de ferias: $e', st);
+      _snack('Erro ao gerar o aviso de férias.');
+    }
+  }
+
   Future<void> _decidir(Map<String, dynamic> f) async {
+    if (f['status'] == 'APROVADA' || f['status'] == 'GOZANDO') {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Férias aprovadas', style: TextStyle(color: GridColors.primary)),
+          content: Text("${f['funcionarioNome'] ?? f['funcionarioId']}\n"
+              "${_data(f['dataInicio'])} a ${_data(f['dataFim'])} (${f['dias']} dias)"),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fechar')),
+            ElevatedButton.icon(
+              key: const Key('ferias_aviso'),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _baixarAviso(f['id'] as int);
+              },
+              icon: const Icon(Icons.picture_as_pdf, size: 18),
+              label: const Text('Aviso de férias (PDF)'),
+              style: ElevatedButton.styleFrom(backgroundColor: GridColors.primary, foregroundColor: Colors.white),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     if (!widget.podeDecidir || f['status'] != 'SOLICITADA') return;
     final obs = TextEditingController();
     await showDialog(

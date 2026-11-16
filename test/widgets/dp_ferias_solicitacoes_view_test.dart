@@ -85,4 +85,58 @@ void main() {
       expect(find.textContaining('Sem permissão'), findsOneWidget);
     }, () => client);
   });
+
+  testWidgets('dialogo de solicitacao mostra o saldo e o vencimento do periodo aquisitivo', (t) async {
+    final client = MockClient((req) async {
+      final path = req.url.path;
+      if (path.endsWith('/saldo')) {
+        return _json([
+          {
+            'aquisitivoInicio': '2025-03-01',
+            'aquisitivoFim': '2026-02-28',
+            'concessivoFim': '2027-02-28',
+            'saldoDias': 30,
+            'situacao': 'DISPONIVEL',
+          },
+          {'aquisitivoInicio': '2026-03-01', 'aquisitivoFim': '2027-02-28', 'concessivoFim': '2028-02-29', 'saldoDias': 0, 'situacao': 'EM_AQUISICAO'},
+        ]);
+      }
+      if (path.endsWith('/api/funcionario')) {
+        return _json({
+          'data': {
+            'dados': [
+              {'id': 7, 'nome': 'Ana Souza'}
+            ]
+          }
+        });
+      }
+      return _json(<Object>[]);
+    });
+    await http.runWithClient(() async {
+      final key = GlobalKey<DpFeriasSolicitacoesViewState>();
+      t.view.physicalSize = const Size(1000, 1200);
+      t.view.devicePixelRatio = 1.0;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(MaterialApp(home: Scaffold(body: DpFeriasSolicitacoesView(key: key, podeDecidir: true))));
+      await t.pumpAndSettle();
+
+      key.currentState!.solicitar();
+      await t.pumpAndSettle();
+
+      expect(find.byKey(const Key('ferias_saldo')), findsOneWidget);
+      expect(find.textContaining('Saldo: 30 dia(s)'), findsOneWidget);
+    }, () => client);
+  });
+
+  testWidgets('pedido aprovado abre o dialogo com o aviso de ferias em PDF', (t) async {
+    final client = MockClient((_) async => _json([
+          {..._pedido, 'status': 'APROVADA'}
+        ]));
+    await http.runWithClient(() async {
+      await _abrir(t, podeDecidir: false);
+      await t.tap(find.byKey(const Key('ferias_item_5')));
+      await t.pumpAndSettle();
+      expect(find.byKey(const Key('ferias_aviso')), findsOneWidget);
+    }, () => client);
+  });
 }
