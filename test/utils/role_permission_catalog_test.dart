@@ -170,6 +170,14 @@ void main() {
     expect(rel.telaNome, 'relatorios_personalizados');
   });
 
+  test('catalogo de permissoes mostra Arquivos Fiscais de Ponto (REP-P)', () {
+    final t = RolePermissionCatalog.groups()
+        .expand((grupo) => grupo.entries)
+        .firstWhere((tela) => tela.menuItemId == 'ponto_rep_p');
+    expect(t.label, 'Arquivos Fiscais de Ponto');
+    expect(t.telaNome, 'ponto_rep_p');
+  });
+
   // Card: Importacao de XML de NFS-e -- mesma regra "toda tela nova tem
   // que aparecer em Controle de Acesso" ja documentada no CLAUDE.md pros
   // casos de nfce_grid/cnab_remessa acima.

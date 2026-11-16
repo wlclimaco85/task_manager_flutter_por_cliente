@@ -133,6 +133,7 @@ import 'cobranca_screen.dart';
 import 'renegociacao_screen.dart';
 import 'dre_screen.dart';
 import 'cnab_remessa_screen.dart';
+import 'ponto_rep_p_screen.dart';
 import 'kanban_pagamentos_screen.dart';
 import 'aprovacao_pagamentos_screen.dart';
 import 'boleto_importacao_lote_screen.dart';
@@ -210,6 +211,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'Régua de Cobrança': (menuId: 'contas_receber', appScreen: AppScreen.contasReceber),
     'DRE Gerencial': (menuId: 'dre_gerencial', appScreen: AppScreen.dreGerencial),
     'Envio EDI (Remessa)': (menuId: 'cnab_remessa', appScreen: AppScreen.cnabRemessa),
+    'Arquivos Fiscais de Ponto': (menuId: 'ponto_rep_p', appScreen: AppScreen.pontoRepP),
     'Kanban de Pagamentos': (menuId: 'kanban_pagamentos', appScreen: null),
     'Aprovação de Pagamentos': (menuId: 'aprovacao_pagamentos_web', appScreen: AppScreen.aprovacaoPagamentos),
     'Cobrança Automática': (menuId: 'cobranca_automatica', appScreen: AppScreen.cobrancaAutomatica),
@@ -386,6 +388,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'cnab_remessa': 'Financeiro',
     'dp_fechamento_empresa': 'Departamento Pessoal',
     'dp_relatorios': 'Departamento Pessoal',
+    'ponto_rep_p': 'Departamento Pessoal',
     'kanban_pagamentos': 'Financeiro',
     'aprovacao_pagamento': 'Financeiro',
     'calendario_guias': 'Financeiro',
@@ -2247,6 +2250,9 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
       case "DRE Gerencial":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDreScreen()));
         break;
+      case "Arquivos Fiscais de Ponto":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobilePontoRepPScreen()));
+        break;
       case "Envio EDI (Remessa)":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileCnabRemessaScreen()));
         break;
@@ -2664,6 +2670,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
               _MoreMenuAction(Icons.notifications_active, 'Régua de Cobrança'),
             _MoreMenuAction(Icons.bar_chart, 'DRE Gerencial'),
             _MoreMenuAction(Icons.send, 'Envio EDI (Remessa)'),
+            _MoreMenuAction(Icons.fact_check, 'Arquivos Fiscais de Ponto'),
             _MoreMenuAction(Icons.view_kanban, 'Kanban de Pagamentos'),
             _MoreMenuAction(Icons.verified, 'Aprovação de Pagamentos'),
             _MoreMenuAction(Icons.auto_mode, 'Cobrança Automática'),

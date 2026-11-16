@@ -186,6 +186,7 @@ class PermissionService {
     'dashboard_dp': 'DashboardDP',
     'relatorio_dp_rh': 'RelatorioDpRh',
     'dp_exportacao_folha': 'dp_exportacao_folha',
+    'ponto_rep_p': 'ponto_rep_p',
     'horario_func': 'HorarioFunc',
 
     // Suporte / Comunicação

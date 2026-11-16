@@ -1,3 +1,4 @@
+import '../../utils/ponto_comprovante_helper.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../utils/grid_colors.dart';
@@ -48,7 +49,11 @@ class _WebPontoScreenState extends State<WindowsPontoScreen> {
     final id = AuthUtility.userInfo?.login?.id;
     if (id == null) { _snack('Login não encontrado'); setState(() => _registering = false); return; }
     final ok = await PontoService.registrarPonto(id);
-    _snack(ok ? 'Ponto registrado!' : 'Erro ao registrar ponto');
+    if (ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(snackBatidaRegistrada(context, 'Ponto registrado!'));
+    } else {
+      _snack('Erro ao registrar ponto');
+    }
     if (ok) await _carregar();
     if (mounted) setState(() => _registering = false);
   }

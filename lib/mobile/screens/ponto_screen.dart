@@ -1,3 +1,4 @@
+import '../../utils/ponto_comprovante_helper.dart';
 import 'dart:async';
 import '../../widgets/user_banners.dart';
 import 'dart:convert';
@@ -119,7 +120,9 @@ class _PontoScreenState extends State<PontoScreen> {
 
       final ok = await PontoService.registrarPonto(loginId, lat: lat, lng: lng);
       if (ok) {
-        _mostrarSnack('Ponto registrado com sucesso!');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(snackBatidaRegistrada(context, 'Ponto registrado com sucesso!'));
+        }
         await _carregarPontos();
       } else {
         _mostrarSnack('Erro ao registrar ponto');

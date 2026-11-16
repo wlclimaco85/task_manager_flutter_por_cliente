@@ -53,6 +53,7 @@ class _SystemTestRunPanelState extends State<SystemTestRunPanel> {
     'TRADING': 'Bolsa de valores',
     'GME': 'GME',
     'TRIAL_REQUEST': 'Trial Request',
+    'PONTO_REPP': 'Ponto REP-P (Portaria 671: AFD, AEJ, imutabilidade)',
     'ACESSOS': 'Acessos (painel do dono)',
     'TODOS': 'Tudo: fases 1 e 2',
   };

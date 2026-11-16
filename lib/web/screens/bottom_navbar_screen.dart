@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'cnab_remessa_screen.dart';
+import 'ponto_rep_p_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../constants/custom_colors.dart';
 import '../../features/agendamento/agendamento_module.dart';
@@ -657,6 +658,7 @@ class _WebBottomNavBarScreenState extends State<WebBottomNavBarScreen> {
       const RelatoriosPersonalizadosView(), // 211: Relatorios Personalizados
       const DpFechamentoEmpresaScreen(), // 212: Fechamento do Ponto (DP)
       const DpRelatoriosPontoScreen(), // 213: Relatorios de Ponto (DP)
+      const PontoRepPScreen(), // 214: Arquivos Fiscais de Ponto (REP-P)
     ];
   }
 

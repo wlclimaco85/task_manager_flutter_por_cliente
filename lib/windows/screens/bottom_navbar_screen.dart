@@ -158,6 +158,7 @@ import 'certificado_empresa_screen.dart';
 import '../../web/screens/nfce_grid_screen.dart';
 import '../../web/screens/noticias_grid_screen.dart';
 import '../../web/screens/cnab_remessa_screen.dart';
+import '../../web/screens/ponto_rep_p_screen.dart';
 import '../../web/screens/nfse_serie_grid_screen.dart';
 import '../../web/screens/modulo_tela_grid_screen.dart';
 import '../../web/screens/transporte_veiculo_grid_screen.dart';
@@ -631,6 +632,7 @@ class _WindowsBottomNavBarScreenState extends State<WindowsBottomNavBarScreen> {
         const RelatoriosPersonalizadosView(), // 211: Relatorios Personalizados
         const DpFechamentoEmpresaScreen(), // 212: Fechamento do Ponto (DP)
         const DpRelatoriosPontoScreen(), // 213: Relatorios de Ponto (DP)
+        const PontoRepPScreen(), // 214: Arquivos Fiscais de Ponto (REP-P)
       ];
 
   String get userName {

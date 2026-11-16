@@ -70,6 +70,7 @@ enum AppScreen {
   nfceGrid,
   // CNAB / Remessa EDI
   cnabRemessa,
+  pontoRepP,
   // Modulo Transporte (MDF-e): cadastros de veiculos e motoristas
   transporteVeiculos, transporteMotoristas, transporteMdfe, transporteCte,
   // Paridade Web/Windows/Mobile
@@ -172,6 +173,7 @@ const _escritorioScreens = {
   AppScreen.alvaras:    _all,
   AppScreen.nfceGrid:   _all,
   AppScreen.cnabRemessa: _all,
+  AppScreen.pontoRepP: _all,
   AppScreen.transporteVeiculos: _all,
   AppScreen.transporteMotoristas: _all,
   AppScreen.transporteMdfe: _all,
@@ -426,6 +428,7 @@ class SecurityMatrix {
     AppScreen.dashMensalidadeArea: ['dashboardmensalidades', 'dashmensalidadearea'],
     AppScreen.nfceGrid: ['nfce_grid', 'nfcegrid', 'nfce_cupom', 'nfce cupons'],
     AppScreen.cnabRemessa: ['cnab_remessa', 'cnabremessa', 'cnab', 'remessaedi'],
+    AppScreen.pontoRepP: ['ponto_rep_p', 'pontorepp', 'arquivosfiscaisponto'],
     AppScreen.transporteVeiculos: ['transporte_veiculos', 'transporteveiculos'],
     AppScreen.transporteMotoristas: ['transporte_motoristas', 'transportemotoristas'],
     AppScreen.transporteMdfe: ['transporte_mdfe', 'transportemdfe'],
@@ -1024,6 +1027,7 @@ class ModuloAccess {
     'funcionario': 'Departamento Pessoal',
     'solicitar_ajuste': 'Departamento Pessoal',
     'ajuste_ponto': 'Departamento Pessoal',
+    'ponto_rep_p': 'Departamento Pessoal',
     'feriados': 'Departamento Pessoal',
     'setores': 'Departamento Pessoal',
     'horario_func': 'Departamento Pessoal',

@@ -6,6 +6,7 @@ import '../models/network_response.dart';
 import './network_caller.dart';
 import '../utils/api_links.dart';
 import '../models/ponto_model.dart';
+import '../utils/app_logger.dart';
 
 class PontoCaller {
   /// Registrar entrada ou saída
@@ -121,6 +122,10 @@ class PontoCaller {
 class PontoService {
   static final _caller = PontoCaller();
 
+  /// Ultima batida registrada nesta sessao (para oferecer o comprovante - Portaria 671).
+  static int? ultimoPontoId;
+  static int? ultimaEmpresaId;
+
   /// Registra ponto automático (alterna entrada/saída)
   static Future<bool> registrarPonto(int loginId,
       {double? latitude, double? longitude, double? lat, double? lng}) async {
@@ -140,8 +145,11 @@ class PontoService {
       };
       final response =
           await NetworkCaller().postRequest(ApiLinks.pontoRegistrar, body);
+      ultimoPontoId = response.isSuccess ? (response.body?['id'] as int?) : null;
+      ultimaEmpresaId = login?.empresa?.id;
       return response.isSuccess;
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.i.error('[Ponto] falha ao registrar: $e', st);
       return false;
     }
   }

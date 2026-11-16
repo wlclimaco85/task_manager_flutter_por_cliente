@@ -496,6 +496,11 @@ class MenuConfig {
             label: 'Relatórios de Ponto',
             icon: FontAwesomeIcons.fileLines,
             screenIndex: 213),
+        MenuItem(
+            id: 'ponto_rep_p',
+            label: 'Arquivos Fiscais de Ponto',
+            icon: FontAwesomeIcons.fileCircleCheck,
+            screenIndex: 214),
       ],
     ),
     MenuGroup(
