@@ -50,7 +50,7 @@ class _WebPontoScreenState extends State<WindowsPontoScreen> {
     if (id == null) { _snack('Login não encontrado'); setState(() => _registering = false); return; }
     final ok = await PontoService.registrarPonto(id);
     if (ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(snackBatidaRegistrada(context, 'Ponto registrado!'));
+      ScaffoldMessenger.of(context).showSnackBar(snackBatidaRegistrada(context, 'Ponto registrado!${PontoService.ultimoAviso != null ? ' ' + PontoService.ultimoAviso! : ''}'));
     } else {
       _snack(PontoService.ultimoErro ?? 'Erro ao registrar ponto');
     }

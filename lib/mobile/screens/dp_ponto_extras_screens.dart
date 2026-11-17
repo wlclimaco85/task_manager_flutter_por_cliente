@@ -4,6 +4,7 @@ import '../../utils/grid_colors.dart';
 import '../../web/screens/dp_banco_horas_screen.dart';
 import '../../web/screens/dp_espelho_assinatura_screen.dart';
 import '../../web/screens/dp_pendencias_screen.dart';
+import '../../web/screens/dp_ponto_mapa_screen.dart';
 
 /// Mobile: envelopa as telas de Assinatura do Espelho, Banco de Horas e Pendencias do DP (layout vertical) com AppBar.
 class _MobileDpEnvelope extends StatelessWidget {
@@ -51,4 +52,11 @@ class MobileDpPendenciasScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const _MobileDpEnvelope(titulo: 'Pendências do DP', corpo: DpPendenciasScreen());
+}
+
+class MobileDpPontoMapaScreen extends StatelessWidget {
+  const MobileDpPontoMapaScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => const _MobileDpEnvelope(titulo: 'Mapa dos Pontos', corpo: DpPontoMapaScreen());
 }

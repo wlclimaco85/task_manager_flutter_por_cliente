@@ -152,6 +152,7 @@ class PermissionService {
     'dp_espelho_assinatura': 'dp_espelho_assinatura',
     'dp_banco_horas': 'dp_banco_horas',
     'dp_pendencias': 'dp_pendencias',
+    'dp_ponto_mapa': 'dp_ponto_mapa',
 
     // Financeiro
     'calendario': 'Calendario',

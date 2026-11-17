@@ -171,6 +171,7 @@ import '../../web/screens/dp_relatorios_ponto_screen.dart';
 import '../../web/screens/dp_espelho_assinatura_screen.dart';
 import '../../web/screens/dp_banco_horas_screen.dart';
 import '../../web/screens/dp_pendencias_screen.dart';
+import '../../web/screens/dp_ponto_mapa_screen.dart';
 import '../../widgets/mdfe_emissao_view.dart';
 import '../../widgets/dashboard_executivo_screen.dart';
 
@@ -639,6 +640,7 @@ class _WindowsBottomNavBarScreenState extends State<WindowsBottomNavBarScreen> {
         const DpEspelhoAssinaturaScreen(), // 215: Assinatura do Espelho (DP)
         const DpBancoHorasScreen(), // 216: Banco de Horas (DP)
         const DpPendenciasScreen(), // 217: Pendencias do DP
+        const DpPontoMapaScreen(), // 218: Mapa dos Pontos (DP)
       ];
 
   String get userName {

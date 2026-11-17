@@ -264,6 +264,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'Assinatura do Espelho': (menuId: 'dp_espelho_assinatura', appScreen: null),
     'Banco de Horas': (menuId: 'dp_banco_horas', appScreen: null),
     'Pendências do DP': (menuId: 'dp_pendencias', appScreen: null),
+    'Mapa dos Pontos': (menuId: 'dp_ponto_mapa', appScreen: null),
     'Plano de Contas': (menuId: 'conta_contabil', appScreen: null),
     'Lançamentos Contábeis': (menuId: 'lancamento_contabil', appScreen: AppScreen.lancamentoContabil),
     'Balancete': (menuId: 'balancete', appScreen: AppScreen.balancete),
@@ -395,6 +396,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'dp_espelho_assinatura': 'Departamento Pessoal',
     'dp_banco_horas': 'Departamento Pessoal',
     'dp_pendencias': 'Departamento Pessoal',
+    'dp_ponto_mapa': 'Departamento Pessoal',
     'ponto_rep_p': 'Departamento Pessoal',
     'kanban_pagamentos': 'Financeiro',
     'aprovacao_pagamento': 'Financeiro',
@@ -2451,6 +2453,9 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
         break;
       case "Banco de Horas":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpBancoHorasScreen()));
+        break;
+      case "Mapa dos Pontos":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpPontoMapaScreen()));
         break;
       case "Pendências do DP":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpPendenciasScreen()));

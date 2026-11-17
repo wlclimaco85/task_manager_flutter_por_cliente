@@ -1039,6 +1039,7 @@ class ModuloAccess {
     'dp_espelho_assinatura': 'Departamento Pessoal',
     'dp_banco_horas': 'Departamento Pessoal',
     'dp_pendencias': 'Departamento Pessoal',
+    'dp_ponto_mapa': 'Departamento Pessoal',
 
     // Contábil
     'conta_contabil': 'Contábil',

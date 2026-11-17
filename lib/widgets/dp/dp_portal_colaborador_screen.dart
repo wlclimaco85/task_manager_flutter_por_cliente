@@ -61,7 +61,7 @@ class _DpPortalColaboradorScreenState extends State<DpPortalColaboradorScreen> {
     final ok = await PontoService.registrarPonto(loginId);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? 'Ponto registrado.' : 'Nao foi possivel registrar o ponto.')),
+        SnackBar(content: Text(ok ? 'Ponto registrado.${PontoService.ultimoAviso != null ? ' ' + PontoService.ultimoAviso! : ''}' : (PontoService.ultimoErro ?? 'Nao foi possivel registrar o ponto.'))),
       );
       setState(() => _registering = false);
       await _load();

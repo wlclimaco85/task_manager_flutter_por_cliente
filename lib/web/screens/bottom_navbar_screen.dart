@@ -95,6 +95,7 @@ import '../../web/screens/dp_relatorios_ponto_screen.dart';
 import '../../web/screens/dp_espelho_assinatura_screen.dart';
 import '../../web/screens/dp_banco_horas_screen.dart';
 import '../../web/screens/dp_pendencias_screen.dart';
+import '../../web/screens/dp_ponto_mapa_screen.dart';
 import '../../widgets/mdfe_emissao_view.dart';
 import './nfe_import_screen.dart';
 import './nfe_import_xml_screen.dart';
@@ -665,6 +666,7 @@ class _WebBottomNavBarScreenState extends State<WebBottomNavBarScreen> {
       const DpEspelhoAssinaturaScreen(), // 215: Assinatura do Espelho (DP)
       const DpBancoHorasScreen(), // 216: Banco de Horas (DP)
       const DpPendenciasScreen(), // 217: Pendencias do DP
+      const DpPontoMapaScreen(), // 218: Mapa dos Pontos (DP)
     ];
   }
 

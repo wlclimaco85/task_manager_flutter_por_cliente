@@ -124,6 +124,29 @@ class DpPontoService {
     return r is Map ? (r['alertasEnviados'] as num? ?? 0).toInt() : 0;
   }
 
+  // ── Mapa dos pontos batidos e aprovacao de batidas fora do raio ──────────────────────────────────
+
+  String get _localizacao => '${ApiLinks.baseUrl}/api/dp/ponto-localizacao';
+
+  /// Pontos do periodo com a localizacao de cada batida + centros (geocercas). [status]: DENTRO, SEM_GEOCERCA, PENDENTE,
+  /// APROVADO ou REPROVADO (nulo = todos).
+  Future<Map<String, dynamic>> mapaPontos(DateTime inicio, DateTime fim, {String? status, String? funcionarioId}) async {
+    final q = <String, String>{
+      'dataInicio': _data(inicio),
+      'dataFim': _data(fim),
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (funcionarioId != null && funcionarioId.isNotEmpty) 'funcionarioId': funcionarioId,
+    };
+    return Map<String, dynamic>.from(await _get(Uri.parse(_localizacao).replace(queryParameters: q).toString()) as Map);
+  }
+
+  /// Aprova ([aprovar] true) ou reprova (exige [motivo]) uma batida fora do raio.
+  Future<Map<String, dynamic>> decidirPonto(int pontoId, bool aprovar, {String? motivo}) async =>
+      Map<String, dynamic>.from(await _post('$_localizacao/$pontoId/decidir', {
+        'aprovar': aprovar,
+        if (motivo != null && motivo.isNotEmpty) 'motivo': motivo,
+      }) as Map);
+
   Map<String, String> _filtros(String? setorId, String? funcionarioId, DateTime ini, DateTime fim) => {
         if (setorId != null && setorId.isNotEmpty) 'setorId': setorId,
         if (funcionarioId != null && funcionarioId.isNotEmpty) 'funcionarioId': funcionarioId,

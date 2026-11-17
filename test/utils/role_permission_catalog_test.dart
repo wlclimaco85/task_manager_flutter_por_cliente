@@ -204,7 +204,7 @@ void main() {
 
   test('catalogo de permissoes mostra assinatura do espelho, banco de horas e pendencias do DP', () {
     final todas = RolePermissionCatalog.groups().expand((g) => g.entries).toList();
-    for (final id in ['dp_espelho_assinatura', 'dp_banco_horas', 'dp_pendencias']) {
+    for (final id in ['dp_espelho_assinatura', 'dp_banco_horas', 'dp_pendencias', 'dp_ponto_mapa']) {
       final tela = todas.firstWhere((t) => t.menuItemId == id);
       expect(tela.telaNome, id);
     }

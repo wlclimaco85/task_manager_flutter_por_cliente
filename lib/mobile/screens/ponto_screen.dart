@@ -5,7 +5,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 
 import 'package:task_manager_flutter/constants/custom_colors.dart';
@@ -98,30 +97,13 @@ class _PontoScreenState extends State<PontoScreen> {
         return;
       }
 
-      double? lat;
-      double? lng;
-      bool serviceEnabled;
-      LocationPermission permission;
-
-      serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (serviceEnabled) {
-        permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
-        }
-        if (permission == LocationPermission.whileInUse ||
-            permission == LocationPermission.always) {
-          final position = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.high);
-          lat = position.latitude;
-          lng = position.longitude;
-        }
-      }
-
-      final ok = await PontoService.registrarPonto(loginId, lat: lat, lng: lng);
+      // Localizacao (GPS) obrigatoria: o PontoService obtem e recusa o ponto se estiver desligada/negada
+      final ok = await PontoService.registrarPonto(loginId);
       if (ok) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(snackBatidaRegistrada(context, 'Ponto registrado com sucesso!'));
+          final aviso = PontoService.ultimoAviso;
+          ScaffoldMessenger.of(context).showSnackBar(snackBatidaRegistrada(
+              context, 'Ponto registrado com sucesso!${aviso != null ? ' $aviso' : ''}'));
         }
         await _carregarPontos();
       } else {

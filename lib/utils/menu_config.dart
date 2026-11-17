@@ -516,6 +516,11 @@ class MenuConfig {
             label: 'Pendências do DP',
             icon: FontAwesomeIcons.bellConcierge,
             screenIndex: 217),
+        MenuItem(
+            id: 'dp_ponto_mapa',
+            label: 'Mapa dos Pontos',
+            icon: FontAwesomeIcons.mapLocationDot,
+            screenIndex: 218),
       ],
     ),
     MenuGroup(

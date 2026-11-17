@@ -68,6 +68,7 @@ class _DpDashboardScreenState extends State<DpDashboardScreen> {
                     children: [
                       _KpiTile('Funcionarios ativos', kpis['funcionariosAtivos'], Icons.badge),
                       _KpiTile('Ajustes pendentes', kpis['ajustesPontoPendentes'], Icons.schedule),
+                      _KpiTile('Pontos fora do raio', kpis['pontosForaDoRaio'], Icons.location_off),
                       _KpiTile('Ferias proximas', kpis['feriasProximas'], Icons.beach_access),
                       _KpiTile('Admissoes abertas', kpis['admissoesEmAndamento'], Icons.person_add_alt),
                       _KpiTile('Desligamentos', kpis['desligamentosEmAndamento'], Icons.person_remove_alt_1),

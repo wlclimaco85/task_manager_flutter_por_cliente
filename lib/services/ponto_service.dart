@@ -9,6 +9,7 @@ import './network_caller.dart';
 import '../utils/api_links.dart';
 import '../models/ponto_model.dart';
 import '../utils/app_logger.dart';
+import 'localizacao_ponto.dart';
 
 class PontoCaller {
   /// Registrar entrada ou saída
@@ -133,8 +134,21 @@ class PontoService {
       {double? latitude, double? longitude, double? lat, double? lng}) async {
     // Usa BuildContext fake — registra como ENTRADA por padrão
     // A lógica de alternância fica no backend
-    final latReal = latitude ?? lat;
-    final lngReal = longitude ?? lng;
+    var latReal = latitude ?? lat;
+    var lngReal = longitude ?? lng;
+    ultimoErro = null;
+    ultimoAviso = null;
+    // Localizacao obrigatoria: sem GPS ativo e permitido o ponto nao e registrado (o backend tambem recusa).
+    if (latReal == null || lngReal == null) {
+      try {
+        final c = await LocalizacaoPonto.obter();
+        latReal = c.latitude;
+        lngReal = c.longitude;
+      } on LocalizacaoIndisponivelException catch (e) {
+        ultimoErro = e.mensagem;
+        return false;
+      }
+    }
     try {
       final login = AuthUtility.userInfo?.login;
       final body = {
@@ -153,6 +167,11 @@ class PontoService {
         try {
           final b = jsonDecode(utf8.decode(resp.bodyBytes));
           if (b is Map && b['id'] is int) ultimoPontoId = b['id'] as int;
+          if (b is Map && b['localizacaoStatus'] == 'PENDENTE') {
+            final d = b['distanciaKm'];
+            ultimoAviso = 'Você bateu o ponto fora do raio permitido'
+                '${d is num ? ' (${d.toStringAsFixed(2)} km)' : ''}: aguardando aprovação do gestor.';
+          }
         } catch (_) {}
       } else {
         ultimoErro = _mensagemDoErro(resp.bodyBytes, resp.statusCode);
@@ -169,6 +188,9 @@ class PontoService {
 
   /// Motivo da ultima falha ao registrar (mostrado ao usuario); null quando deu certo.
   static String? ultimoErro;
+
+  /// Aviso apos registrar com sucesso (ex.: batida fora do raio, aguardando aprovacao); null quando nao ha.
+  static String? ultimoAviso;
 
   /// O backend responde texto puro ("Trabalhador sem cadastro...") ou JSON com `message`.
   static String _mensagemDoErro(List<int> bytes, int status) {
