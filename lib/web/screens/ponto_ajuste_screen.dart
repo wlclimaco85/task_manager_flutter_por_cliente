@@ -123,17 +123,47 @@ class _WebPontoAjusteScreenState extends State<WebPontoAjusteScreen> {
       ),
     );
     if (confirm != true) return;
+    await _enviarFechamento(null);
+  }
+
+  /// O backend exige o aceite do funcionario; sem ele (409) pede a justificativa do gestor e tenta de novo.
+  Future<void> _enviarFechamento(String? justificativa) async {
     final resp = await TenantContext.post('${ApiLinks.baseUrl}/api/folha-ponto/fechar', {
       'funcionarioId': _funcionarioId,
       'mes': _mesSelecionado!['mes'],
       'ano': _mesSelecionado!['ano'],
+      if (justificativa != null) 'justificativa': justificativa,
     });
     if (resp.statusCode == 200) {
       _snack('Folha fechada com sucesso!');
       _carregarMeses(_funcionarioId!);
-    } else {
-      _snack('Erro ao fechar folha');
+      return;
     }
+    String msg = 'Erro ao fechar folha';
+    try {
+      final b = jsonDecode(utf8.decode(resp.bodyBytes));
+      if (b is Map && b['error'] is String) msg = b['error'] as String;
+    } catch (_) {}
+    if (resp.statusCode == 409 && justificativa == null) {
+      final controller = TextEditingController();
+      final motivo = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Fechar sem aceite do funcionário'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(msg),
+            TextField(controller: controller, maxLength: 300, decoration: const InputDecoration(labelText: 'Justificativa')),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text(GridTexts.cancel)),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Fechar')),
+          ],
+        ),
+      );
+      if (motivo != null && motivo.isNotEmpty) await _enviarFechamento(motivo);
+      return;
+    }
+    _snack(msg);
   }
 
   void _snack(String msg) {

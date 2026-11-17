@@ -62,6 +62,68 @@ class DpPontoService {
   Future<Map<String, dynamic>> reabrir(int mes, int ano, String motivo) async =>
       Map<String, dynamic>.from(await _post('$_fechamento/reabrir', {'mes': mes, 'ano': ano, 'motivo': motivo}) as Map);
 
+  // ── Assinatura do espelho, banco de horas e pendencias (regras CLT no backend) ──────────────────────
+
+  String get _folhaPonto => '${ApiLinks.baseUrl}/api/folha-ponto';
+  String get _banco => '${ApiLinks.baseUrl}/api/dp/banco-horas';
+  String get _pendenciasUrl => '${ApiLinks.baseUrl}/api/dp/pendencias';
+
+  /// Funcionarios da empresa para os seletores: [{id, nome}].
+  Future<List<Map<String, dynamic>>> funcionarios() async {
+    final body = await _get('${ApiLinks.baseUrl}/api/funcionario?tamanho=200');
+    var lista = <dynamic>[];
+    if (body is Map) {
+      final d = body['data'];
+      if (d is Map) {
+        lista = (d['dados'] ?? d['content'] ?? []) as List;
+      } else if (d is List) {
+        lista = d;
+      }
+    }
+    return lista.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<Map<String, dynamic>> estadoAssinatura(int funcionarioId, int mes, int ano) async =>
+      Map<String, dynamic>.from(await _get('$_folhaPonto/assinatura?funcionarioId=$funcionarioId&mes=$mes&ano=$ano') as Map);
+
+  /// Aceite eletronico do funcionario (backend grava data/hora, IP e hash do espelho).
+  Future<Map<String, dynamic>> aceitarEspelho(int funcionarioId, int mes, int ano) async => Map<String, dynamic>.from(
+      await _post('$_folhaPonto/aceitar', {'funcionarioId': funcionarioId, 'mes': mes, 'ano': ano}) as Map);
+
+  /// Validacao do gestor (fecha o espelho). Sem aceite do funcionario exige [justificativa].
+  Future<Map<String, dynamic>> validarEspelho(int funcionarioId, int mes, int ano, {String? justificativa}) async =>
+      Map<String, dynamic>.from(await _post('$_folhaPonto/fechar', {
+        'funcionarioId': funcionarioId,
+        'mes': mes,
+        'ano': ano,
+        if (justificativa != null && justificativa.isNotEmpty) 'justificativa': justificativa,
+      }) as Map);
+
+  Future<Map<String, dynamic>> extratoBanco(int funcionarioId) async =>
+      Map<String, dynamic>.from(await _get('$_banco/extrato?funcionarioId=$funcionarioId') as Map);
+
+  Future<List<Map<String, dynamic>>> alertasBanco() async =>
+      (await _get('$_banco/alertas') as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+
+  /// Paga em folha o saldo vencido (ou [minutos], quando informado) como hora extra 50%.
+  Future<Map<String, dynamic>> quitarBanco(int funcionarioId, int folhaMes, int folhaAno,
+          {int? minutos, String? observacao}) async =>
+      Map<String, dynamic>.from(await _post('$_banco/quitar', {
+        'funcionarioId': funcionarioId,
+        'mes': folhaMes,
+        'ano': folhaAno,
+        if (minutos != null) 'minutos': minutos,
+        if (observacao != null && observacao.isNotEmpty) 'observacao': observacao,
+      }) as Map);
+
+  Future<Map<String, dynamic>> pendencias() async => Map<String, dynamic>.from(await _get(_pendenciasUrl) as Map);
+
+  /// Dispara agora os avisos (gestores e funcionarios); devolve quantos alertas foram enviados.
+  Future<int> notificarPendencias() async {
+    final r = await _post('$_pendenciasUrl/notificar', {});
+    return r is Map ? (r['alertasEnviados'] as num? ?? 0).toInt() : 0;
+  }
+
   Map<String, String> _filtros(String? setorId, String? funcionarioId, DateTime ini, DateTime fim) => {
         if (setorId != null && setorId.isNotEmpty) 'setorId': setorId,
         if (funcionarioId != null && funcionarioId.isNotEmpty) 'funcionarioId': funcionarioId,

@@ -202,6 +202,15 @@ void main() {
     expect(relatorios.telaNome, 'dp_relatorios');
   });
 
+  test('catalogo de permissoes mostra assinatura do espelho, banco de horas e pendencias do DP', () {
+    final todas = RolePermissionCatalog.groups().expand((g) => g.entries).toList();
+    for (final id in ['dp_espelho_assinatura', 'dp_banco_horas', 'dp_pendencias']) {
+      final tela = todas.firstWhere((t) => t.menuItemId == id);
+      expect(tela.telaNome, id);
+    }
+    expect(todas.firstWhere((t) => t.menuItemId == 'dp_banco_horas').label, 'Banco de Horas');
+  });
+
   test('catalogo de permissoes mostra telas de aprovacao de acesso', () {
     final porAcesso = RolePermissionCatalog.groups(query: 'acesso')
         .expand((grupo) => grupo.entries)

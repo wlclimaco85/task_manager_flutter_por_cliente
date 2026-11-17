@@ -54,6 +54,7 @@ import 'dashboards_personalizados_screens.dart';
 import 'relatorios_personalizados_screens.dart';
 import 'dp_fechamento_empresa_screen.dart';
 import 'dp_relatorios_ponto_screen.dart';
+import 'dp_ponto_extras_screens.dart';
 import 'mdfe_emissao_screen.dart';
 import 'nfse_servico_screen.dart';
 import 'nfse_config_screen.dart';
@@ -260,6 +261,9 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'Exportar p/ Folha': (menuId: 'dp_exportacao_folha', appScreen: AppScreen.dpExportacaoFolha),
     'Fechamento do Ponto': (menuId: 'dp_fechamento_empresa', appScreen: null),
     'Relatórios de Ponto': (menuId: 'dp_relatorios', appScreen: null),
+    'Assinatura do Espelho': (menuId: 'dp_espelho_assinatura', appScreen: null),
+    'Banco de Horas': (menuId: 'dp_banco_horas', appScreen: null),
+    'Pendências do DP': (menuId: 'dp_pendencias', appScreen: null),
     'Plano de Contas': (menuId: 'conta_contabil', appScreen: null),
     'Lançamentos Contábeis': (menuId: 'lancamento_contabil', appScreen: AppScreen.lancamentoContabil),
     'Balancete': (menuId: 'balancete', appScreen: AppScreen.balancete),
@@ -388,6 +392,9 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'cnab_remessa': 'Financeiro',
     'dp_fechamento_empresa': 'Departamento Pessoal',
     'dp_relatorios': 'Departamento Pessoal',
+    'dp_espelho_assinatura': 'Departamento Pessoal',
+    'dp_banco_horas': 'Departamento Pessoal',
+    'dp_pendencias': 'Departamento Pessoal',
     'ponto_rep_p': 'Departamento Pessoal',
     'kanban_pagamentos': 'Financeiro',
     'aprovacao_pagamento': 'Financeiro',
@@ -2438,6 +2445,15 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
         break;
       case "Fechamento do Ponto":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpFechamentoEmpresaScreen()));
+        break;
+      case "Assinatura do Espelho":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpEspelhoAssinaturaScreen()));
+        break;
+      case "Banco de Horas":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpBancoHorasScreen()));
+        break;
+      case "Pendências do DP":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpPendenciasScreen()));
         break;
       case "Relatórios de Ponto":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpRelatoriosPontoScreen()));

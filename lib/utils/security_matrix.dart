@@ -1036,6 +1036,9 @@ class ModuloAccess {
     'dp_exportacao_folha': 'Departamento Pessoal',
     'dp_fechamento_empresa': 'Departamento Pessoal',
     'dp_relatorios': 'Departamento Pessoal',
+    'dp_espelho_assinatura': 'Departamento Pessoal',
+    'dp_banco_horas': 'Departamento Pessoal',
+    'dp_pendencias': 'Departamento Pessoal',
 
     // Contábil
     'conta_contabil': 'Contábil',

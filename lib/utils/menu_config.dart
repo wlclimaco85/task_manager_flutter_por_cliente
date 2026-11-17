@@ -501,6 +501,21 @@ class MenuConfig {
             label: 'Arquivos Fiscais de Ponto',
             icon: FontAwesomeIcons.fileCircleCheck,
             screenIndex: 214),
+        MenuItem(
+            id: 'dp_espelho_assinatura',
+            label: 'Assinatura do Espelho',
+            icon: FontAwesomeIcons.signature,
+            screenIndex: 215),
+        MenuItem(
+            id: 'dp_banco_horas',
+            label: 'Banco de Horas',
+            icon: FontAwesomeIcons.hourglassHalf,
+            screenIndex: 216),
+        MenuItem(
+            id: 'dp_pendencias',
+            label: 'Pendências do DP',
+            icon: FontAwesomeIcons.bellConcierge,
+            screenIndex: 217),
       ],
     ),
     MenuGroup(

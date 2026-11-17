@@ -92,6 +92,9 @@ import '../../widgets/dashboards_personalizados_view.dart';
 import '../../widgets/relatorios_personalizados_view.dart';
 import '../../web/screens/dp_fechamento_empresa_screen.dart';
 import '../../web/screens/dp_relatorios_ponto_screen.dart';
+import '../../web/screens/dp_espelho_assinatura_screen.dart';
+import '../../web/screens/dp_banco_horas_screen.dart';
+import '../../web/screens/dp_pendencias_screen.dart';
 import '../../widgets/mdfe_emissao_view.dart';
 import './nfe_import_screen.dart';
 import './nfe_import_xml_screen.dart';
@@ -659,6 +662,9 @@ class _WebBottomNavBarScreenState extends State<WebBottomNavBarScreen> {
       const DpFechamentoEmpresaScreen(), // 212: Fechamento do Ponto (DP)
       const DpRelatoriosPontoScreen(), // 213: Relatorios de Ponto (DP)
       const PontoRepPScreen(), // 214: Arquivos Fiscais de Ponto (REP-P)
+      const DpEspelhoAssinaturaScreen(), // 215: Assinatura do Espelho (DP)
+      const DpBancoHorasScreen(), // 216: Banco de Horas (DP)
+      const DpPendenciasScreen(), // 217: Pendencias do DP
     ];
   }
 

@@ -149,6 +149,9 @@ class PermissionService {
     // Departamento Pessoal: fechamento da empresa e relatorios de ponto (telaNome = id do menu, mesmo nome do backend)
     'dp_fechamento_empresa': 'dp_fechamento_empresa',
     'dp_relatorios': 'dp_relatorios',
+    'dp_espelho_assinatura': 'dp_espelho_assinatura',
+    'dp_banco_horas': 'dp_banco_horas',
+    'dp_pendencias': 'dp_pendencias',
 
     // Financeiro
     'calendario': 'Calendario',
