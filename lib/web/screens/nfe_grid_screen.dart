@@ -1312,7 +1312,6 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
       ),
     );
     final motivo = motivoCtrl.text.trim();
-    motivoCtrl.dispose();
     if (confirmed != true || !context.mounted) return;
     try {
       final r = await TenantContext.post(ApiLinks.devolverNfe(id), {'motivo': motivo});
@@ -1325,11 +1324,23 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
         return;
       }
       // abre a NF-e de devolucao (saida, finalidade devolucao, dados da nota original) em modo edicao
-      final devolucao = Map<String, dynamic>.from(jsonDecode(r.body) as Map);
-      devolucao['tipoOperacao'] = 'SAIDA';
+      Map<String, dynamic>? devolucao;
+      try {
+        devolucao = Map<String, dynamic>.from(jsonDecode(r.body) as Map);
+        devolucao['tipoOperacao'] = 'SAIDA';
+      } catch (e) {
+        AppLogger.i.warn('Devolver NF-e #$id: resposta sem a NF-e criada ($e)');
+      }
+      if (devolucao == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Devolução criada. Localize a NF-e de devolução na grid de NF-e Saída.'),
+            backgroundColor: GridColors.success));
+        setState(() => _gridKey++);
+        return;
+      }
       await Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => NfeSankhyaDetailScreen(item: devolucao)));
+          MaterialPageRoute(builder: (_) => NfeSankhyaDetailScreen(item: devolucao!)));
       if (context.mounted) setState(() => _gridKey++);
     } catch (e, st) {
       AppLogger.i.error('Devolver NF-e #$id: $e', st);

@@ -5,6 +5,7 @@ import 'package:task_manager_flutter/utils/file_saver_compat.dart';
 import 'package:flutter/material.dart';
 import '../../../customization/dynamic_grid_windows_screen.dart';
 import '../../../utils/api_links.dart';
+import '../../../utils/app_logger.dart';
 import '../../../utils/grid_colors.dart';
 import '../../../utils/tenant_context.dart';
 import '../../../widgets/generic_grid_windows_screen.dart' show CustomAction;
@@ -513,12 +514,24 @@ class _WindowsNfeGridScreenState extends State<WindowsNfeGridScreen> {
           ApiLinks.devolverNfe(id), {'motivo': motivoCtrl.text.trim()});
       if (!context.mounted) return;
       if (r.statusCode == 200 || r.statusCode == 201) {
-        // abre a NF-e de devolucao (saida, finalidade devolucao, dados da nota original) em modo edicao
-        final devolucao = Map<String, dynamic>.from(jsonDecode(r.body) as Map);
-        devolucao['tipoOperacao'] = 'SAIDA';
+      // abre a NF-e de devolucao (saida, finalidade devolucao, dados da nota original) em modo edicao
+        Map<String, dynamic>? devolucao;
+        try {
+          devolucao = Map<String, dynamic>.from(jsonDecode(r.body) as Map);
+          devolucao['tipoOperacao'] = 'SAIDA';
+        } catch (e) {
+          AppLogger.i.warn('Devolver NF-e #$id: resposta sem a NF-e criada ($e)');
+        }
+        if (devolucao == null) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Devolução criada. Localize a NF-e de devolução na grid de NF-e Saída.'),
+              backgroundColor: GridColors.success));
+          setState(() => _gridKey++);
+          return;
+        }
         await Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => NfeSankhyaDetailScreen(item: devolucao)));
+            MaterialPageRoute(builder: (_) => NfeSankhyaDetailScreen(item: devolucao!)));
         if (context.mounted) setState(() => _gridKey++);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
