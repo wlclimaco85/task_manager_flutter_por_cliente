@@ -513,11 +513,13 @@ class _WindowsNfeGridScreenState extends State<WindowsNfeGridScreen> {
           ApiLinks.devolverNfe(id), {'motivo': motivoCtrl.text.trim()});
       if (!context.mounted) return;
       if (r.statusCode == 200 || r.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'NF-e de devolução gerada com sucesso! Acesse a tela de NF-e Saída para emitir/imprimir.'),
-            backgroundColor: GridColors.success));
-        setState(() => _gridKey++);
+        // abre a NF-e de devolucao (saida, finalidade devolucao, dados da nota original) em modo edicao
+        final devolucao = Map<String, dynamic>.from(jsonDecode(r.body) as Map);
+        devolucao['tipoOperacao'] = 'SAIDA';
+        await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => NfeSankhyaDetailScreen(item: devolucao)));
+        if (context.mounted) setState(() => _gridKey++);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Erro ao devolver NF-e: ${r.body}'),

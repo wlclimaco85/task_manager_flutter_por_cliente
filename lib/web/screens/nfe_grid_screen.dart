@@ -1318,12 +1318,19 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
       final r = await TenantContext.post(ApiLinks.devolverNfe(id), {'motivo': motivo});
       if (!context.mounted) return;
       final ok = r.statusCode == 200 || r.statusCode == 201;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(ok
-              ? 'NF-e de devolução gerada! Acesse a tela de NF-e Saída para emitir/imprimir.'
-              : 'Erro ao devolver NF-e (HTTP ${r.statusCode}): ${r.body}'),
-          backgroundColor: ok ? GridColors.success : GridColors.error));
-      if (ok) setState(() => _gridKey++);
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro ao devolver NF-e (HTTP ${r.statusCode}): ${r.body}'),
+            backgroundColor: GridColors.error));
+        return;
+      }
+      // abre a NF-e de devolucao (saida, finalidade devolucao, dados da nota original) em modo edicao
+      final devolucao = Map<String, dynamic>.from(jsonDecode(r.body) as Map);
+      devolucao['tipoOperacao'] = 'SAIDA';
+      await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => NfeSankhyaDetailScreen(item: devolucao)));
+      if (context.mounted) setState(() => _gridKey++);
     } catch (e, st) {
       AppLogger.i.error('Devolver NF-e #$id: $e', st);
       if (context.mounted) {
