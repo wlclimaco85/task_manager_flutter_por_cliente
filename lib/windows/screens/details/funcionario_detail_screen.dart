@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../utils/grid_colors.dart';
+import '../../../utils/app_logger.dart';
 import 'package:http/http.dart' as http;
 import '../../../../models/auth_utility.dart';
 import '../../../../utils/api_links.dart';
@@ -99,6 +100,7 @@ class _PontoTabState extends State<_PontoTab> {
   DateTime _inicio = DateTime.now().subtract(const Duration(days: 30));
   DateTime _fim = DateTime.now();
   List<dynamic> _pontos = [];
+  Map<String, dynamic>? _horario; // jornada cadastrada no funcionario (horarioFunc)
   bool _loading = false;
   String? _erro;
 
@@ -124,6 +126,143 @@ class _PontoTabState extends State<_PontoTab> {
     } finally {
       setState(() => _loading = false);
     }
+  }
+
+  /// Jornada cadastrada do funcionario (horarioFunc.dias) para exibir ao lado das batidas.
+  Future<void> _carregarJornada() async {
+    if (widget.funcionarioId == null) return;
+    try {
+      final token = AuthUtility.userInfo?.token;
+      final resp = await http.get(
+        Uri.parse('${ApiLinks.baseUrl}/api/funcionario/${widget.funcionarioId}'),
+        headers: {if (token != null) 'Authorization': 'Bearer $token'},
+      );
+      if (resp.statusCode == 200 && mounted) {
+        final body = jsonDecode(resp.body);
+        final horario = body is Map ? body['horarioFunc'] : null;
+        setState(() => _horario = horario is Map ? Map<String, dynamic>.from(horario) : null);
+      }
+    } catch (e) {
+      AppLogger.i.warn('Jornada do funcionario ${widget.funcionarioId} nao carregou: $e');
+    }
+  }
+
+  /// Minutos trabalhados por dia (pares ENTRADA -> SAIDA), para o grafico.
+  Map<String, int> _minutosPorDia() {
+    final ordenados = [..._pontos]
+      ..sort((a, b) => (a['dataHoraRegistro'] ?? '').toString().compareTo((b['dataHoraRegistro'] ?? '').toString()));
+    final porDia = <String, int>{};
+    final abertos = <String, DateTime>{};
+    for (final p in ordenados) {
+      final dt = DateTime.tryParse(p['dataHoraRegistro']?.toString() ?? '');
+      if (dt == null) continue;
+      final dia = dt.toIso8601String().substring(0, 10);
+      if (p['tipo'] == 'ENTRADA') {
+        abertos[dia] = dt;
+      } else if (p['tipo'] == 'SAIDA' && abertos.containsKey(dia)) {
+        porDia[dia] = (porDia[dia] ?? 0) + dt.difference(abertos.remove(dia)!).inMinutes;
+      }
+    }
+    return porDia;
+  }
+
+  Widget _grafico() {
+    final porDia = _minutosPorDia();
+    if (porDia.isEmpty) return const SizedBox.shrink();
+    final dias = porDia.keys.toList()..sort();
+    final maior = porDia.values.fold<int>(1, (a, b) => b > a ? b : a);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: const Color(0xFF0C3A2B), borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Horas trabalhadas por dia', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 110,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final d in dias)
+                  Expanded(
+                    child: Tooltip(
+                      message: '${d.substring(8)}/${d.substring(5, 7)}: '
+                          '${porDia[d]! ~/ 60}h${(porDia[d]! % 60).toString().padLeft(2, '0')}',
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: Container(
+                          height: (100.0 * porDia[d]! / maior).clamp(2.0, 100.0),
+                          decoration: BoxDecoration(
+                            color: GridColors.success,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _jornada() {
+    final dias = (_horario?['dias'] as List?) ?? const [];
+    if (_horario == null || dias.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 12),
+        child: Text('Sem jornada cadastrada para este funcionario.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+      );
+    }
+    String faixa(Map d, String ent, String sai) {
+      final e = d[ent]?.toString() ?? '';
+      final s = d[sai]?.toString() ?? '';
+      if (e.isEmpty && s.isEmpty) return '-';
+      return '$e - $s';
+    }
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: const Color(0xFF0C3A2B), borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Jornada de trabalho${_horario?['nome'] != null ? ' - ${_horario!['nome']}' : ''}',
+              style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final raw in dias)
+                if (raw is Map)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: GridColors.success.withValues(alpha: 0.5)),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${raw['diaSemana'] ?? ''}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                        Text(faixa(raw, 'entrada1', 'saida1'), style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                        if (faixa(raw, 'entrada2', 'saida2') != '-')
+                          Text(faixa(raw, 'entrada2', 'saida2'), style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                        if ((raw['total']?.toString() ?? '').isNotEmpty)
+                          Text('Total ${raw['total']}', style: const TextStyle(color: GridColors.success, fontSize: 11)),
+                      ],
+                    ),
+                  ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _registrarPonto(String tipo) async {
@@ -158,6 +297,7 @@ class _PontoTabState extends State<_PontoTab> {
   @override
   void initState() {
     super.initState();
+    _carregarJornada();
     _carregar();
   }
 
@@ -202,6 +342,8 @@ class _PontoTabState extends State<_PontoTab> {
             ],
           ),
           const SizedBox(height: 12),
+          _jornada(),
+          _grafico(),
           if (_loading) const Center(child: CircularProgressIndicator(color: GridColors.success)),
           if (_erro != null) Text(_erro!, style: const TextStyle(color: Colors.red)),
           if (!_loading && _erro == null)
