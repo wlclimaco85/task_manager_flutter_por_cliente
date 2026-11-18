@@ -795,6 +795,11 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
           onPressed: (context, item) => _recusar(context, item),
         ),
         CustomAction<Map<String, dynamic>>(
+          icon: Icons.assignment_return_outlined,
+          label: "Devolver NF-e",
+          onPressed: (context, item) => _devolver(context, item),
+        ),
+        CustomAction<Map<String, dynamic>>(
           icon: Icons.print,
           label: "DANFE",
           onPressed: (context, item) => _imprimirDanfe(context, item),
@@ -1252,6 +1257,79 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
       if (context.mounted)
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Erro: $e'), backgroundColor: GridColors.error));
+    }
+  }
+
+  /// Gera a NF-e de devolucao (saida, finalidade 4) referenciando a chave da NF-e de entrada autorizada.
+  Future<void> _devolver(BuildContext context, Map<String, dynamic> item) async {
+    final status = item['status']?.toString().toUpperCase() ?? '';
+    if (status != 'AUTORIZADA') {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Só é possível devolver NF-e autorizada. Status atual: $status.'),
+        backgroundColor: GridColors.error,
+      ));
+      return;
+    }
+    final id = item['id']?.toString() ?? '';
+    final motivoCtrl = TextEditingController(text: 'Devolução de mercadoria');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Devolver NF-e de Entrada',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                  'Deseja gerar a NF-e de devolução referenciando a nota #${item['numero'] ?? id} - Chave: ${item['chave'] ?? ''}?',
+                  style: const TextStyle(fontSize: 12)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: motivoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Motivo da devolução',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(GridTexts.cancel)),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: GridColors.primary,
+                foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar Devolução'),
+          ),
+        ],
+      ),
+    );
+    final motivo = motivoCtrl.text.trim();
+    motivoCtrl.dispose();
+    if (confirmed != true || !context.mounted) return;
+    try {
+      final r = await TenantContext.post(ApiLinks.devolverNfe(id), {'motivo': motivo});
+      if (!context.mounted) return;
+      final ok = r.statusCode == 200 || r.statusCode == 201;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(ok
+              ? 'NF-e de devolução gerada! Acesse a tela de NF-e Saída para emitir/imprimir.'
+              : 'Erro ao devolver NF-e (HTTP ${r.statusCode}): ${r.body}'),
+          backgroundColor: ok ? GridColors.success : GridColors.error));
+      if (ok) setState(() => _gridKey++);
+    } catch (e, st) {
+      AppLogger.i.error('Devolver NF-e #$id: $e', st);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro: $e'), backgroundColor: GridColors.error));
+      }
     }
   }
 
