@@ -194,7 +194,7 @@ class _PontoTabState extends State<_PontoTab> {
   }
 
   Widget _jornada() {
-    final dias = (_horario?['dias'] as List?) ?? const [];
+    final dias = _horario?['dias'] is List ? _horario!['dias'] as List : const [];
     if (_horario == null || dias.isEmpty) {
       return const Padding(
         padding: EdgeInsets.only(bottom: 12),
@@ -250,7 +250,6 @@ class _PontoTabState extends State<_PontoTab> {
 
   Future<void> _carregar() async {
     if (widget.funcionarioId == null) return;
-    _carregarJornada();
     setState(() { _loading = true; _erro = null; });
     try {
       final token = AuthUtility.userInfo?.token;
@@ -305,6 +304,7 @@ class _PontoTabState extends State<_PontoTab> {
   @override
   void initState() {
     super.initState();
+    _carregarJornada();
     _carregar();
   }
 

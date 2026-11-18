@@ -211,7 +211,7 @@ class _PontoTabState extends State<_PontoTab> {
   }
 
   Widget _jornada() {
-    final dias = (_horario?['dias'] as List?) ?? const [];
+    final dias = _horario?['dias'] is List ? _horario!['dias'] as List : const [];
     if (_horario == null || dias.isEmpty) {
       return const Padding(
         padding: EdgeInsets.only(bottom: 12),
