@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:task_manager_flutter/utils/file_saver_compat.dart';
 import 'package:flutter/material.dart';
 import '../../../customization/dynamic_grid_windows_screen.dart';
+import '../../../widgets/nfe_devolucao_dialog.dart';
 import '../../../utils/api_links.dart';
 import '../../../utils/app_logger.dart';
 import '../../../utils/fiscal_error_message.dart';
@@ -1260,7 +1261,7 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
     }
   }
 
-  /// Gera a NF-e de devolucao (saida, finalidade 4) referenciando a chave da NF-e de entrada autorizada.
+  /// Escolhe os itens/quantidades no dialogo, gera a NF-e de devolucao (saida, finalidade 4) e abre ela em edicao.
   Future<void> _devolver(BuildContext context, Map<String, dynamic> item) async {
     final status = item['status']?.toString().toUpperCase() ?? '';
     if (status != 'AUTORIZADA') {
@@ -1271,50 +1272,11 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
       return;
     }
     final id = item['id']?.toString() ?? '';
-    final motivoCtrl = TextEditingController(text: 'Devolução de mercadoria');
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Devolver NF-e de Entrada',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-        content: SizedBox(
-          width: 380,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                  'Deseja gerar a NF-e de devolução referenciando a nota #${item['numero'] ?? id} - Chave: ${item['chave'] ?? ''}?',
-                  style: const TextStyle(fontSize: 12)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: motivoCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Motivo da devolução',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text(GridTexts.cancel)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: GridColors.primary,
-                foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar Devolução'),
-          ),
-        ],
-      ),
-    );
-    final motivo = motivoCtrl.text.trim();
-    if (confirmed != true || !context.mounted) return;
+    final escolha = await mostrarDialogoDevolucaoNfe(context, item);
+    if (escolha == null || !context.mounted) return;
     try {
-      final r = await TenantContext.post(ApiLinks.devolverNfe(id), {'motivo': motivo});
+      final r = await TenantContext.post(
+          ApiLinks.devolverNfe(id), {'motivo': escolha.motivo, 'itens': escolha.itens});
       if (!context.mounted) return;
       final ok = r.statusCode == 200 || r.statusCode == 201;
       if (!ok) {
@@ -1323,7 +1285,7 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
             backgroundColor: GridColors.error));
         return;
       }
-      // abre a NF-e de devolucao (saida, finalidade devolucao, dados da nota original) em modo edicao
+      // abre a NF-e de devolucao (saida, finalidade devolucao, itens escolhidos) em modo edicao
       Map<String, dynamic>? devolucao;
       try {
         devolucao = Map<String, dynamic>.from(jsonDecode(r.body) as Map);

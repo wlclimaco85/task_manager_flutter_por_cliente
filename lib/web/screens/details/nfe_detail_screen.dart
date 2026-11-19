@@ -412,6 +412,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
   int _selFin = 0;
 
   List<Map<String, dynamic>> _itens = [];
+  bool _itensCarregados = false;
   List<Map<String, dynamic>> _contas = [];
   Map<String, dynamic> _detalheNfe = {};
 
@@ -718,6 +719,44 @@ class _State extends State<NfeSankhyaDetailScreen> {
         await _aplicarImpostosNosItensCarregados();
       }
     } catch (_) {}
+    if (mounted) setState(() => _itensCarregados = true);
+  }
+
+  /// Nota de entrada importada da SEFAZ (so o resumo): sem itens ate o XML completo ser buscado.
+  Widget _avisoSemItens() {
+    return Container(
+      key: const Key('nfe_aviso_sem_itens'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: GridColors.card,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _red),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Esta nota não tem itens (veio da SEFAZ só com o resumo). Busque o XML completo para trazer os itens, '
+              'os impostos e permitir a devolução.',
+              style: TextStyle(fontSize: 12, color: _red),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            key: const Key('nfe_aviso_buscar_xml'),
+            onPressed: _buscandoXmlSefaz ? null : _buscarXmlSefaz,
+            icon: const Icon(Icons.cloud_download_outlined, size: 18),
+            label: Text(_buscandoXmlSefaz ? 'Buscando...' : 'Buscar XML SEFAZ'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool get _notaEntradaSemItens {
+    final chave = (_detalheNfe['chave'] ?? widget.item['chave'] ?? '').toString();
+    return _isEntrada && _itensCarregados && _itens.isEmpty && _nfeId.isNotEmpty && chave.isNotEmpty;
   }
 
   Future<void> _loadContas() async {
@@ -1050,6 +1089,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_notaEntradaSemItens) _avisoSemItens(),
                         SizedBox(
                             height: nfeDetailAlturaItens(_itensGrid),
                             child: _itensPanel()),
