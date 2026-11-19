@@ -146,6 +146,16 @@ void main() {
     expect(find.text('122065 - MACARICO - PROTECNI'), findsOneWidget);
   });
 
+  testWidgets('nota sem itens mostra campo de produto e botao Adicionar desabilitado sem produto escolhido', (tester) async {
+    final cliente = MockClient((req) async => http.Response(jsonEncode([]), 200, headers: json));
+
+    await abrir(tester, cliente);
+
+    expect(find.byKey(const Key('devolucao_produto')), findsOneWidget);
+    final botao = tester.widget<OutlinedButton>(find.byKey(const Key('devolucao_adicionar_produto')));
+    expect(botao.onPressed, isNull);
+  });
+
   testWidgets('erro ao carregar os itens aparece no dialogo', (tester) async {
     final cliente = MockClient((req) async => http.Response('{}', 500, headers: json));
 
