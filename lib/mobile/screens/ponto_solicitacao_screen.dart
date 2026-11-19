@@ -33,7 +33,13 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen>
     super.dispose();
   }
 
-  static const _tiposPonto = ['Primeira entrada', 'Primeira saída', 'Volta do almoço', 'Saída'];
+  // chave = valor enviado ao backend (tipoPonto); valor = rotulo exibido
+  static const _tiposPonto = {
+    'PRIMEIRA_ENTRADA': 'Primeira entrada',
+    'PRIMEIRA_SAIDA': 'Primeira saída',
+    'VOLTA_ALMOCO': 'Volta do almoço',
+    'SAIDA': 'Saída',
+  };
 
   final _green = const Color(0xFF2E7D32);
   final _primary = GridColors.primary;
@@ -171,7 +177,7 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen>
                 initialValue: tipoSelecionado,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Ponto a ajustar', border: OutlineInputBorder(), isDense: true),
-                items: [for (final t in _tiposPonto) DropdownMenuItem(value: t, child: Text(t))],
+                items: [for (final e in _tiposPonto.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
                 onChanged: (v) => setS(() => tipoSelecionado = v),
               ),
               const SizedBox(height: 12),
@@ -196,8 +202,8 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen>
                 'funcionario': {'id': funcionarioId},
                 if (empresaId != null) 'empresa': {'id': empresaId},
                 'dataPonto': DateFormat('yyyy-MM-dd').format(dataSelecionada!),
-                // Stopgap: backend ainda nao tem coluna de tipo de ponto; vai no motivo.
-                'motivo': '[$tipoSelecionado] ${motivoCtrl.text}',
+                'tipoPonto': tipoSelecionado,
+                'motivo': motivoCtrl.text,
               };
               final resp = await TenantContext.post('${ApiLinks.baseUrl}/api/ponto-ajuste/solicitacoes', body);
               if (!ctx.mounted) return;

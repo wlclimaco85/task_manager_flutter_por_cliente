@@ -37,8 +37,45 @@ class _PontoScreenState extends State<PontoScreen> {
   // H10: funcionário vinculado ao login logado
   Map<String, dynamic>? _funcionario;
 
-  // Humor escolhido no dia (0 = mais feliz ... 4 = mais triste). Ainda nao persiste no backend.
+  // Humor do dia: indice do icone (0 = mais feliz ... 4 = mais triste). Persistido em /api/ponto-humor como nivel = 5 - indice.
   int? _humorSelecionado;
+
+  Future<void> _carregarHumor() async {
+    final loginId = AuthUtility.userInfo?.login?.id;
+    if (loginId == null) return;
+    try {
+      final hoje = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final resp = await TenantContext.get(
+          '${ApiLinks.baseUrl}/api/ponto-humor/$loginId?data=$hoje');
+      if (resp.statusCode == 200 && mounted) {
+        final nivel = (jsonDecode(resp.body)['nivel'] as num).toInt();
+        setState(() => _humorSelecionado = 5 - nivel);
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar humor: $e');
+    }
+  }
+
+  Future<void> _registrarHumor(int indice) async {
+    final loginId = AuthUtility.userInfo?.login?.id;
+    if (loginId == null) return;
+    setState(() => _humorSelecionado = indice);
+    try {
+      final resp = await TenantContext.post(
+          '${ApiLinks.baseUrl}/api/ponto-humor',
+          {
+            'loginId': loginId,
+            if (TenantContext.empresaId != null) 'empresaId': TenantContext.empresaId,
+            'dataHumor': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+            'nivel': 5 - indice,
+          });
+      if (resp.statusCode != 200 && mounted) {
+        _mostrarSnack('Erro ao salvar humor (${resp.statusCode})');
+      }
+    } catch (e) {
+      _mostrarSnack('Erro ao salvar humor: $e');
+    }
+  }
 
   @override
   void initState() {
@@ -49,6 +86,7 @@ class _PontoScreenState extends State<PontoScreen> {
     });
     _carregarPontos();
     _carregarFuncionario();
+    _carregarHumor();
   }
 
   @override
@@ -445,7 +483,7 @@ class _PontoScreenState extends State<PontoScreen> {
                     color: _humorSelecionado == i
                         ? GridColors.success
                         : GridColors.primary),
-                onPressed: () => setState(() => _humorSelecionado = i),
+                onPressed: () => _registrarHumor(i),
               ),
           ],
         ),
