@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../utils/grid_colors.dart';
@@ -31,6 +33,8 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen>
     super.dispose();
   }
 
+  static const _tiposPonto = ['Primeira entrada', 'Primeira saída', 'Volta do almoço', 'Saída'];
+
   final _green = const Color(0xFF2E7D32);
   final _primary = GridColors.primary;
   final _bg = GridColors.background;
@@ -54,7 +58,8 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen>
       final url = '${ApiLinks.baseUrl}/api/ponto-ajuste/solicitacoes?funcionarioId=$loginId';
       final resp = await TenantContext.get(url);
       if (resp.statusCode == 200 && mounted) {
-        final List<dynamic> data = resp.body is List ? resp.body : (resp.body as Map<String, dynamic>)['data'] ?? [];
+        final decoded = jsonDecode(resp.body);
+        final List<dynamic> data = decoded is List ? decoded : (decoded['data'] ?? []);
         setState(() => _solicitacoes = data.cast<Map<String, dynamic>>());
       }
     } catch (e) {
@@ -128,49 +133,62 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen>
       return;
     }
     int? funcionarioId = funcionarios.first.id;
+    String? tipoSelecionado;
 
     await showDialog(context: context, builder: (ctx) => StatefulBuilder(
       builder: (ctx, setS) => AlertDialog(
+        insetPadding: const EdgeInsets.all(12),
         title: Text('Solicitar Ajuste', style: TextStyle(color: _primary)),
-        content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            DropdownButtonFormField<int>(
-              initialValue: funcionarioId,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Funcionário', border: OutlineInputBorder(), isDense: true),
-              items: [for (final f in funcionarios) DropdownMenuItem(value: f.id, child: Text(f.nome, overflow: TextOverflow.ellipsis))],
-              onChanged: (v) => setS(() => funcionarioId = v),
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.calendar_today, color: _primary),
-              title: Text(dataSelecionada == null
-                  ? 'Selecionar data'
-                  : DateFormat('dd/MM/yyyy').format(dataSelecionada!)),
-              onTap: () async {
-                final d = await showDatePicker(
-                  context: ctx, initialDate: DateTime.now(),
-                  firstDate: DateTime.now().subtract(const Duration(days: 90)),
-                  lastDate: DateTime.now(),
-                );
-                if (d != null) setS(() => dataSelecionada = d);
-              },
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: motivoCtrl, maxLines: 3,
-              decoration: InputDecoration(
-                labelText: 'Motivo', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), isDense: true),
-            ),
-          ]),
+        content: SizedBox(
+          width: MediaQuery.of(ctx).size.width,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              DropdownButtonFormField<int>(
+                initialValue: funcionarioId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Funcionário', border: OutlineInputBorder(), isDense: true),
+                items: [for (final f in funcionarios) DropdownMenuItem(value: f.id, child: Text(f.nome, overflow: TextOverflow.ellipsis))],
+                onChanged: (v) => setS(() => funcionarioId = v),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.calendar_today, color: _primary),
+                title: Text(dataSelecionada == null
+                    ? 'Selecionar data'
+                    : DateFormat('dd/MM/yyyy').format(dataSelecionada!)),
+                onTap: () async {
+                  final d = await showDatePicker(
+                    context: ctx, initialDate: DateTime.now(),
+                    firstDate: DateTime.now().subtract(const Duration(days: 90)),
+                    lastDate: DateTime.now(),
+                  );
+                  if (d != null) setS(() => dataSelecionada = d);
+                },
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: tipoSelecionado,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Ponto a ajustar', border: OutlineInputBorder(), isDense: true),
+                items: [for (final t in _tiposPonto) DropdownMenuItem(value: t, child: Text(t))],
+                onChanged: (v) => setS(() => tipoSelecionado = v),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: motivoCtrl, maxLines: 4,
+                decoration: InputDecoration(
+                  labelText: 'Motivo', border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)), isDense: true),
+              ),
+            ]),
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text(GridTexts.cancel)),
           ElevatedButton(
             onPressed: () async {
-              if (dataSelecionada == null || motivoCtrl.text.isEmpty) {
-                 _snack('Preencha a data e o motivo.');
+              if (dataSelecionada == null || tipoSelecionado == null || motivoCtrl.text.isEmpty) {
+                 _snack('Preencha a data, o ponto e o motivo.');
                  return;
               }
               final empresaId = TenantContext.empresaId;
@@ -178,7 +196,8 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen>
                 'funcionario': {'id': funcionarioId},
                 if (empresaId != null) 'empresa': {'id': empresaId},
                 'dataPonto': DateFormat('yyyy-MM-dd').format(dataSelecionada!),
-                'motivo': motivoCtrl.text,
+                // Stopgap: backend ainda nao tem coluna de tipo de ponto; vai no motivo.
+                'motivo': '[$tipoSelecionado] ${motivoCtrl.text}',
               };
               final resp = await TenantContext.post('${ApiLinks.baseUrl}/api/ponto-ajuste/solicitacoes', body);
               if (!ctx.mounted) return;
@@ -222,12 +241,14 @@ class _PontoSolicitacaoScreenState extends State<PontoSolicitacaoScreen>
       ),
       floatingActionButton: _tabs.index == 0
           ? FloatingActionButton.extended(
+              heroTag: null,
               onPressed: _novaSolicitacao,
               backgroundColor: _primary, foregroundColor: _white,
               icon: const Icon(Icons.add), label: const Text('Nova Solicitação'),
             )
           : FloatingActionButton.extended(
               key: const Key('ferias_nova'),
+              heroTag: null,
               onPressed: () => _feriasKey.currentState?.solicitar(),
               backgroundColor: _primary, foregroundColor: _white,
               icon: const Icon(Icons.beach_access), label: const Text('Solicitar férias'),

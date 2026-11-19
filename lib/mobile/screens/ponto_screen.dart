@@ -37,6 +37,9 @@ class _PontoScreenState extends State<PontoScreen> {
   // H10: funcionário vinculado ao login logado
   Map<String, dynamic>? _funcionario;
 
+  // Humor escolhido no dia (0 = mais feliz ... 4 = mais triste). Ainda nao persiste no backend.
+  int? _humorSelecionado;
+
   @override
   void initState() {
     super.initState();
@@ -434,12 +437,17 @@ class _PontoScreenState extends State<PontoScreen> {
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: icons
-              .map((icon) => IconButton(
-                    icon: Icon(icon, size: 34, color: GridColors.primary),
-                    onPressed: () {},
-                  ))
-              .toList(),
+          children: [
+            for (var i = 0; i < icons.length; i++)
+              IconButton(
+                icon: Icon(icons[i],
+                    size: 34,
+                    color: _humorSelecionado == i
+                        ? GridColors.success
+                        : GridColors.primary),
+                onPressed: () => setState(() => _humorSelecionado = i),
+              ),
+          ],
         ),
       ],
     );
