@@ -117,6 +117,8 @@ class DpFeriasSolicitacoesViewState extends State<DpFeriasSolicitacoesView> {
     int? funcionarioId = funcionarios.first.id;
     DateTime? inicio;
     DateTime? fim;
+    String tipo = 'FERIAS'; // FERIAS | MATERNIDADE
+    int diasMaternidade = 120; // licenca maternidade: 120 ou 180 dias corridos
     String saldoTexto = 'Consultando saldo...';
     final obs = TextEditingController();
     Future<void> atualizarSaldo(StateSetter setS, int id) async {
@@ -160,6 +162,34 @@ class DpFeriasSolicitacoesViewState extends State<DpFeriasSolicitacoesView> {
                 ),
               ),
               const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                key: const Key('ferias_tipo'),
+                initialValue: tipo,
+                decoration: const InputDecoration(labelText: 'Tipo', border: OutlineInputBorder(), isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 'FERIAS', child: Text('Férias')),
+                  DropdownMenuItem(value: 'MATERNIDADE', child: Text('Licença maternidade')),
+                ],
+                onChanged: (v) => setS(() {
+                  tipo = v ?? 'FERIAS';
+                  fim = null;
+                }),
+              ),
+              if (tipo == 'MATERNIDADE')
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+                  child: DropdownButtonFormField<int>(
+                    key: const Key('ferias_dias_maternidade'),
+                    initialValue: diasMaternidade,
+                    decoration: const InputDecoration(labelText: 'Duração', border: OutlineInputBorder(), isDense: true),
+                    items: const [
+                      DropdownMenuItem(value: 120, child: Text('120 dias')),
+                      DropdownMenuItem(value: 180, child: Text('180 dias (Empresa Cidadã)')),
+                    ],
+                    onChanged: (v) => setS(() => diasMaternidade = v ?? 120),
+                  ),
+                ),
+              const SizedBox(height: 8),
               ListTile(
                 key: const Key('ferias_inicio'),
                 leading: const Icon(Icons.flight_takeoff, color: GridColors.primary),
@@ -174,7 +204,7 @@ class DpFeriasSolicitacoesViewState extends State<DpFeriasSolicitacoesView> {
                   if (d != null) setS(() => inicio = d);
                 },
               ),
-              ListTile(
+              if (tipo == 'FERIAS') ListTile(
                 key: const Key('ferias_fim'),
                 leading: const Icon(Icons.flight_land, color: GridColors.primary),
                 title: Text(fim == null ? 'Fim das férias' : _fmt.format(fim!)),
@@ -189,7 +219,7 @@ class DpFeriasSolicitacoesViewState extends State<DpFeriasSolicitacoesView> {
                   if (d != null) setS(() => fim = d);
                 },
               ),
-              if (inicio != null && fim != null)
+              if (tipo == 'FERIAS' && inicio != null && fim != null)
                 Padding(
                   padding: const EdgeInsets.only(left: 16, bottom: 4),
                   child: Align(
@@ -210,14 +240,19 @@ class DpFeriasSolicitacoesViewState extends State<DpFeriasSolicitacoesView> {
             ElevatedButton(
               key: const Key('ferias_enviar'),
               onPressed: () async {
-                if (funcionarioId == null || inicio == null || fim == null) {
+                final maternidade = tipo == 'MATERNIDADE';
+                if (funcionarioId == null || inicio == null || (!maternidade && fim == null)) {
                   _snack('Informe funcionário, início e fim.');
                   return;
                 }
+                final fimEfetivo = maternidade
+                    ? inicio!.add(Duration(days: diasMaternidade - 1))
+                    : fim!;
                 final resp = await TenantContext.post('${ApiLinks.baseUrl}$_url', {
                   'funcionarioId': funcionarioId,
+                  'tipo': tipo,
                   'dataInicio': DateFormat('yyyy-MM-dd').format(inicio!),
-                  'dataFim': DateFormat('yyyy-MM-dd').format(fim!),
+                  'dataFim': DateFormat('yyyy-MM-dd').format(fimEfetivo),
                   'observacao': obs.text.trim(),
                 });
                 if (!ctx.mounted) return;
