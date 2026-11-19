@@ -718,8 +718,8 @@ class _State extends State<NfeSankhyaDetailScreen> {
         });
         await _aplicarImpostosNosItensCarregados();
       }
+      if (r.statusCode == 200 && mounted) setState(() => _itensCarregados = true);
     } catch (_) {}
-    if (mounted) setState(() => _itensCarregados = true);
   }
 
   /// Nota de entrada importada da SEFAZ (so o resumo): sem itens ate o XML completo ser buscado.

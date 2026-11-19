@@ -51,6 +51,7 @@ class _NfeDevolucaoDialogState extends State<NfeDevolucaoDialog> {
   List<_LinhaItem> _linhas = [];
   bool _carregando = true;
   bool _buscandoXml = false;
+  bool _semItensAposBuscar = false;
   String? _erro;
 
   String get _id => widget.nota['id']?.toString() ?? '';
@@ -88,11 +89,15 @@ class _NfeDevolucaoDialogState extends State<NfeDevolucaoDialog> {
       final b = jsonDecode(r.body);
       final d = b is Map ? (b['data'] is Map ? b['data']['dados'] : b['data']) : b;
       final itens = (d as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      final comId = itens.where((i) => i['id'] != null).toList();
+      for (final l in _linhas) {
+        l.qtd.dispose();
+      }
       setState(() {
-        _linhas = [
-          for (final i in itens)
-            if (i['id'] != null) _LinhaItem(i, _num(i['q_com'] ?? i['qCom']) ?? 1),
-        ];
+        _linhas = [for (final i in comId) _LinhaItem(i, _num(i['q_com'] ?? i['qCom']) ?? 1)];
+        if (itens.isNotEmpty && comId.isEmpty) {
+          _erro = 'Os itens da nota não têm identificador. Atualize a nota (Buscar XML SEFAZ) e tente de novo.';
+        }
         _carregando = false;
       });
     } catch (e, st) {
@@ -113,6 +118,8 @@ class _NfeDevolucaoDialogState extends State<NfeDevolucaoDialog> {
       if (!mounted) return;
       if (r.statusCode != 200) {
         setState(() => _erro = 'A SEFAZ ainda não liberou o XML (HTTP ${r.statusCode}). Aguarde alguns instantes e tente de novo.');
+      } else {
+        _semItensAposBuscar = true;
       }
     } catch (e, st) {
       AppLogger.i.error('Devolucao NF-e #$_id: erro ao buscar XML na SEFAZ: $e', st);
@@ -121,6 +128,10 @@ class _NfeDevolucaoDialogState extends State<NfeDevolucaoDialog> {
     if (!mounted) return;
     setState(() => _buscandoXml = false);
     await _carregarItens();
+    if (mounted && _linhas.isEmpty && _semItensAposBuscar && _erro == null) {
+      setState(() => _erro = 'A SEFAZ respondeu, mas a nota continua sem itens. Aguarde alguns instantes e tente de novo.');
+    }
+    _semItensAposBuscar = false;
   }
 
   String? _validar() {
