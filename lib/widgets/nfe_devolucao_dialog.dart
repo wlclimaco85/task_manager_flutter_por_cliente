@@ -237,7 +237,14 @@ class _NfeDevolucaoDialogState extends State<NfeDevolucaoDialog> {
 
   /// Importa o XML da nota por arquivo. So aceita se for da MESMA chave da nota (o que ja temos do resumo da SEFAZ).
   Future<void> _importarXmlArquivo() async {
-    final picked = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['xml'], withData: true);
+    final FilePickerResult? picked;
+    try {
+      picked = await FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['xml'], withData: true);
+    } catch (e, st) {
+      AppLogger.i.error('Devolucao NF-e #$_id: erro ao abrir o seletor de arquivo: $e', st);
+      if (mounted) setState(() => _erro = 'Não foi possível abrir o seletor de arquivos: $e');
+      return;
+    }
     if (picked == null || picked.files.isEmpty || picked.files.first.bytes == null || !mounted) return;
     final file = picked.files.first;
     final erroXml = erroXmlDiferenteDaNota(utf8.decode(file.bytes!, allowMalformed: true), widget.nota['chave']?.toString());
