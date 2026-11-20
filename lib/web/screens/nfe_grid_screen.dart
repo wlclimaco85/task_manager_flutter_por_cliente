@@ -1301,6 +1301,19 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
         setState(() => _gridKey++);
         return;
       }
+      // Produto escolhido no popup (Fazer manual): lanca o item na devolucao recem-criada para ela abrir ja com ele.
+      if (escolha.itemManual != null) {
+        final rItem = await TenantContext.post(
+            '${ApiLinks.baseUrl}/api/nfe_item', {...escolha.itemManual!, 'nfe_id': devolucao['id']});
+        if (rItem.statusCode != 200 && rItem.statusCode != 201) {
+          AppLogger.i.warn('Devolver NF-e #$id: produto manual nao lancado (HTTP ${rItem.statusCode}): ${rItem.body}');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Devolução criada, mas o produto não foi lançado (HTTP ${rItem.statusCode}). Adicione na tela.'),
+                backgroundColor: GridColors.error));
+          }
+        }
+      }
       await Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => NfeSankhyaDetailScreen(item: devolucao!)));

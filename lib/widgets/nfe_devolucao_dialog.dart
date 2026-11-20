@@ -17,8 +17,25 @@ class NfeDevolucaoEscolha {
 
   /// "Continuar assim mesmo": abre a devolucao em edicao so com a chave referenciada, sem itens da nota de origem.
   final bool semItens;
-  const NfeDevolucaoEscolha(this.motivo, this.itens, {this.semItens = false});
+
+  /// Produto escolhido no popup (corpo de POST /api/nfe_item sem o nfe_id) para entrar na devolucao manual.
+  final Map<String, dynamic>? itemManual;
+  const NfeDevolucaoEscolha(this.motivo, this.itens, {this.semItens = false, this.itemManual});
 }
+
+/// Corpo de POST /api/nfe_item para o produto escolhido (o backend vincula o produto e recalcula os totais).
+Map<String, dynamic> corpoItemDoProduto(Map<String, dynamic> p, {required double qtd, required double preco, Object? nfeId}) => {
+      if (nfeId != null) 'nfe_id': nfeId,
+      'produto': {'id': p['id']},
+      'c_prod': (p['codigo'] ?? p['id']).toString(),
+      'x_prod': (p['nome'] ?? '').toString(),
+      'ncm': (p['ncm'] ?? '').toString(),
+      'cfop': (p['cfop'] ?? '').toString(),
+      'u_com': (p['unidadeComercial'] ?? p['unidade_comercial'] ?? p['unidade'] ?? '').toString().toUpperCase(),
+      'q_com': qtd,
+      'v_un_com': preco,
+      'v_prod': qtd * preco,
+    };
 
 /// Dialogo "Devolver NF-e de Entrada": traz TODOS os itens da nota (todos marcados) para o usuario desmarcar o que nao
 /// vai devolver ou reduzir a quantidade. Nota importada da SEFAZ sem itens oferece "Buscar XML SEFAZ" ali mesmo.
@@ -170,18 +187,7 @@ class _NfeDevolucaoDialogState extends State<NfeDevolucaoDialog> {
     });
     String? erroAdd;
     try {
-      final body = {
-        'nfe_id': int.tryParse(_id) ?? _id,
-        'produto': {'id': p['id']},
-        'c_prod': (p['codigo'] ?? p['id']).toString(),
-        'x_prod': (p['nome'] ?? '').toString(),
-        'ncm': (p['ncm'] ?? '').toString(),
-        'cfop': (p['cfop'] ?? '').toString(),
-        'u_com': (p['unidadeComercial'] ?? p['unidade_comercial'] ?? p['unidade'] ?? '').toString().toUpperCase(),
-        'q_com': qtd,
-        'v_un_com': preco,
-        'v_prod': qtd * preco,
-      };
+      final body = corpoItemDoProduto(p, qtd: qtd, preco: preco, nfeId: int.tryParse(_id) ?? _id);
       final r = await TenantContext.post('${ApiLinks.baseUrl}/api/nfe_item', body);
       if (r.statusCode != 200 && r.statusCode != 201) {
         erroAdd = _mensagemErroBusca(r.statusCode, r.body,
@@ -467,7 +473,16 @@ class _NfeDevolucaoDialogState extends State<NfeDevolucaoDialog> {
             key: const Key('devolucao_continuar_sem_itens'),
             onPressed: _buscandoXml
                 ? null
-                : () => Navigator.pop(context, NfeDevolucaoEscolha(_motivo.text.trim(), const [], semItens: true)),
+                : () {
+                    // Se escolheu um produto no popup, ele segue marcado na devolucao manual (nao se perde).
+                    final p = _produtoSel;
+                    final qtd = _num(_qtdNovoCtrl.text) ?? 1;
+                    final preco = _num(_precoNovoCtrl.text) ?? _num(p?['preco']) ?? 0;
+                    Navigator.pop(
+                        context,
+                        NfeDevolucaoEscolha(_motivo.text.trim(), const [],
+                            semItens: true, itemManual: p == null ? null : corpoItemDoProduto(p, qtd: qtd, preco: preco)));
+                  },
             icon: const Icon(Icons.edit_note),
             label: const Text('Fazer manual'),
           ),
