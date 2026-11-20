@@ -65,6 +65,34 @@ void main() {
     expect(find.byKey(const Key('devolucao_confirmar')), findsNothing);
   });
 
+  testWidgets('nota sem itens: Continuar assim mesmo devolve escolha sem itens para abrir a devolucao em edicao', (tester) async {
+    NfeDevolucaoEscolha? escolha;
+    final cliente = MockClient((req) async => http.Response(jsonEncode([]), 200, headers: json));
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(
+          builder: (ctx) => Scaffold(
+            body: TextButton(
+              onPressed: () async => escolha = await mostrarDialogoDevolucaoNfe(ctx, {'id': 809, 'chave': '3126'}),
+              child: const Text('abrir'),
+            ),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('devolucao_continuar_sem_itens')));
+      await tester.pumpAndSettle();
+    }, () => cliente);
+
+    expect(escolha, isNotNull);
+    expect(escolha!.semItens, isTrue);
+    expect(escolha!.itens, isEmpty);
+    expect(escolha!.motivo, 'Devolução de mercadoria');
+  });
+
   testWidgets('a escolha devolvida tem so os itens marcados com a quantidade informada', (tester) async {
     NfeDevolucaoEscolha? escolha;
     final cliente = MockClient((req) async => http.Response(

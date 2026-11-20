@@ -14,7 +14,10 @@ import 'searchable_dropdown.dart';
 class NfeDevolucaoEscolha {
   final String motivo;
   final List<Map<String, dynamic>> itens;
-  const NfeDevolucaoEscolha(this.motivo, this.itens);
+
+  /// "Continuar assim mesmo": abre a devolucao em edicao so com a chave referenciada, sem itens da nota de origem.
+  final bool semItens;
+  const NfeDevolucaoEscolha(this.motivo, this.itens, {this.semItens = false});
 }
 
 /// Dialogo "Devolver NF-e de Entrada": traz TODOS os itens da nota (todos marcados) para o usuario desmarcar o que nao
@@ -352,6 +355,15 @@ class _NfeDevolucaoDialogState extends State<NfeDevolucaoDialog> {
                     onPressed: _buscandoXml ? null : _importarXmlArquivo,
                     icon: const Icon(Icons.upload_file),
                     label: const Text('Importar XML (arquivo)'),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    key: const Key('devolucao_continuar_sem_itens'),
+                    onPressed: _buscandoXml
+                        ? null
+                        : () => Navigator.pop(context, NfeDevolucaoEscolha(_motivo.text.trim(), const [], semItens: true)),
+                    icon: const Icon(Icons.edit_note),
+                    label: const Text('Continuar assim mesmo (abrir em edição)'),
                   ),
                   const SizedBox(height: 12),
                   const Text('Ou adicione o produto desta nota para ela ficar referenciada:'),
