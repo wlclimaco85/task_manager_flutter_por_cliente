@@ -480,7 +480,8 @@ class _WindowsNfeGridScreenState extends State<WindowsNfeGridScreen> {
     if (escolha == null || !context.mounted) return;
     try {
       final r = await TenantContext.post(
-          ApiLinks.devolverNfe(id), {'motivo': escolha.motivo, 'itens': escolha.itens});
+          ApiLinks.devolverNfe(id),
+          {'motivo': escolha.motivo, if (escolha.semItens) 'semItens': true else 'itens': escolha.itens});
       if (!context.mounted) return;
       final ok = r.statusCode == 200 || r.statusCode == 201;
       if (!ok) {
