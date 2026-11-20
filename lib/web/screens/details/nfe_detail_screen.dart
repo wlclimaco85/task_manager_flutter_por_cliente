@@ -451,6 +451,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
   // Controllers cabeçalho
   final _chaveCtrl = TextEditingController();
   final _numeroCtrl = TextEditingController();
+  final _observacaoCtrl = TextEditingController();
   final _serieCtrl = TextEditingController();
   String? _statusVal;
   String? _ambienteVal;
@@ -500,6 +501,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
     _dupVDup.dispose();
     _chaveCtrl.dispose();
     _numeroCtrl.dispose();
+    _observacaoCtrl.dispose();
     _serieCtrl.dispose();
     super.dispose();
   }
@@ -510,6 +512,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
 
     _chaveCtrl.text = i['chave']?.toString() ?? '';
     _numeroCtrl.text = i['numero']?.toString() ?? '';
+    _observacaoCtrl.text = i['infComplementares']?.toString() ?? '';
     _serieCtrl.text = i['serie']?.toString() ?? '';
 
     // Status: PENDENTE para novo, mantém o existente para edição
@@ -694,6 +697,9 @@ class _State extends State<NfeSankhyaDetailScreen> {
             nfeDetailIdRef(detalhe['nfeFinalidade']) ?? _finalidadeId;
         _centroCustoId =
             nfeDetailIdRef(detalhe['centroCusto']) ?? _centroCustoId;
+        if (detalhe['infComplementares'] != null) {
+          _observacaoCtrl.text = detalhe['infComplementares'].toString();
+        }
       });
       if (_isRascunhoImportacao) {
         setState(_aplicarDefaultsFinanceirosDaImportacao);
@@ -1080,7 +1086,10 @@ class _State extends State<NfeSankhyaDetailScreen> {
                 const SizedBox(height: 16),
                 _secao(
                   titulo: 'Empresa e Fornecedor',
-                  child: _camposEmpresaFornecedor(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [_camposEmpresaFornecedor(), _campoObservacao()],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _secao(
@@ -1730,6 +1739,33 @@ class _State extends State<NfeSankhyaDetailScreen> {
     ]);
   }
 
+  /// Observação da nota (infCpl): impressa no DANFE em "Informações complementares". Bloqueada depois de autorizada.
+  Widget _campoObservacao() {
+    final status = (_statusVal ?? '').toUpperCase();
+    final bloqueada = status == 'AUTORIZADA' || status == 'CANCELADA';
+    return Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 8),
+        child: TextFormField(
+            controller: _observacaoCtrl,
+            readOnly: bloqueada,
+            minLines: 2,
+            maxLines: 5,
+            maxLength: 2000,
+            style: const TextStyle(fontSize: 12, color: _dark),
+            decoration: InputDecoration(
+                labelText: 'Observação',
+                labelStyle: const TextStyle(fontSize: 11, color: _grey),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: _bord)),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: _green, width: 1.5)),
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8))));
+  }
+
   /// Card "Empresa e Fornecedor": partes envolvidas na nota.
   Widget _camposEmpresaFornecedor() {
     final hasSession = AuthUtility.userInfo?.login != null;
@@ -2033,6 +2069,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
             if (_statusVal != null) 'status': _statusVal,
             if (_ambienteVal != null) 'ambiente': _ambienteVal,
             'tipoOperacao': widget.item['tipoOperacao'] ?? 'SAIDA',
+            'infComplementares': _observacaoCtrl.text.trim(),
             if (_empresaId != null)
               'empresa': {'id': int.tryParse(_empresaId!) ?? _empresaId},
             if (_parceiroId != null)
@@ -2060,6 +2097,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
               nfeFinalidadeId: _finalidadeId,
               centroCustoId: _centroCustoId,
             ),
+            'infComplementares': _observacaoCtrl.text.trim(),
             if (widget.item['natOp'] != null) 'natOp': widget.item['natOp'],
             if (widget.item['indFinal'] != null)
               'indFinal': widget.item['indFinal'],
