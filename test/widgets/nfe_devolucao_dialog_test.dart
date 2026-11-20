@@ -202,7 +202,11 @@ void main() {
 
     await abrir(tester, cliente);
 
-    expect(find.byKey(const Key('devolucao_importar_xml')), findsOneWidget);
+    // Barra de acoes com os 4 botoes: Cancelar, Importar XML, Fazer manual e Confirmar Devolucao.
+    expect(find.widgetWithText(TextButton, 'Cancelar'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Importar XML'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Fazer manual'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Confirmar Devolução'), findsOneWidget);
   });
 
   testWidgets('erro ao carregar os itens aparece no dialogo', (tester) async {
