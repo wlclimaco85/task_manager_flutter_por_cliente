@@ -37,6 +37,127 @@ class _PontoScreenState extends State<PontoScreen> {
   // H10: funcionário vinculado ao login logado
   Map<String, dynamic>? _funcionario;
 
+  // Resumo: ferias nao tiradas, pontos incorretos no mes e solicitacoes pendentes
+  Map<String, dynamic>? _resumo;
+
+  Future<void> _carregarResumo() async {
+    final funcId = _funcionario?['id'];
+    if (funcId == null) return;
+    try {
+      final agora = DateTime.now();
+      final resp = await TenantContext.get(
+          '${ApiLinks.baseUrl}/api/ponto-resumo?funcionarioId=$funcId&mes=${agora.month}&ano=${agora.year}');
+      if (resp.statusCode == 200 && mounted) {
+        setState(() => _resumo = jsonDecode(resp.body) as Map<String, dynamic>);
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar resumo do ponto: $e');
+    }
+  }
+
+  Widget _buildResumoCard() {
+    final r = _resumo;
+    if (r == null) return const SizedBox.shrink();
+    final ferias = (r['feriasNaoTiradas'] as List?) ?? const [];
+    final incorretos = (r['pontosIncorretos'] as List?) ?? const [];
+    final ajustes = (r['ajustesPendentes'] as num?)?.toInt() ?? 0;
+    final feriasPend = (r['feriasPendentes'] as num?)?.toInt() ?? 0;
+    final nada = ferias.isEmpty && incorretos.isEmpty && ajustes == 0 && feriasPend == 0;
+    final fmt = DateFormat('dd/MM/yyyy');
+
+    final linhas = <Widget>[];
+    for (final f in ferias.cast<Map<String, dynamic>>()) {
+      final concessivo = DateTime.tryParse(f['concessivoFim']?.toString() ?? '');
+      linhas.add(_linhaAviso(Icons.beach_access,
+          'Férias não tiradas: ${f['saldoDias']} dia(s), concessivo até ${concessivo == null ? '-' : fmt.format(concessivo)} (${f['situacao']})'));
+    }
+    if (incorretos.isNotEmpty) {
+      linhas.add(_linhaAviso(Icons.error_outline,
+          'Ponto incorreto em ${incorretos.length} dia(s) este mês: ${incorretos.map((d) => d.toString()).join(', ')}'));
+    }
+    if (ajustes > 0) {
+      linhas.add(_linhaAviso(Icons.edit_calendar, 'Ajuste(s) de ponto pendente(s): $ajustes'));
+    }
+    if (feriasPend > 0) {
+      linhas.add(_linhaAviso(Icons.flight, 'Solicitação(ões) de férias pendente(s): $feriasPend'));
+    }
+
+    return Card(
+      color: GridColors.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Pendências',
+                style: TextStyle(fontWeight: FontWeight.bold, color: GridColors.textPrimary, fontSize: 16)),
+            const SizedBox(height: 8),
+            if (nada)
+              const Text('Nenhuma pendência.', style: TextStyle(color: GridColors.textSecondary))
+            else
+              ...linhas,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _linhaAviso(IconData icon, String texto) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: GridColors.primary),
+          const SizedBox(width: 8),
+          Expanded(child: Text(texto, style: const TextStyle(color: GridColors.textPrimary))),
+        ],
+      ),
+    );
+  }
+
+  // Humor do dia: indice do icone (0 = mais feliz ... 4 = mais triste). Persistido em /api/ponto-humor como nivel = 5 - indice.
+  int? _humorSelecionado;
+
+  Future<void> _carregarHumor() async {
+    final loginId = AuthUtility.userInfo?.login?.id;
+    if (loginId == null) return;
+    try {
+      final hoje = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final resp = await TenantContext.get(
+          '${ApiLinks.baseUrl}/api/ponto-humor/$loginId?data=$hoje');
+      if (resp.statusCode == 200 && mounted) {
+        final nivel = (jsonDecode(resp.body)['nivel'] as num).toInt();
+        setState(() => _humorSelecionado = 5 - nivel);
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar humor: $e');
+    }
+  }
+
+  Future<void> _registrarHumor(int indice) async {
+    final loginId = AuthUtility.userInfo?.login?.id;
+    if (loginId == null) return;
+    setState(() => _humorSelecionado = indice);
+    try {
+      final resp = await TenantContext.post(
+          '${ApiLinks.baseUrl}/api/ponto-humor',
+          {
+            'loginId': loginId,
+            if (TenantContext.empresaId != null) 'empresaId': TenantContext.empresaId,
+            'dataHumor': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+            'nivel': 5 - indice,
+          });
+      if (resp.statusCode != 200 && mounted) {
+        _mostrarSnack('Erro ao salvar humor (${resp.statusCode})');
+      }
+    } catch (e) {
+      _mostrarSnack('Erro ao salvar humor: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +167,7 @@ class _PontoScreenState extends State<PontoScreen> {
     });
     _carregarPontos();
     _carregarFuncionario();
+    _carregarHumor();
   }
 
   @override
@@ -68,6 +190,7 @@ class _PontoScreenState extends State<PontoScreen> {
         setState(() {
           _funcionario = body is Map<String, dynamic> ? body : body['data'];
         });
+        _carregarResumo();
       }
     } catch (e) {
       debugPrint('H10: Erro ao carregar funcionário: $e');
@@ -165,6 +288,8 @@ class _PontoScreenState extends State<PontoScreen> {
               _buildClockCard(),
               const SizedBox(height: 20),
               _buildMarcacoesCard(),
+              const SizedBox(height: 20),
+              _buildResumoCard(),
               const SizedBox(height: 20),
               _buildActionButtons(),
               const SizedBox(height: 30),
@@ -434,12 +559,17 @@ class _PontoScreenState extends State<PontoScreen> {
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: icons
-              .map((icon) => IconButton(
-                    icon: Icon(icon, size: 34, color: GridColors.primary),
-                    onPressed: () {},
-                  ))
-              .toList(),
+          children: [
+            for (var i = 0; i < icons.length; i++)
+              IconButton(
+                icon: Icon(icons[i],
+                    size: 34,
+                    color: _humorSelecionado == i
+                        ? GridColors.success
+                        : GridColors.primary),
+                onPressed: () => _registrarHumor(i),
+              ),
+          ],
         ),
       ],
     );

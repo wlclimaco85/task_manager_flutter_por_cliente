@@ -146,6 +146,37 @@ void main() {
     expect(find.text('122065 - MACARICO - PROTECNI'), findsOneWidget);
   });
 
+  testWidgets('nota sem itens mostra campo de produto e botao Adicionar desabilitado sem produto escolhido', (tester) async {
+    final cliente = MockClient((req) async => http.Response(jsonEncode([]), 200, headers: json));
+
+    await abrir(tester, cliente);
+
+    expect(find.byKey(const Key('devolucao_produto')), findsOneWidget);
+    final botao = tester.widget<OutlinedButton>(find.byKey(const Key('devolucao_adicionar_produto')));
+    expect(botao.onPressed, isNull);
+  });
+
+  test('XML importado so e aceito se tiver a mesma chave da nota e itens', () {
+    const chave = '31261114190675000317550060030733751371733145';
+    const outra = '31261114190675000317550050052807191371733999';
+    String xml(String c, {bool comItens = true}) =>
+        '<nfeProc><NFe><infNFe Id="NFe$c" versao="4.00">${comItens ? '<det nItem="1"></det>' : ''}</infNFe></NFe></nfeProc>';
+
+    expect(erroXmlDiferenteDaNota(xml(chave), chave), isNull);
+    expect(erroXmlDiferenteDaNota(xml(outra), chave), contains('chave $outra'));
+    expect(erroXmlDiferenteDaNota(xml(chave, comItens: false), chave), contains('não tem itens'));
+    expect(erroXmlDiferenteDaNota('<html></html>', chave), contains('não é um XML de NF-e'));
+    expect(erroXmlDiferenteDaNota(xml(chave), '123'), contains('chave de acesso válida'));
+  });
+
+  testWidgets('nota sem itens oferece importar XML por arquivo', (tester) async {
+    final cliente = MockClient((req) async => http.Response(jsonEncode([]), 200, headers: json));
+
+    await abrir(tester, cliente);
+
+    expect(find.byKey(const Key('devolucao_importar_xml')), findsOneWidget);
+  });
+
   testWidgets('erro ao carregar os itens aparece no dialogo', (tester) async {
     final cliente = MockClient((req) async => http.Response('{}', 500, headers: json));
 

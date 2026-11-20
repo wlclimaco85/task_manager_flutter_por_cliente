@@ -70,6 +70,7 @@ class _WebFuncionarioDetailScreenState extends State<WebFuncionarioDetailScreen>
             item: widget.item,
             telaNome: 'funcionario',
             hasPermission: widget.hasPermission,
+            ocultarAbasRelacao: true,
           ),
           // ── Tab 2: Ponto ──────────────────────────────────────────────
           _PontoTab(funcionarioId: funcId is int ? funcId : int.tryParse(funcId?.toString() ?? '')),
