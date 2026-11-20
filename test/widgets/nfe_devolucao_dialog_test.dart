@@ -209,6 +209,20 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Confirmar Devolução'), findsOneWidget);
   });
 
+  test('produto escolhido vira o corpo do item (segue marcado na devolucao manual)', () {
+    final c = corpoItemDoProduto(
+        {'id': 7, 'codigo': 'A1', 'nome': 'PROD', 'ncm': '1234', 'cfop': '5102', 'unidade': 'un'},
+        qtd: 2, preco: 3.5, nfeId: 811);
+
+    expect(c['nfe_id'], 811);
+    expect(c['produto'], {'id': 7});
+    expect(c['x_prod'], 'PROD');
+    expect(c['u_com'], 'UN');
+    expect(c['q_com'], 2);
+    expect(c['v_prod'], 7.0);
+    expect(corpoItemDoProduto({'id': 7}, qtd: 1, preco: 1).containsKey('nfe_id'), isFalse);
+  });
+
   testWidgets('erro ao carregar os itens aparece no dialogo', (tester) async {
     final cliente = MockClient((req) async => http.Response('{}', 500, headers: json));
 

@@ -637,7 +637,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
           '${ApiLinks.baseUrl}/api/produto-contabil?tamanho=500${empId != null ? '&empId=$empId' : ''}${parcId != null ? '&parceiroId=$parcId' : ''}&isServico=false',
           (d) => setState(() => _produtos = d)),
       _loadList(
-          '${ApiLinks.baseUrl}/api/nfe-serie?tamanho=100${empId != null ? '&empId=$empId' : ''}',
+          '${ApiLinks.baseUrl}/api/nfe-serie?tamanho=100${empId != null ? '&empId=$empId' : ''}${parcId != null ? '&parceiroId=$parcId' : ''}',
           (d) => setState(() {
                 _series = d;
                 if (_serieCtrl.text.isNotEmpty && _serieId == null) {
