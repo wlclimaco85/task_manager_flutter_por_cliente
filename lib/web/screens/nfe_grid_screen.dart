@@ -857,24 +857,22 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
     final id = item['id']?.toString() ?? '';
     if (id.isEmpty) return;
     try {
-      final r = await TenantContext.get(ApiLinks.nfeById(id));
+      // consulta a SEFAZ e atualiza no banco o status que divergir (ex.: nota cancelada fora do sistema)
+      final r = await TenantContext.post(
+          '${ApiLinks.nfeById(id)}/sincronizar-sefaz', <String, dynamic>{});
       if (!context.mounted) return;
       if (r.statusCode == 200) {
-        final body = jsonDecode(r.body);
-        final data = body is Map<String, dynamic>
-            ? (body['dados'] is Map<String, dynamic>
-                ? body['dados'] as Map<String, dynamic>
-                : body)
-            : <String, dynamic>{'retorno': body.toString()};
+        final data = jsonDecode(r.body) as Map<String, dynamic>;
         _showDataDialog(context, 'Status NF-e', {
-          'id': data['id'] ?? id,
-          'numero': data['numero'] ?? item['numero'] ?? '-',
-          'serie': data['serie'] ?? item['serie'] ?? '-',
-          'status': data['status'] ?? item['status'] ?? '-',
-          'chave': data['chave'] ?? item['chave'] ?? '-',
-          'protocolo': data['protocolo'] ?? item['protocolo'] ?? '-',
-          'motivo': data['motivoRejeicao'] ?? data['motivo'] ?? '-',
+          'id': id,
+          'numero': item['numero'] ?? '-',
+          'serie': item['serie'] ?? '-',
+          'status na SEFAZ': data['statusAtual'] ?? '-',
+          'status anterior': data['statusAnterior'] ?? '-',
+          'retorno SEFAZ': '${data['cStat'] ?? '-'} - ${data['motivo'] ?? '-'}',
+          'atualizada no sistema': data['atualizada'] == true ? 'sim' : 'nao',
         });
+        if (data['atualizada'] == true) setState(() => _gridKey++);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Erro ${r.statusCode}: ${r.body}'),
