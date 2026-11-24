@@ -75,14 +75,16 @@ class NfeEmissionPayload {
             ((qCom ?? 0) * (vUnCom ?? 0));
 
     return {
-      'cProd': _stringValue(
-        item['cProd'] ??
-            item['codigoProduto'] ??
-            item['codigo'] ??
-            item['produto']?['codigo'] ??
-            item['produto']?['id'] ??
-            item['id'],
-      ),
+      // o servidor devolve cProd "" (nao null) em item sem codigo: "??" parava ali e a emissao era barrada
+      'cProd': _firstFilled([
+        item['cProd'],
+        item['c_prod'],
+        item['codigoProduto'],
+        item['codigo'],
+        item['produto']?['codigo'],
+        item['produto']?['id'],
+        item['id'],
+      ]),
       'xProd': _stringValue(
         item['x_prod'] ??
             item['xProd'] ??
@@ -168,6 +170,15 @@ class NfeEmissionPayload {
 
   static bool _isBlank(dynamic value) =>
       value == null || value.toString().trim().isEmpty;
+
+  /// Primeiro valor nao vazio da lista (texto sem espacos); vazio se todos forem nulos/em branco.
+  static String _firstFilled(List<dynamic> valores) {
+    for (final v in valores) {
+      final t = _stringValue(v);
+      if (t.isNotEmpty) return t;
+    }
+    return '';
+  }
 
   static String _stringValue(dynamic value) =>
       value == null ? '' : value.toString().trim();
