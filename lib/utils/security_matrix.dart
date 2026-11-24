@@ -828,7 +828,7 @@ class ModuloAccess {
     'dre_gerencial',
     // Vendas e emissao
     'orcamentos', 'pedidos_venda', 'pdv_nfce', 'nfe_saida', 'nfce_grid', 'nfe_serie',
-    'nfe_finalidade', 'nfe_tipo_operacao', 'nfe_import_xml', 'nfse', 'nfse_serie',
+    'nfe_finalidade', 'nfe_tipo_operacao', 'cfop', 'nfe_import_xml', 'nfse', 'nfse_serie',
     'nfse_import_xml', 'config_fiscal',
   };
 
@@ -1003,6 +1003,7 @@ class ModuloAccess {
     'nfe_serie': 'Notas Fiscais',
     'nfe_finalidade': 'Notas Fiscais',
     'nfe_tipo_operacao': 'Notas Fiscais',
+    'cfop': 'Notas Fiscais',
     'nfe_import_xml': 'Notas Fiscais',
     'nfe_import_csv': 'Notas Fiscais',
     'consulta_dfe': 'Notas Fiscais',

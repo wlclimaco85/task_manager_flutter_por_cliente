@@ -82,6 +82,7 @@ import './catalago_produto_grid_screen.dart';
 import './nfe_finalidade_grid_screen.dart';
 import './nfe_serie_grid_screen.dart';
 import './nfse_serie_grid_screen.dart';
+import './cfop_grid_screen.dart';
 import './nfe_tipo_operacao_grid_screen.dart';
 import './nfe_grid_screen.dart';
 import './nfce_grid_screen.dart';
@@ -667,6 +668,7 @@ class _WebBottomNavBarScreenState extends State<WebBottomNavBarScreen> {
       const DpBancoHorasScreen(), // 216: Banco de Horas (DP)
       const DpPendenciasScreen(), // 217: Pendencias do DP
       const DpPontoMapaScreen(), // 218: Mapa dos Pontos (DP)
+      WebCfopGridScreen(hasPermission: (p) => true), // 219: CFOP
     ];
   }
 
