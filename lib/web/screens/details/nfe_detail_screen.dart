@@ -57,6 +57,13 @@ Map<String, dynamic> nfeDetailCadastroPayloadIds({
         'centroCustoId': int.tryParse(centroCustoId) ?? centroCustoId,
     };
 
+/// cProd do item = codigo cadastrado do produto escolhido; sem codigo, o id do produto (a NF-e exige cProd).
+@visibleForTesting
+String nfeItemCodigoDoProduto(Object? codigo, String? produtoId) {
+  final c = (codigo ?? '').toString().trim();
+  return c.isNotEmpty ? c : (produtoId ?? '');
+}
+
 /// Destinatario no PUT de atualizacao: o backend so grava o que vier em destinatarioId (sem isto ele se perdia ao salvar).
 /// Em NF-e de entrada o destinatario e' o proprio parceiro logado (campo travado): nao vai no PUT.
 @visibleForTesting
@@ -1974,6 +1981,11 @@ class _State extends State<NfeSankhyaDetailScreen> {
       'nfeId': item['nfe_id'] ?? int.tryParse(_nfeId),
       'nfe_id': item['nfe_id'] ?? int.tryParse(_nfeId),
       if (item['produto'] != null) 'produto': item['produto'],
+      // so envia quando ha valor: item importado sem alterar o produto mantem o cProd gravado
+      if ((item['c_prod'] ?? item['cProd'] ?? '').toString().isNotEmpty) ...{
+        'cProd': (item['c_prod'] ?? item['cProd']).toString(),
+        'c_prod': (item['c_prod'] ?? item['cProd']).toString(),
+      },
       'xProd': item['x_prod'] ?? item['xProd'] ?? '',
       'x_prod': item['x_prod'] ?? item['xProd'] ?? '',
       'ncm': item['ncm'] ?? '',
@@ -2337,6 +2349,9 @@ class _State extends State<NfeSankhyaDetailScreen> {
                   final v = selected['id']?.toString();
                   setState(() {
                     item['produto'] = {'id': int.tryParse(v ?? '') ?? v};
+                    // codigo do item da NF-e = codigo do produto escolhido (sem codigo cadastrado, o id do produto)
+                    item['c_prod'] = nfeItemCodigoDoProduto(selected['codigo'], v);
+                    item['cProd'] = item['c_prod'];
                     item['x_prod'] = selected['nome']?.toString() ?? '';
                     item['xProd'] = item['x_prod'];
                     item['ncm'] = selected['ncm']?.toString() ?? '';
