@@ -79,7 +79,10 @@ NfeDetailParceiroCampos nfeDetailParceirosSaida({
   final parceiroMap = item['parceiro'];
   final destMap = item['destinatario'];
 
-  if (parceiroMap != null) {
+  // o backend grava o parceiro da sessao em NF-e criada na tela: ai o "parceiro" e' o proprio tenant, nao o comprador
+  final parceiroEhOTenant =
+      sessParcId != null && nfeDetailIdRef(parceiroMap) == sessParcId;
+  if (parceiroMap != null && !parceiroEhOTenant) {
     return NfeDetailParceiroCampos(
       parceiroId: sessParcId ?? nfeDetailIdRef(destMap),
       parceiroNome:
@@ -467,6 +470,8 @@ class _State extends State<NfeSankhyaDetailScreen> {
   bool _finGrid = true;
   bool _emitindo = false;
   int _selItem = 0;
+  final Set<String> _cProdBuscados = {};
+  int _cProdRev = 0;
   int _selFin = 0;
 
   List<Map<String, dynamic>> _itens = [];
@@ -2118,6 +2123,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
             ),
             'infComplementares': _observacaoCtrl.text.trim(),
             ...nfeDetailDestinatarioPayload(_destinatarioId, entrada: _isEntrada),
+            if (_ambienteVal != null) 'ambiente': _ambienteVal,
             if (widget.item['natOp'] != null) 'natOp': widget.item['natOp'],
             if (widget.item['indFinal'] != null)
               'indFinal': widget.item['indFinal'],
@@ -2303,15 +2309,41 @@ class _State extends State<NfeSankhyaDetailScreen> {
     );
   }
 
+  /// Item ja gravado com produto mas sem cProd (""): busca o codigo do produto e preenche (uma vez por item).
+  void _preencherCodigoSeVazio(Map<String, dynamic> item, String? prodId) {
+    final atual = (item['c_prod'] ?? item['cProd'] ?? '').toString().trim();
+    if (atual.isNotEmpty || prodId == null || prodId.isEmpty) return;
+    final chave = '${item['id'] ?? _selItem}';
+    if (!_cProdBuscados.add(chave)) return;
+    () async {
+      try {
+        final r = await TenantContext.get('${ApiLinks.baseUrl}/api/produto-contabil/$prodId');
+        if (!mounted || r.statusCode != 200) return;
+        final raw = jsonDecode(r.body);
+        final data = raw is Map ? (raw['data'] is Map ? raw['data'] : raw) : null;
+        item['c_prod'] = nfeItemCodigoDoProduto(data is Map ? data['codigo'] : null, prodId);
+        item['cProd'] = item['c_prod'];
+        setState(() => _cProdRev++);
+      } catch (e) {
+        debugPrint('NF-e: nao foi possivel buscar o codigo do produto $prodId: $e');
+      }
+    }();
+  }
+
   Widget _iForm() {
     if (_selItem >= _itens.length) return const SizedBox();
     final item = _itens[_selItem];
     final prodId =
         (item['produto'] is Map ? item['produto']['id'] : item['produto_id'])
             ?.toString();
+    _preencherCodigoSeVazio(item, prodId);
     return SingleChildScrollView(
         padding: const EdgeInsets.all(10),
         child: Column(children: [
+          // codigo do item (cProd): vem do produto escolhido; editavel
+          KeyedSubtree(
+              key: ValueKey('cprod_${_selItem}_$_cProdRev'),
+              child: _iInp('Código do produto', item, 'c_prod', 'cProd')),
           // Produto SearchableDropdownField — busca paginada no backend filtrada por tenant (empresa e parceiro)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -2349,6 +2381,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
                     // codigo do item da NF-e = codigo do produto escolhido (sem codigo cadastrado, o id do produto)
                     item['c_prod'] = nfeItemCodigoDoProduto(selected['codigo'], v);
                     item['cProd'] = item['c_prod'];
+                    _cProdRev++;
                     item['x_prod'] = selected['nome']?.toString() ?? '';
                     item['xProd'] = item['x_prod'];
                     item['ncm'] = selected['ncm']?.toString() ?? '';
