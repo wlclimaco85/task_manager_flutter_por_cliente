@@ -233,6 +233,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'NF-e Série': (menuId: 'nfe_serie', appScreen: AppScreen.nfeSerie),
     'NF-e Finalidade': (menuId: 'nfe_finalidade', appScreen: null),
     'NF-e Tipo Operação': (menuId: 'nfe_tipo_operacao', appScreen: null),
+    'CFOP': (menuId: 'cfop', appScreen: null),
     'Importar XML NF-e': (menuId: 'nfe_import_xml', appScreen: null),
     'Importar NF-e CSV': (menuId: 'nfe_import_csv', appScreen: null),
     'Consulta DF-e': (menuId: 'consulta_dfe', appScreen: null),
@@ -417,6 +418,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'nfe_serie': 'Notas Fiscais',
     'nfe_finalidade': 'Notas Fiscais',
     'nfe_tipo_operacao': 'Notas Fiscais',
+    'cfop': 'Notas Fiscais',
     'nfe_import_xml': 'Notas Fiscais',
     'nfe_import_csv': 'Notas Fiscais',
     'consulta_dfe': 'Notas Fiscais',
@@ -2166,6 +2168,9 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
         break;
       case "NF-e Tipo Operação":
         nav = _pushDynamicGrid(telaNome: 'nfe_tipo_operacao', sec: sec);
+        break;
+      case "CFOP":
+        nav = _pushDynamicGrid(telaNome: 'cfop', sec: sec);
         break;
       case "Importar XML NF-e":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileNfeImportXmlScreen()));

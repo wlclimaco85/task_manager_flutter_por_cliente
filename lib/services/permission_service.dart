@@ -97,6 +97,8 @@ class PermissionService {
     // Comercial
     'nfe_entrada': 'NFeEntrada',
     'nfe_finalidade': 'NfeFinalidade',
+    // CFOP (natureza da operacao): telaNome = id do menu
+    'cfop': 'cfop',
     'nfe_import_csv': 'NfeImportCSV',
     'nfe_import_xml': 'NfeImportXml',
     'nfse_import_xml': 'nfse_import_xml',

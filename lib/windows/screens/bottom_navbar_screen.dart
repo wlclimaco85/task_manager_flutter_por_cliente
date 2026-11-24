@@ -160,6 +160,7 @@ import '../../web/screens/noticias_grid_screen.dart';
 import '../../web/screens/cnab_remessa_screen.dart';
 import '../../web/screens/ponto_rep_p_screen.dart';
 import '../../web/screens/nfse_serie_grid_screen.dart';
+import '../../web/screens/cfop_grid_screen.dart';
 import '../../web/screens/modulo_tela_grid_screen.dart';
 import '../../web/screens/transporte_veiculo_grid_screen.dart';
 import '../../web/screens/transporte_motorista_grid_screen.dart';
@@ -641,6 +642,7 @@ class _WindowsBottomNavBarScreenState extends State<WindowsBottomNavBarScreen> {
         const DpBancoHorasScreen(), // 216: Banco de Horas (DP)
         const DpPendenciasScreen(), // 217: Pendencias do DP
         const DpPontoMapaScreen(), // 218: Mapa dos Pontos (DP)
+        WebCfopGridScreen(hasPermission: (perm) => true), // 219: CFOP
       ];
 
   String get userName {
