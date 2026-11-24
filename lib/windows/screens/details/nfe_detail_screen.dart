@@ -98,6 +98,16 @@ NfeDetailParceiroCampos nfeDetailParceirosSaida({
   );
 }
 
+/// Destinatario no PUT de atualizacao: o backend so grava o que vier em destinatarioId (sem isto ele se perdia ao salvar).
+/// Em NF-e de entrada o destinatario e' o proprio parceiro logado (campo travado): nao vai no PUT.
+@visibleForTesting
+Map<String, dynamic> nfeDetailDestinatarioPayload(String? destinatarioId,
+        {required bool entrada}) =>
+    <String, dynamic>{
+      if (destinatarioId != null && destinatarioId.isNotEmpty && !entrada)
+        'destinatarioId': int.tryParse(destinatarioId) ?? destinatarioId,
+    };
+
 @visibleForTesting
 bool isNfeRascunhoImportacao(Object? status) =>
     (status?.toString() ?? '').toUpperCase() == 'RASCUNHO_IMPORTACAO';
@@ -2095,6 +2105,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
               centroCustoId: _centroCustoId,
             ),
             'infComplementares': _observacaoCtrl.text.trim(),
+            ...nfeDetailDestinatarioPayload(_destinatarioId, entrada: _isEntrada),
             if (widget.item['natOp'] != null) 'natOp': widget.item['natOp'],
             if (widget.item['indFinal'] != null)
               'indFinal': widget.item['indFinal'],
