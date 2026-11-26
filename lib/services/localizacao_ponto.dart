@@ -26,7 +26,14 @@ class LocalizacaoPonto {
   /// Substituivel em teste.
   static Future<CoordenadaPonto> Function() provedor = _obterDoAparelho;
 
-  static Future<CoordenadaPonto> obter() => provedor();
+  /// Limite total: no navegador, um pedido de permissao sem resposta deixaria "Registrando..." girando para sempre.
+  static const Duration limite = Duration(seconds: 25);
+
+  static Future<CoordenadaPonto> obter() => provedor().timeout(
+        limite,
+        onTimeout: () => throw const LocalizacaoIndisponivelException(
+            'Não foi possível obter a sua localização a tempo. Permita o acesso à localização do navegador/aparelho e tente de novo.'),
+      );
 
   static Future<CoordenadaPonto> _obterDoAparelho() async {
     try {
