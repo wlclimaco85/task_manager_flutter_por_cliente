@@ -9,7 +9,10 @@ import '../utils/file_saver_compat.dart';
 import '../utils/grid_colors.dart';
 import '../utils/planilha_acrescentar.dart';
 import '../utils/planilha_formula.dart';
+import '../utils/planilha_tipos.dart';
 import '../utils/tenant_context.dart';
+import 'coluna_planilha_dialogs.dart';
+import 'compartilhar_planilha_dialog.dart';
 import 'importar_planilha_dialog.dart';
 import 'publicar_menu_dialog.dart';
 
@@ -59,6 +62,14 @@ class _PlanilhaViewState extends State<PlanilhaView> {
   int _coluna = 0;
   bool _alterada = false;
   bool _ocupado = false;
+
+  Map<String, ColunaPlanilha> _colunas = {};
+  int? _versao;
+  bool _dono = true;
+  bool _podeEditar = true;
+
+  /// Tipos e compartilhamento pertencem a planilha do usuario; modelos publicados nao os guardam.
+  bool get _planilhaDoUsuario => !_construindo && widget.modeloId == null;
 
   String get _selecionada => endereco(_linha, _coluna);
 
@@ -232,11 +243,16 @@ class _PlanilhaViewState extends State<PlanilhaView> {
     _barra.text = v;
   }
 
-  void _substituir(Map<String, String> celulas, {int? id, String? nome}) {
+  /// Troca a planilha aberta (conteudo, tipos de coluna, versao e permissoes).
+  void _substituir(Map<String, String> celulas, {int? id, String? nome, PlanilhaDados? de}) {
     setState(() {
       _celulas = Map.of(celulas);
       _calculo = PlanilhaCalculo(_celulas);
       _id = id;
+      _colunas = Map.of(de?.colunas ?? const {});
+      _versao = de?.versao;
+      _dono = de?.dono ?? true;
+      _podeEditar = de?.podeEditar ?? true;
       if (nome != null) _nome.text = nome;
       _linha = 0;
       _coluna = 0;
@@ -245,21 +261,72 @@ class _PlanilhaViewState extends State<PlanilhaView> {
     });
   }
 
-  Future<void> _gravarBloco(List<List<String>> bloco) async {
+  // ------------------------------------------------------------------ tipos de coluna e compartilhamento
+
+  Future<void> _tipoDaColuna() async {
+    final letra = nomeColuna(_coluna);
+    final nova = await showDialog<ColunaPlanilha>(
+        context: context, builder: (_) => TipoDeColunaDialog(letra: letra, atual: _colunas[letra]));
+    if (nova == null) return;
+    setState(() {
+      if (nova.tipo == 'texto') {
+        _colunas.remove(letra);
+      } else {
+        _colunas[letra] = nova;
+      }
+      _alterada = true;
+    });
+  }
+
+  /// Linha 1 e' o titulo; formula continua aparecendo como formula.
+  ColunaPlanilha? _tipoDaCelula(int linha, int coluna) {
+    if (linha == 0) return null;
+    final tipo = _colunas[nomeColuna(coluna)];
+    return (_celulas[endereco(linha, coluna)] ?? '').startsWith('=') ? null : tipo;
+  }
+
+  void _definirCelula(int linha, int coluna, String valor) {
+    _selecionar(linha, coluna);
+    _editar(valor);
+    setState(_sincronizar);
+  }
+
+  Future<void> _escolherValor(int linha, int coluna, ColunaPlanilha tipo) async {
+    _selecionar(linha, coluna);
+    final v = await showDialog<String>(
+        context: context, builder: (_) => EscolherValorDialog(coluna: tipo, servico: _svc));
+    if (v != null && mounted) _definirCelula(linha, coluna, v.isEmpty ? '' : celulaDeValor(v));
+  }
+
+  Future<void> _compartilhar() async {
+    final id = _id;
+    if (id == null) {
+      _avisar('Salve a planilha antes de compartilhar.', erro: true);
+      return;
+    }
+    final salvou = await showDialog<bool>(
+        context: context, builder: (_) => CompartilharPlanilhaDialog(servico: _svc, planilhaId: id));
+    if (salvou == true) _avisar('Compartilhamento salvo.');
+  }
+
+  Future<bool> _gravarBloco(List<List<String>> bloco) async {
     final ocupadas = [
       for (var l = 0; l < bloco.length; l++)
         for (var c = 0; c < bloco[l].length; c++)
           if (_celulas.containsKey(endereco(_linha + l, _coluna + c))) 1
     ].length;
-    if (ocupadas > 1 && !await _confirmar('$ocupadas células preenchidas serão substituídas. Continuar?')) return;
+    if (ocupadas > 1 && !await _confirmar('$ocupadas células preenchidas serão substituídas. Continuar?')) {
+      return false;
+    }
     if (!inserirBloco(_celulas, _linha, _coluna, bloco)) {
       _avisar('Os dados passam do limite de $kPlanilhaMaxLinhas linhas e $kPlanilhaMaxColunas colunas.', erro: true);
-      return;
+      return false;
     }
     setState(() {
       _aposMudanca();
       _sincronizar();
     });
+    return true;
   }
 
   Future<void> _colar() => _executar('colar', () async {
@@ -281,15 +348,24 @@ class _PlanilhaViewState extends State<PlanilhaView> {
     if (id == null || !await _podeDescartar()) return;
     await _executar('abrir a planilha', () async {
       final p = await _svc.abrir(id);
-      _substituir(p.celulas, id: p.id, nome: p.nome);
+      _substituir(p.celulas, id: p.id, nome: p.nome, de: p);
     });
   }
 
-  PlanilhaDados get _atual => PlanilhaDados(id: _id, nome: _nome.text.trim(), celulas: _celulas);
+  /// Compartilhada so para consulta: salvar cria uma copia do proprio usuario.
+  PlanilhaDados get _atual => PlanilhaDados(
+      id: _podeEditar ? _id : null,
+      nome: _nome.text.trim(),
+      celulas: _celulas,
+      colunas: _colunas,
+      versao: _podeEditar ? _versao : null);
 
   Future<void> _salvar() => _executar('salvar a planilha', () async {
         final p = await _svc.salvar(_atual);
         _id = p.id;
+        _versao = p.versao;
+        _dono = p.dono;
+        _podeEditar = p.podeEditar;
         _alterada = false;
         _salvas = await _svc.listar();
         _avisar('Planilha salva.');
@@ -340,8 +416,14 @@ class _PlanilhaViewState extends State<PlanilhaView> {
         }
       }
     }
-    _substituir(celulas, id: _id);
-    setState(() => _alterada = true);
+    // so o conteudo muda: tipos de coluna, versao e permissoes sao os da planilha aberta
+    setState(() {
+      _celulas = Map.of(celulas);
+      _linha = 0;
+      _coluna = 0;
+      _aposMudanca();
+      _sincronizar();
+    });
     if (resumo != null) _avisar(resumo);
   }
 
@@ -359,10 +441,19 @@ class _PlanilhaViewState extends State<PlanilhaView> {
   Future<void> _dadosDoSistema() async {
     final r = await showDialog<ConsultaPlanilha>(context: context, builder: (_) => DadosSistemaDialog(servico: _svc));
     if (r == null) return;
-    await _gravarBloco([
+    final linhaInicial = _linha, colunaInicial = _coluna;
+    final gravou = await _gravarBloco([
       [for (final c in r.colunas) celulaDeValor(c)],
       for (final l in r.linhas) [for (final v in l) celulaDeValor(v)],
     ]);
+    // o tipo vale para a coluna inteira, entao so e' aplicado quando os titulos caem na linha 1
+    if (gravou && linhaInicial == 0 && r.tipos.isNotEmpty) {
+      setState(() {
+        for (final t in r.tipos.entries) {
+          _colunas[nomeColuna(colunaInicial + t.key)] = t.value;
+        }
+      });
+    }
     if (r.truncado) _avisar('A consulta foi limitada às primeiras ${r.linhas.length} linhas.');
   }
 
@@ -509,7 +600,7 @@ class _PlanilhaViewState extends State<PlanilhaView> {
                 icon: const Icon(Icons.save_outlined, size: 18),
                 label: Text(_construindo
                     ? 'Salvar modelo'
-                    : widget.modeloId != null
+                    : widget.modeloId != null || !_podeEditar
                         ? 'Salvar cópia'
                         : 'Salvar'),
                 style: FilledButton.styleFrom(
@@ -540,10 +631,14 @@ class _PlanilhaViewState extends State<PlanilhaView> {
                       minimumSize: const Size(44, 44)),
                 ),
               ],
+              if (_planilhaDoUsuario) ...[
+                _botao(Icons.view_column_outlined, 'Tipo da coluna', _tipoDaColuna),
+                if (_dono) _botao(Icons.group_add_outlined, 'Compartilhar', _compartilhar),
+              ],
               _separador(),
               IconButton(
                 tooltip: 'Excluir planilha',
-                onPressed: _id == null || _ocupado ? null : _excluir,
+                onPressed: _id == null || _ocupado || !_dono ? null : _excluir,
                 color: GridColors.error,
                 icon: const Icon(Icons.delete_outline),
               ),
@@ -555,6 +650,12 @@ class _PlanilhaViewState extends State<PlanilhaView> {
   Widget _situacao() {
     final (texto, icone, cor) = _alterada
         ? ('Alterações não salvas', Icons.edit_outlined, GridColors.primary)
+        : !_dono
+            ? (
+                _podeEditar ? 'Compartilhada com você: pode editar' : 'Compartilhada com você: só consulta',
+                Icons.group_outlined,
+                _tintaSuave
+              )
         : _id != null
             ? ('Salva', Icons.check_circle_outline, GridColors.success)
             : ('Ainda não salva', Icons.fiber_new_outlined, _tintaSuave);
@@ -645,6 +746,52 @@ class _PlanilhaViewState extends State<PlanilhaView> {
       );
     }
 
+    // caixa de marcar so aparece em linha com dados (ou na selecionada), para nao encher a grade vazia
+    final linhasComDados = <int>{for (final ref in _celulas.keys) posicao(ref)?.$1 ?? -1};
+
+    // celula de coluna com tipo; null = celula comum
+    Widget? tipada(int l, int c) {
+      final tipo = _tipoDaCelula(l, c);
+      if (tipo == null) return null;
+      final ref = endereco(l, c);
+      final selecionada = l == _linha && c == _coluna;
+      final texto = _calculo.exibir(ref);
+      final contorno = selecionada ? Border.all(color: GridColors.primary, width: 2) : null;
+      if (tipo.tipo == 'check') {
+        if (!selecionada && !linhasComDados.contains(l)) return null;
+        return caixa(
+          _larguraColuna,
+          Checkbox(
+              key: ValueKey('check-$ref'),
+              value: marcado(texto),
+              activeColor: GridColors.primary,
+              onChanged: (v) => _definirCelula(l, c, textoDaCaixa(v == true))),
+          contorno: contorno,
+          alinhamento: Alignment.center,
+        );
+      }
+      if ((tipo.tipo == 'lista' || tipo.tipo == 'pesquisa') && selecionada) {
+        return InkWell(
+          key: ValueKey('escolher-$ref'),
+          onTap: () => _escolherValor(l, c, tipo),
+          child: caixa(
+            _larguraColuna,
+            Row(children: [
+              Expanded(
+                  child: Text(texto,
+                      maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: _tinta))),
+              Icon(tipo.tipo == 'lista' ? Icons.arrow_drop_down : Icons.search,
+                  size: 18, color: GridColors.primary),
+            ]),
+            contorno: contorno,
+          ),
+        );
+      }
+      return null;
+    }
+
+    final temSoma = _colunas.values.any((t) => t.tipo == 'soma');
+
     return Scrollbar(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -662,7 +809,9 @@ class _PlanilhaViewState extends State<PlanilhaView> {
                 itemBuilder: (_, l) => Row(children: [
                   titulo(_larguraIndice, '${l + 1}', l == _linha),
                   for (var c = 0; c < colunas; c++)
-                    if (l == _linha && c == _coluna)
+                    if (tipada(l, c) case final Widget especial)
+                      especial
+                    else if (l == _linha && c == _coluna)
                       caixa(
                         _larguraColuna,
                         TextField(
@@ -695,6 +844,24 @@ class _PlanilhaViewState extends State<PlanilhaView> {
                 ]),
               ),
             ),
+            if (temSoma)
+              Row(children: [
+                titulo(_larguraIndice, 'Σ', false),
+                for (var c = 0; c < colunas; c++)
+                  caixa(
+                    _larguraColuna,
+                    Text(
+                        _colunas[nomeColuna(c)]?.tipo == 'soma'
+                            ? formatarNumero(somaDaColuna(_celulas, _calculo, c))
+                            : '',
+                        key: ValueKey('soma-${nomeColuna(c)}'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _tinta)),
+                    fundo: GridColors.surfaceMuted,
+                    alinhamento: Alignment.centerRight,
+                  ),
+              ]),
           ]),
         ),
       ),
@@ -766,9 +933,23 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
   }
 
   /// Cabecalhos com o rotulo do dicionario quando a coluna veio da tabela escolhida.
-  ConsultaPlanilha _comRotulos(ConsultaPlanilha r) =>
-      ConsultaPlanilha([for (final c in r.colunas) _campos[c] ?? c], r.linhas, r.truncado,
-          sql: _sql.text, rotulos: Map.of(_campos));
+  ConsultaPlanilha _comRotulos(ConsultaPlanilha r) {
+    final tabela = _tabela;
+    final daFonte = tabela == null ? const <String, TipoDaFonte>{} : widget.servico.tiposDe(tabela);
+    final tipos = [for (final c in r.colunas) daFonte[c]];
+    return ConsultaPlanilha(
+        [for (final c in r.colunas) _campos[c] ?? c],
+        [
+          for (final l in r.linhas) [for (var i = 0; i < l.length; i++) valorDaFonte(l[i], tipos[i])]
+        ],
+        r.truncado,
+        sql: _sql.text,
+        rotulos: Map.of(_campos),
+        tipos: {
+          for (var i = 0; i < tipos.length; i++)
+            if (tipos[i] != null) i: tipos[i]!.coluna
+        });
+  }
 
   Future<void> _consultar() => _executar(() async {
         _resultado = null;
