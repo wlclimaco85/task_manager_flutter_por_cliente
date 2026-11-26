@@ -1,4 +1,3 @@
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,11 +5,12 @@ import 'package:flutter/services.dart';
 import '../services/planilha_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/file_saver_compat.dart';
+import '../utils/grid_colors.dart';
 import '../utils/planilha_formula.dart';
 import '../utils/tenant_context.dart';
 
 /// Planilha tipo Excel: celulas com formulas, colar do Excel, importar/exportar .xlsx, salvar por empresa/parceiro e
-/// (MASTER) trazer dados do sistema com SELECT. Usa so cores do tema, para nao misturar identidade entre os apps.
+/// (MASTER) trazer dados do sistema com SELECT. Cores somente pelos tokens GridColors do proprio app.
 class PlanilhaView extends StatefulWidget {
   final PlanilhaService? servico;
   final bool? podeConsultar;
@@ -72,8 +72,8 @@ class _PlanilhaViewState extends State<PlanilhaView> {
 
   void _avisar(String texto, {bool erro = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
-        content: Text(texto), backgroundColor: erro ? Theme.of(context).colorScheme.error : null));
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(texto), backgroundColor: erro ? GridColors.error : null));
   }
 
   Future<bool> _confirmar(String pergunta) async =>
@@ -233,6 +233,21 @@ class _PlanilhaViewState extends State<PlanilhaView> {
 
   // ------------------------------------------------------------------ tela
 
+  // o painel admin tem cartao escuro: a cor do texto segue o brilho do GridColors.card do app
+  static bool get _escuro => ThemeData.estimateBrightnessForColor(GridColors.card) == Brightness.dark;
+  static Color get _tinta => _escuro ? Colors.white : Colors.black87;
+  static Color get _tintaSuave => _escuro ? Colors.white70 : Colors.black54;
+
+  static OutlineInputBorder _borda(Color cor, [double largura = 1]) =>
+      OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: cor, width: largura));
+
+  static BoxDecoration _cartao() => BoxDecoration(
+        color: GridColors.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: GridColors.divider),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 3))],
+      );
+
   @override
   Widget build(BuildContext context) {
     var ultimaLinha = 0, ultimaColuna = 0;
@@ -245,85 +260,228 @@ class _PlanilhaViewState extends State<PlanilhaView> {
     final linhas = (ultimaLinha + 30).clamp(100, kPlanilhaMaxLinhas);
     final colunas = (ultimaColuna + 4).clamp(26, kPlanilhaMaxColunas);
 
-    return Column(children: [
-      if (_ocupado) const LinearProgressIndicator(minHeight: 2),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-        child: Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-          SizedBox(
-            width: 220,
-            child: DropdownButtonFormField<int>(
-              key: ValueKey('salvas-$_id-${_salvas.length}'),
-              initialValue: _salvas.any((p) => p.id == _id) ? _id : null,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Planilhas salvas', isDense: true),
-              items: [
-                for (final p in _salvas)
-                  DropdownMenuItem(value: p.id, child: Text(p.nome, overflow: TextOverflow.ellipsis))
-              ],
-              onChanged: _ocupado ? null : _abrir,
+    final base = Theme.of(context);
+    // Tema local claro com os tokens do app: a grade fica legivel qualquer que seja o tema global.
+    final tema = base.copyWith(
+      colorScheme: (_escuro ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(
+        primary: GridColors.primary,
+        secondary: GridColors.secondary,
+        surface: GridColors.card,
+        onSurface: _tinta,
+        error: GridColors.error,
+      ),
+      textTheme: base.textTheme.apply(bodyColor: _tinta, displayColor: _tinta),
+      textSelectionTheme: const TextSelectionThemeData(cursorColor: GridColors.primary),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: GridColors.card,
+        isDense: true,
+        labelStyle: TextStyle(color: _tintaSuave),
+        hintStyle: TextStyle(color: _tintaSuave),
+        enabledBorder: _borda(GridColors.divider),
+        focusedBorder: _borda(GridColors.primary, 1.6),
+      ),
+    );
+
+    return Theme(
+      data: tema,
+      child: Material(
+        color: GridColors.background,
+        child: Column(children: [
+          SizedBox(height: 3, child: _ocupado ? const LinearProgressIndicator(color: GridColors.primary) : null),
+          Padding(padding: const EdgeInsets.fromLTRB(12, 6, 12, 8), child: _cabecalho()),
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              clipBehavior: Clip.antiAlias,
+              decoration: _cartao(),
+              child: Column(children: [
+                _barraFormula(),
+                Expanded(child: _grade(linhas, colunas)),
+              ]),
             ),
           ),
-          SizedBox(
-            width: 220,
-            child: TextField(
-              controller: _nome,
-              maxLength: 150,
-              onChanged: (_) => _alterada = true,
-              decoration: const InputDecoration(labelText: 'Nome', isDense: true, counterText: ''),
-            ),
-          ),
-          _botao(Icons.note_add_outlined, 'Nova', _nova),
-          _botao(Icons.save_outlined, 'Salvar', _salvar),
-          _botao(Icons.delete_outline, 'Excluir', _id == null ? null : _excluir),
-          _botao(Icons.upload_file, 'Importar Excel', _importar),
-          _botao(Icons.download, 'Exportar Excel', _exportar),
-          _botao(Icons.content_paste, 'Colar', _colar),
-          if (_podeConsultar) _botao(Icons.storage, 'Dados do sistema', _dadosDoSistema),
         ]),
       ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+    );
+  }
+
+  Widget _cabecalho() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: _cartao(),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Wrap(spacing: 12, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(color: GridColors.primarySoft, borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.grid_on, color: GridColors.primary),
+            ),
+            SizedBox(
+              width: 260,
+              child: TextField(
+                controller: _nome,
+                maxLength: 150,
+                onChanged: (_) {
+                  if (!_alterada) setState(() => _alterada = true);
+                },
+                style: TextStyle(fontWeight: FontWeight.w600, color: _tinta),
+                decoration: const InputDecoration(labelText: 'Nome da planilha', counterText: ''),
+              ),
+            ),
+            SizedBox(
+              width: 240,
+              child: DropdownButtonFormField<int>(
+                key: ValueKey('salvas-$_id-${_salvas.length}'),
+                initialValue: _salvas.any((p) => p.id == _id) ? _id : null,
+                isExpanded: true,
+                dropdownColor: GridColors.card,
+                decoration: const InputDecoration(labelText: 'Abrir planilha salva'),
+                items: [
+                  for (final p in _salvas)
+                    DropdownMenuItem(value: p.id, child: Text(p.nome, overflow: TextOverflow.ellipsis))
+                ],
+                onChanged: _ocupado ? null : _abrir,
+              ),
+            ),
+            _situacao(),
+          ]),
+          const SizedBox(height: 10),
+          // rolagem horizontal: no celular as acoes nao empurram a grade para fora da tela
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              FilledButton.icon(
+                onPressed: _ocupado ? null : _salvar,
+                icon: const Icon(Icons.save_outlined, size: 18),
+                label: const Text('Salvar'),
+                style: FilledButton.styleFrom(
+                    backgroundColor: GridColors.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(44, 44)),
+              ),
+              _botao(Icons.note_add_outlined, 'Nova', _nova),
+              _separador(),
+              _botao(Icons.upload_file, 'Importar Excel', _importar),
+              _botao(Icons.download, 'Exportar Excel', _exportar),
+              _botao(Icons.content_paste, 'Colar', _colar),
+              if (_podeConsultar) ...[
+                _separador(),
+                FilledButton.icon(
+                  onPressed: _ocupado ? null : _dadosDoSistema,
+                  icon: const Icon(Icons.storage, size: 18),
+                  label: const Text('Dados do sistema'),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: GridColors.secondarySoft,
+                      foregroundColor: GridColors.secondary,
+                      minimumSize: const Size(44, 44)),
+                ),
+              ],
+              _separador(),
+              IconButton(
+                tooltip: 'Excluir planilha',
+                onPressed: _id == null || _ocupado ? null : _excluir,
+                color: GridColors.error,
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ]),
+          ),
+        ]),
+      );
+
+  Widget _situacao() {
+    final (texto, icone, cor) = _alterada
+        ? ('Alterações não salvas', Icons.edit_outlined, GridColors.primary)
+        : _id != null
+            ? ('Salva', Icons.check_circle_outline, GridColors.success)
+            : ('Ainda não salva', Icons.fiber_new_outlined, _tintaSuave);
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icone, size: 18, color: cor),
+      const SizedBox(width: 4),
+      Text(texto, style: TextStyle(color: cor, fontSize: 12, fontWeight: FontWeight.w600)),
+    ]);
+  }
+
+  Widget _separador() => Container(
+      width: 1, height: 28, margin: const EdgeInsets.symmetric(horizontal: 8), color: GridColors.divider);
+
+  Widget _botao(IconData icone, String texto, VoidCallback aoTocar) => Padding(
+        padding: const EdgeInsets.only(left: 8),
+        child: OutlinedButton.icon(
+          onPressed: _ocupado ? null : aoTocar,
+          icon: Icon(icone, size: 18),
+          label: Text(texto),
+          style: OutlinedButton.styleFrom(
+              foregroundColor: GridColors.primary,
+              side: const BorderSide(color: GridColors.divider),
+              minimumSize: const Size(44, 44)),
+        ),
+      );
+
+  Widget _barraFormula() => Container(
+        padding: const EdgeInsets.all(8),
+        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: GridColors.divider))),
         child: Row(children: [
-          SizedBox(width: 56, child: Text(_selecionada, style: const TextStyle(fontWeight: FontWeight.w600))),
+          Container(
+            width: 64,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: GridColors.primarySoft, borderRadius: BorderRadius.circular(8)),
+            child: Text(_selecionada, style: const TextStyle(color: GridColors.primary, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: TextField(
               key: const Key('barra-formula'),
               controller: _barra,
+              style: TextStyle(color: _tinta),
               onChanged: (v) {
                 _celula.text = v;
                 _editar(v);
               },
               onSubmitted: (_) => _selecionar(_linha + 1, _coluna),
               decoration: const InputDecoration(
-                  isDense: true, prefixText: 'fx  ', hintText: 'Valor ou fórmula, ex.: =SOMA(A1:A10)'),
+                  prefixIcon: Icon(Icons.functions, size: 18, color: GridColors.primary),
+                  hintText: 'Valor ou fórmula, ex.: =SOMA(A1:A10)'),
             ),
           ),
         ]),
-      ),
-      Expanded(child: _grade(context, linhas, colunas)),
-    ]);
-  }
-
-  Widget _botao(IconData icone, String texto, VoidCallback? aoTocar) => OutlinedButton.icon(
-        onPressed: _ocupado ? null : aoTocar,
-        icon: Icon(icone, size: 18),
-        label: Text(texto),
-        style: OutlinedButton.styleFrom(minimumSize: const Size(44, 44)),
       );
 
-  Widget _grade(BuildContext context, int linhas, int colunas) {
-    final tema = Theme.of(context);
-    final borda = BorderSide(color: tema.dividerColor, width: 0.5);
-    Widget caixa(double largura, Widget filho, {Color? fundo, Border? contorno}) => Container(
+  Widget _grade(int linhas, int colunas) {
+    const borda = BorderSide(color: GridColors.divider, width: 0.8);
+    Widget caixa(double largura, Widget filho,
+            {Color? fundo, Border? contorno, Alignment alinhamento = Alignment.centerLeft}) =>
+        Container(
           width: largura,
           height: _alturaLinha,
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: BoxDecoration(color: fundo, border: contorno ?? Border(right: borda, bottom: borda)),
+          alignment: alinhamento,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(color: fundo, border: contorno ?? const Border(right: borda, bottom: borda)),
           child: filho,
         );
-    final cabecalho = tema.colorScheme.surfaceContainerHighest;
+    // cabecalho de linha/coluna da celula selecionada fica destacado, como no Excel
+    Widget titulo(double largura, String texto, bool ativo) => caixa(
+          largura,
+          Text(texto,
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700, color: ativo ? GridColors.primary : _tintaSuave)),
+          fundo: ativo ? GridColors.primarySoft : GridColors.surfaceMuted,
+          alinhamento: Alignment.center,
+        );
+    Widget valor(String ref) {
+      final texto = _calculo.exibir(ref);
+      final erro = texto.startsWith('#') && (_celulas[ref] ?? '').startsWith('=');
+      return caixa(
+        _larguraColuna,
+        Text(texto,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 13, color: erro ? GridColors.error : _tinta)),
+        alinhamento: lerNumero(texto) != null ? Alignment.centerRight : Alignment.centerLeft,
+      );
+    }
 
     return Scrollbar(
       child: SingleChildScrollView(
@@ -332,16 +490,15 @@ class _PlanilhaViewState extends State<PlanilhaView> {
           width: _larguraIndice + colunas * _larguraColuna,
           child: Column(children: [
             Row(children: [
-              caixa(_larguraIndice, const SizedBox(), fundo: cabecalho),
-              for (var c = 0; c < colunas; c++)
-                caixa(_larguraColuna, Center(child: Text(nomeColuna(c))), fundo: cabecalho),
+              titulo(_larguraIndice, '', false),
+              for (var c = 0; c < colunas; c++) titulo(_larguraColuna, nomeColuna(c), c == _coluna),
             ]),
             Expanded(
               child: ListView.builder(
                 itemExtent: _alturaLinha,
                 itemCount: linhas,
                 itemBuilder: (_, l) => Row(children: [
-                  caixa(_larguraIndice, Text('${l + 1}'), fundo: cabecalho),
+                  titulo(_larguraIndice, '${l + 1}', l == _linha),
                   for (var c = 0; c < colunas; c++)
                     if (l == _linha && c == _coluna)
                       caixa(
@@ -350,24 +507,28 @@ class _PlanilhaViewState extends State<PlanilhaView> {
                           key: ValueKey('editor-${endereco(l, c)}'),
                           controller: _celula,
                           autofocus: true,
+                          style: TextStyle(fontSize: 13, color: _tinta),
                           onChanged: (v) {
                             _barra.text = v;
                             _editar(v);
                           },
                           onSubmitted: (_) => _selecionar(l + 1, c),
-                          decoration: const InputDecoration(border: InputBorder.none, isCollapsed: true),
+                          decoration: const InputDecoration(
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            isCollapsed: true,
+                          ),
                         ),
-                        contorno: Border.all(color: tema.colorScheme.primary, width: 2),
+                        contorno: Border.all(color: GridColors.primary, width: 2),
                       )
                     else
                       GestureDetector(
                         key: ValueKey(endereco(l, c)),
                         behavior: HitTestBehavior.opaque,
                         onTap: () => _selecionar(l, c),
-                        child: caixa(
-                          _larguraColuna,
-                          Text(_calculo.exibir(endereco(l, c)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ),
+                        child: valor(endereco(l, c)),
                       ),
                 ]),
               ),
@@ -379,7 +540,8 @@ class _PlanilhaViewState extends State<PlanilhaView> {
   }
 }
 
-/// Parte avancada: escolhe uma tabela (monta o SELECT) ou escreve a consulta, ve a previa e insere na planilha.
+/// Parte avancada: escolhe a tabela (nomes e rotulos do Dicionario de Dados) e as colunas, ou escreve a consulta,
+/// ve a previa e insere na planilha.
 class DadosSistemaDialog extends StatefulWidget {
   final PlanilhaService servico;
   const DadosSistemaDialog({super.key, required this.servico});
@@ -390,7 +552,10 @@ class DadosSistemaDialog extends StatefulWidget {
 
 class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
   final _sql = TextEditingController();
-  List<String> _tabelas = const [];
+  List<FontePlanilha> _fontes = const [];
+  String? _tabela;
+  Map<String, String> _campos = const {};
+  final Set<String> _marcados = {};
   ConsultaPlanilha? _resultado;
   String? _erro;
   bool _ocupado = false;
@@ -398,7 +563,7 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
   @override
   void initState() {
     super.initState();
-    _executar(() async => _tabelas = await widget.servico.tabelas());
+    _executar(() async => _fontes = await widget.servico.fontes());
   }
 
   @override
@@ -422,17 +587,25 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
   }
 
   Future<void> _escolherTabela(String tabela) => _executar(() async {
-        final colunas = await widget.servico.colunas(tabela);
-        // O servidor exige :empresaId; tabela sem empresa_id retorna erro claro do banco.
-        final filtro = colunas.contains('empresa_id')
-            ? 'empresa_id = :empresaId'
-            : colunas.contains('cod_emp')
-                ? 'cod_emp = :empresaId'
-                : 'empresa_id = :empresaId';
-        final visiveis = colunas.where((c) => !RegExp('senha|password|token|secret|pfx').hasMatch(c));
-        _sql.text = 'SELECT ${visiveis.join(', ')}\nFROM $tabela\nWHERE $filtro';
-        _resultado = null;
+        _campos = await widget.servico.campos(tabela);
+        _tabela = tabela;
+        _marcados
+          ..clear()
+          ..addAll(_campos.keys);
+        _montarSql();
       });
+
+  void _montarSql() {
+    final colunas = _campos.keys.where(_marcados.contains);
+    // a lista de fontes so tem tabelas com empresa_id, entao o filtro de empresa sempre vale
+    _sql.text =
+        colunas.isEmpty ? '' : 'SELECT ${colunas.join(', ')}\nFROM $_tabela\nWHERE empresa_id = :empresaId';
+    _resultado = null;
+  }
+
+  /// Cabecalhos com o rotulo do dicionario quando a coluna veio da tabela escolhida.
+  ConsultaPlanilha _comRotulos(ConsultaPlanilha r) =>
+      ConsultaPlanilha([for (final c in r.colunas) _campos[c] ?? c], r.linhas, r.truncado);
 
   Future<void> _consultar() => _executar(() async {
         _resultado = null;
@@ -443,7 +616,11 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
   Widget build(BuildContext context) {
     final r = _resultado;
     return AlertDialog(
-      title: const Text('Dados do sistema'),
+      title: const Row(children: [
+        Icon(Icons.storage, color: GridColors.primary),
+        SizedBox(width: 8),
+        Flexible(child: Text('Dados do sistema')),
+      ]),
       content: SizedBox(
         width: 720,
         child: SingleChildScrollView(
@@ -453,12 +630,39 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
               enableFilter: true,
               requestFocusOnTap: true,
               menuHeight: 300,
-              label: const Text('Tabela do sistema (monta o SELECT)'),
-              dropdownMenuEntries: [for (final t in _tabelas) DropdownMenuEntry(value: t, label: t)],
+              label: const Text('Tabela (Dicionário de Dados)'),
+              leadingIcon: const Icon(Icons.table_view),
+              dropdownMenuEntries: [
+                for (final f in _fontes)
+                  DropdownMenuEntry(
+                      value: f.tabela, label: f.titulo == f.tabela ? f.tabela : '${f.titulo} (${f.tabela})')
+              ],
               onSelected: (t) {
                 if (t != null) _escolherTabela(t);
               },
             ),
+            if (_campos.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('Colunas', style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 140),
+                child: SingleChildScrollView(
+                  child: Wrap(spacing: 6, runSpacing: 6, children: [
+                    for (final c in _campos.entries)
+                      FilterChip(
+                        label: Text(c.value),
+                        tooltip: c.key,
+                        selected: _marcados.contains(c.key),
+                        onSelected: (v) => setState(() {
+                          v ? _marcados.add(c.key) : _marcados.remove(c.key);
+                          _montarSql();
+                        }),
+                      )
+                  ]),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               key: const Key('sql'),
@@ -469,7 +673,7 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
               onChanged: (_) => setState(() => _resultado = null),
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
-                labelText: 'Consulta SELECT',
+                labelText: 'Consulta SELECT (avançado)',
                 helperText: 'Somente leitura. Filtre a empresa com :empresaId (e :parceiroId se precisar).',
                 helperMaxLines: 2,
               ),
@@ -478,7 +682,7 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
             if (_erro != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(_erro!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                child: Text(_erro!, style: const TextStyle(color: GridColors.error)),
               ),
             if (r != null) ...[
               const SizedBox(height: 8),
@@ -486,7 +690,7 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
-                  columns: [for (final c in r.colunas) DataColumn(label: Text(c))],
+                  columns: [for (final c in r.colunas) DataColumn(label: Text(_campos[c] ?? c))],
                   rows: [
                     for (final l in r.linhas.take(5))
                       DataRow(cells: [for (final v in l) DataCell(Text('${v ?? ''}'))])
@@ -501,7 +705,7 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
         OutlinedButton(onPressed: _ocupado ? null : _consultar, child: const Text('Consultar')),
         FilledButton(
-          onPressed: r == null || _ocupado ? null : () => Navigator.pop(context, r),
+          onPressed: r == null || _ocupado ? null : () => Navigator.pop(context, _comRotulos(r)),
           child: const Text('Inserir na célula'),
         ),
       ],

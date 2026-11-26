@@ -18,6 +18,12 @@ class PlanilhaDados {
   const PlanilhaDados({this.id, required this.nome, required this.celulas});
 }
 
+class FontePlanilha {
+  final String tabela;
+  final String titulo;
+  const FontePlanilha(this.tabela, this.titulo);
+}
+
 class ConsultaPlanilha {
   final List<String> colunas;
   final List<List<Object?>> linhas;
@@ -79,17 +85,17 @@ class PlanilhaService {
     );
   }
 
-  Future<List<String>> tabelas() async {
-    final j = _json(await TenantContext.get(ApiLinks.queryBuilderTabelas), 'listar as tabelas');
-    final lista = j['data']['data'] as List;
-    return [for (final t in lista) '${t['schema']}.${t['nome']}']..sort();
+  /// Tabelas liberadas (mesma regra do Modulo Java), com titulo do Dicionario de Dados.
+  Future<List<FontePlanilha>> fontes() async {
+    final lista = _json(await TenantContext.get('$_raiz/fontes'), 'listar as tabelas') as List;
+    return [for (final f in lista) FontePlanilha('${f['tabela']}', '${f['titulo']}')]
+      ..sort((a, b) => a.titulo.toLowerCase().compareTo(b.titulo.toLowerCase()));
   }
 
-  Future<List<String>> colunas(String tabelaComSchema) async {
-    final partes = tabelaComSchema.split('.');
-    final j = _json(
-        await TenantContext.get(ApiLinks.queryBuilderColunas(partes.first, partes.last)), 'listar as colunas');
-    return [for (final c in j['data']['data'] as List) '${c['nome']}'];
+  /// Colunas da tabela com os rotulos do dicionario (nome -> rotulo).
+  Future<Map<String, String>> campos(String tabela) async {
+    final j = _json(await TenantContext.get('$_raiz/fontes/$tabela'), 'listar as colunas');
+    return {for (final c in j['colunas'] as List) '${c['nome']}': '${c['rotulo']}'};
   }
 
   static PlanilhaDados _planilha(dynamic j) => PlanilhaDados(

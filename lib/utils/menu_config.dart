@@ -776,6 +776,11 @@ class MenuConfig {
             label: 'Relatórios Personalizados',
             icon: FontAwesomeIcons.filePdf,
             screenIndex: 211),
+        MenuItem(
+            id: 'planilhas',
+            label: 'Planilhas',
+            icon: FontAwesomeIcons.table,
+            screenIndex: 220),
       ],
     ),
     MenuGroup(
@@ -1063,11 +1068,6 @@ class MenuConfig {
   ];
 
   static const List<MenuItem> loose = [
-    MenuItem(
-        id: 'planilhas',
-        label: 'Planilhas',
-        icon: FontAwesomeIcons.table,
-        screenIndex: 220),
     MenuItem(
         id: 'dashboard',
         label: 'Dashboard',
