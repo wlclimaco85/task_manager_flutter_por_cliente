@@ -167,6 +167,7 @@ import '../../web/screens/transporte_motorista_grid_screen.dart';
 import '../../widgets/cte_emissao_view.dart';
 import '../../widgets/dashboards_personalizados_view.dart';
 import '../../widgets/relatorios_personalizados_view.dart';
+import '../../widgets/planilha_view.dart';
 import '../../web/screens/dp_fechamento_empresa_screen.dart';
 import '../../web/screens/dp_relatorios_ponto_screen.dart';
 import '../../web/screens/dp_espelho_assinatura_screen.dart';
@@ -643,6 +644,7 @@ class _WindowsBottomNavBarScreenState extends State<WindowsBottomNavBarScreen> {
         const DpPendenciasScreen(), // 217: Pendencias do DP
         const DpPontoMapaScreen(), // 218: Mapa dos Pontos (DP)
         WebCfopGridScreen(hasPermission: (perm) => true), // 219: CFOP
+        const PlanilhaView(), // 220: Planilhas
       ];
 
   String get userName {

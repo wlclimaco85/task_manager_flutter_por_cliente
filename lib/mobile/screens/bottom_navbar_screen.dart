@@ -52,6 +52,7 @@ import 'transporte_motorista_screen.dart';
 import 'cte_emissao_screen.dart';
 import 'dashboards_personalizados_screens.dart';
 import 'relatorios_personalizados_screens.dart';
+import 'planilha_screen.dart';
 import 'dp_fechamento_empresa_screen.dart';
 import 'dp_relatorios_ponto_screen.dart';
 import 'dp_ponto_extras_screens.dart';
@@ -342,6 +343,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'Permissões Multi-Empresa': (menuId: 'permissoes_multi_empresa', appScreen: null),
     'Dashboards Personalizados': (menuId: 'dashboards_personalizados', appScreen: null),
     'Relatórios Personalizados': (menuId: 'relatorios_personalizados', appScreen: null),
+    'Planilhas': (menuId: 'planilhas', appScreen: null),
     'Query Builder': (menuId: 'query_builder', appScreen: null),
     'Sessões': (menuId: 'sessoes', appScreen: null),
     'Meu Perfil': (menuId: 'perfil', appScreen: AppScreen.perfil),
@@ -2468,6 +2470,9 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
       case "Relatórios de Ponto":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpRelatoriosPontoScreen()));
         break;
+      case "Planilhas":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobilePlanilhaScreen()));
+        break;
       case "Relatórios Personalizados":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileRelatoriosPersonalizadosScreen()));
         break;
@@ -2912,6 +2917,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
           _MoreMenuAction(Icons.approval, 'Solicitações de Acesso'),
           _MoreMenuAction(Icons.switch_account, 'Permissões Multi-Empresa'),
           _MoreMenuAction(Icons.pie_chart, 'Dashboards Personalizados'),
+          _MoreMenuAction(Icons.grid_on, 'Planilhas'),
           _MoreMenuAction(Icons.picture_as_pdf, 'Relatórios Personalizados'),
           _MoreMenuAction(Icons.terminal, 'Query Builder'),
           _MoreMenuAction(Icons.devices, 'Sessões'),
