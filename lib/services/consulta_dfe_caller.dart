@@ -59,11 +59,11 @@ class ConsultaDfeCaller {
     }
   }
 
-  static Future<ConsultaDfeResult> baixar(String nsu) async {
+  static Future<ConsultaDfeResult> baixar(String nsu, String chave) async {
     try {
       final response = await TenantContext.post(
         ApiLinks.baixarDfe(nsu),
-        {},
+        {'chave': chave},
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
