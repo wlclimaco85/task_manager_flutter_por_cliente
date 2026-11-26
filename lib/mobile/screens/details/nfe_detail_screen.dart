@@ -41,6 +41,7 @@ class _State extends State<MobileNfeSankhyaDetailScreen> {
   // Controllers cabeçalho
   final _chaveCtrl = TextEditingController();
   final _numeroCtrl = TextEditingController();
+  final _observacaoCtrl = TextEditingController();
   final _serieCtrl = TextEditingController();
   String? _statusVal;
   String? _ambienteVal;
@@ -76,6 +77,7 @@ class _State extends State<MobileNfeSankhyaDetailScreen> {
 
     _chaveCtrl.text = i['chave']?.toString() ?? '';
     _numeroCtrl.text = i['numero']?.toString() ?? '';
+    _observacaoCtrl.text = i['infComplementares']?.toString() ?? '';
     _serieCtrl.text = i['serie']?.toString() ?? '';
 
     _statusVal = _isNovo ? 'PENDENTE' : (i['status']?.toString() ?? 'PENDENTE');
@@ -250,6 +252,7 @@ class _State extends State<MobileNfeSankhyaDetailScreen> {
           _section('Dados'),
           _readField('Empresa', _empresaNome ?? ''),
           _readField('Parceiro', _parceiroNome ?? ''),
+          _row([_field('Observação', _observacaoCtrl)]),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,

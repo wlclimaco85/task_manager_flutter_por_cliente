@@ -60,6 +60,7 @@ void main() {
     expect(telasNfe, contains('Manifestação Destinatário'));
     expect(telasNfe, contains('Cancelamento e CC-e'));
     expect(telasNfe, contains('Agendar NFe Recorrente'));
+    expect(telasNfe, contains('CFOP')); // cadastro de CFOP (natureza da operacao)
 
     final nfse = grupos.firstWhere((grupo) => grupo.label == 'NFS-e');
     final telasNfse = nfse.entries.map((tela) => tela.label).toSet();

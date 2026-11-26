@@ -149,6 +149,9 @@ class GenericDetailFormScreen extends StatefulWidget {
   /// Opcional: permite fornecer TelaConfig pronto (evita depender de cache/rede em testes).
   final TelaConfig? telaConfig;
 
+  /// Quando true, esconde a barra de abas de relação (Cadastro/Dp...) e mostra só o formulário.
+  final bool ocultarAbasRelacao;
+
   const GenericDetailFormScreen({
     super.key,
     required this.item,
@@ -160,6 +163,7 @@ class GenericDetailFormScreen extends StatefulWidget {
     this.onAfterSave,
     this.onBuscarCep,
     this.telaConfig,
+    this.ocultarAbasRelacao = false,
   });
 
   @override
@@ -721,6 +725,7 @@ class _GenericDetailFormScreenState extends State<GenericDetailFormScreen>
 
         final allTabs = [...explicitTabs, ...autoTabs];
         final tabCount = 1 + allTabs.length;
+        final usarAbas = !widget.ocultarAbasRelacao && tabCount > 1;
 
         if (_tabController == null || _tabController!.length != tabCount) {
           _tabController?.dispose();
@@ -737,9 +742,9 @@ class _GenericDetailFormScreenState extends State<GenericDetailFormScreen>
           ),
           body: Column(
             children: [
-              if (tabCount > 1) _buildTopTabs(allTabs),
+              if (usarAbas) _buildTopTabs(allTabs),
               Expanded(
-                child: tabCount > 1
+                child: usarAbas
                     ? TabBarView(
                         controller: _tabController,
                         children: [

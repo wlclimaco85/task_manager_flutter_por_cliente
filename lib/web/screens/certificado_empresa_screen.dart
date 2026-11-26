@@ -8,6 +8,7 @@ import '../../utils/tenant_context.dart';
 import '../../../models/auth_utility.dart';
 import '../../../utils/api_links.dart';
 import '../../../utils/grid_texts.dart';
+import '../../utils/app_logger.dart';
 
 /// Tela de gerenciamento do certificado digital A1 da empresa.
 /// Permite upload do .pfx, visualização do status e remoção.
@@ -80,8 +81,18 @@ class _CertificadoEmpresaScreenState extends State<CertificadoEmpresaScreen> {
           _certificados =
               dados.map((e) => Map<String, dynamic>.from(e)).toList();
         });
+      } else {
+        AppLogger.i.warn('Certificados: HTTP ${resp.statusCode} ao listar ($param)');
+        if (mounted) {
+          setState(() => _erroUpload =
+              'Nao foi possivel carregar os certificados (HTTP ${resp.statusCode}).');
+        }
       }
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.i.error('Certificados: falha ao listar: $e', st);
+      if (mounted) {
+        setState(() => _erroUpload = 'Nao foi possivel carregar os certificados: $e');
+      }
     } finally {
       setState(() {
         _loading = false;
@@ -91,17 +102,29 @@ class _CertificadoEmpresaScreenState extends State<CertificadoEmpresaScreen> {
 
   // ── Selecionar arquivo .pfx ───────────────────────────────────────────────
   Future<void> _selecionarArquivo() async {
-    final result = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pfx', 'p12'],
-      withData: true,
-    );
-    if (result != null && result.files.isNotEmpty) {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pfx', 'p12'],
+        withData: true,
+        // web: sem isto o seletor devolve null se o "change" demorar mais de 1s apos o foco voltar (arquivo "nao carrega")
+        cancelUploadOnWindowBlur: false,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final arquivo = result.files.first;
+      if (arquivo.bytes == null || arquivo.bytes!.isEmpty) {
+        AppLogger.i.warn('Certificado: arquivo ${arquivo.name} sem conteudo lido pelo seletor');
+        setState(() => _erroUpload = 'Nao foi possivel ler o arquivo ${arquivo.name}. Tente selecionar novamente.');
+        return;
+      }
       setState(() {
-        _arquivoSelecionado = result.files.first;
+        _arquivoSelecionado = arquivo;
         _erroUpload = null;
         _sucessoUpload = null;
       });
+    } catch (e, st) {
+      AppLogger.i.error('Certificado: falha ao abrir o seletor de arquivos: $e', st);
+      if (mounted) setState(() => _erroUpload = 'Nao foi possivel abrir o seletor de arquivos: $e');
     }
   }
 

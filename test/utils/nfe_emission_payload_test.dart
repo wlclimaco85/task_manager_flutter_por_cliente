@@ -45,6 +45,31 @@ void main() {
       expect(payload['itens'].first['vProd'], 20);
     });
 
+    test('cProd vazio vindo do servidor nao barra a emissao: usa produto/id do item', () {
+      Map<String, dynamic> item(Map<String, dynamic> extra) => {
+            'cProd': '',
+            'x_prod': 'Veneziana do Enclausure',
+            'ncm': '85389090',
+            'cfop': '5949',
+            'u_com': 'UN',
+            'q_com': 1,
+            'v_un_com': 10000,
+            ...extra,
+          };
+      List<String> erros(Map<String, dynamic> i) => NfeEmissionPayload.validate(
+            empresaId: '1',
+            destinatarioId: '814',
+            serie: '1',
+            numero: '5',
+            finalidade: 'NORMAL',
+            itens: [i],
+          );
+
+      expect(erros(item({'id': 719})), isNot(contains('Item 1: codigo do produto')));
+      expect(erros(item({'produto': {'id': 7, 'codigo': 'VEN-1'}})), isNot(contains('Item 1: codigo do produto')));
+      expect(erros(item({})), contains('Item 1: codigo do produto')); // sem cProd, produto ou id
+    });
+
     test('valida campos obrigatorios antes de emitir', () {
       final errors = NfeEmissionPayload.validate(
         empresaId: '1',

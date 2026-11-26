@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:task_manager_flutter/utils/file_saver_compat.dart';
 import 'package:flutter/material.dart';
 import '../../../customization/dynamic_grid_windows_screen.dart';
+import '../../../widgets/nfe_devolucao_dialog.dart';
 import '../../../utils/api_links.dart';
 import '../../../utils/app_logger.dart';
 import '../../../utils/fiscal_error_message.dart';
@@ -795,6 +796,11 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
           onPressed: (context, item) => _recusar(context, item),
         ),
         CustomAction<Map<String, dynamic>>(
+          icon: Icons.assignment_return_outlined,
+          label: "Devolver NF-e",
+          onPressed: (context, item) => _devolver(context, item),
+        ),
+        CustomAction<Map<String, dynamic>>(
           icon: Icons.print,
           label: "DANFE",
           onPressed: (context, item) => _imprimirDanfe(context, item),
@@ -851,24 +857,22 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
     final id = item['id']?.toString() ?? '';
     if (id.isEmpty) return;
     try {
-      final r = await TenantContext.get(ApiLinks.nfeById(id));
+      // consulta a SEFAZ e atualiza no banco o status que divergir (ex.: nota cancelada fora do sistema)
+      final r = await TenantContext.post(
+          '${ApiLinks.nfeById(id)}/sincronizar-sefaz', <String, dynamic>{});
       if (!context.mounted) return;
       if (r.statusCode == 200) {
-        final body = jsonDecode(r.body);
-        final data = body is Map<String, dynamic>
-            ? (body['dados'] is Map<String, dynamic>
-                ? body['dados'] as Map<String, dynamic>
-                : body)
-            : <String, dynamic>{'retorno': body.toString()};
+        final data = jsonDecode(r.body) as Map<String, dynamic>;
         _showDataDialog(context, 'Status NF-e', {
-          'id': data['id'] ?? id,
-          'numero': data['numero'] ?? item['numero'] ?? '-',
-          'serie': data['serie'] ?? item['serie'] ?? '-',
-          'status': data['status'] ?? item['status'] ?? '-',
-          'chave': data['chave'] ?? item['chave'] ?? '-',
-          'protocolo': data['protocolo'] ?? item['protocolo'] ?? '-',
-          'motivo': data['motivoRejeicao'] ?? data['motivo'] ?? '-',
+          'id': id,
+          'numero': item['numero'] ?? '-',
+          'serie': item['serie'] ?? '-',
+          'status na SEFAZ': data['statusAtual'] ?? '-',
+          'status anterior': data['statusAnterior'] ?? '-',
+          'retorno SEFAZ': '${data['cStat'] ?? '-'} - ${data['motivo'] ?? '-'}',
+          'atualizada no sistema': data['atualizada'] == true ? 'sim' : 'nao',
         });
+        if (data['atualizada'] == true) setState(() => _gridKey++);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Erro ${r.statusCode}: ${r.body}'),
@@ -1252,6 +1256,72 @@ class _WebNfeGridScreenState extends State<WebNfeGridScreen> {
       if (context.mounted)
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Erro: $e'), backgroundColor: GridColors.error));
+    }
+  }
+
+  /// Escolhe os itens/quantidades no dialogo, gera a NF-e de devolucao (saida, finalidade 4) e abre ela em edicao.
+  Future<void> _devolver(BuildContext context, Map<String, dynamic> item) async {
+    final status = item['status']?.toString().toUpperCase() ?? '';
+    if (status != 'AUTORIZADA') {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Só é possível devolver NF-e autorizada. Status atual: $status.'),
+        backgroundColor: GridColors.error,
+      ));
+      return;
+    }
+    final id = item['id']?.toString() ?? '';
+    final escolha = await mostrarDialogoDevolucaoNfe(context, item);
+    if (escolha == null || !context.mounted) return;
+    try {
+      final r = await TenantContext.post(
+          ApiLinks.devolverNfe(id),
+          {'motivo': escolha.motivo, if (escolha.semItens) 'semItens': true else 'itens': escolha.itens});
+      if (!context.mounted) return;
+      final ok = r.statusCode == 200 || r.statusCode == 201;
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro ao devolver NF-e (HTTP ${r.statusCode}): ${r.body}'),
+            backgroundColor: GridColors.error));
+        return;
+      }
+      // abre a NF-e de devolucao (saida, finalidade devolucao, itens escolhidos) em modo edicao
+      Map<String, dynamic>? devolucao;
+      try {
+        devolucao = Map<String, dynamic>.from(jsonDecode(r.body) as Map);
+        devolucao['tipoOperacao'] = 'SAIDA';
+      } catch (e) {
+        AppLogger.i.warn('Devolver NF-e #$id: resposta sem a NF-e criada ($e)');
+      }
+      if (devolucao == null) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Devolução criada. Localize a NF-e de devolução na grid de NF-e Saída.'),
+            backgroundColor: GridColors.success));
+        setState(() => _gridKey++);
+        return;
+      }
+      // Produto escolhido no popup (Fazer manual): lanca o item na devolucao recem-criada para ela abrir ja com ele.
+      if (escolha.itemManual != null) {
+        final rItem = await TenantContext.post(
+            '${ApiLinks.baseUrl}/api/nfe_item', {...escolha.itemManual!, 'nfe_id': devolucao['id']});
+        if (rItem.statusCode != 200 && rItem.statusCode != 201) {
+          AppLogger.i.warn('Devolver NF-e #$id: produto manual nao lancado (HTTP ${rItem.statusCode}): ${rItem.body}');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Devolução criada, mas o produto não foi lançado (HTTP ${rItem.statusCode}). Adicione na tela.'),
+                backgroundColor: GridColors.error));
+          }
+        }
+      }
+      await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => NfeSankhyaDetailScreen(item: devolucao!)));
+      if (context.mounted) setState(() => _gridKey++);
+    } catch (e, st) {
+      AppLogger.i.error('Devolver NF-e #$id: $e', st);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Erro: $e'), backgroundColor: GridColors.error));
+      }
     }
   }
 

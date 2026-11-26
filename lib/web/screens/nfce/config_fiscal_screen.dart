@@ -385,6 +385,8 @@ class _ConfigFiscalScreenState extends State<ConfigFiscalScreen> {
       type: FileType.custom,
       allowedExtensions: ['pfx', 'p12'],
       withData: true,
+      // web: sem isto o seletor devolve null se o "change" demorar mais de 1s apos o foco voltar (arquivo "nao carrega")
+      cancelUploadOnWindowBlur: false,
     );
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;

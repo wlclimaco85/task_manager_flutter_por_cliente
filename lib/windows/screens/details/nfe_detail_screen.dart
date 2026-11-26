@@ -79,7 +79,10 @@ NfeDetailParceiroCampos nfeDetailParceirosSaida({
   final parceiroMap = item['parceiro'];
   final destMap = item['destinatario'];
 
-  if (parceiroMap != null) {
+  // o backend grava o parceiro da sessao em NF-e criada na tela: ai o "parceiro" e' o proprio tenant, nao o comprador
+  final parceiroEhOTenant =
+      sessParcId != null && nfeDetailIdRef(parceiroMap) == sessParcId;
+  if (parceiroMap != null && !parceiroEhOTenant) {
     return NfeDetailParceiroCampos(
       parceiroId: sessParcId ?? nfeDetailIdRef(destMap),
       parceiroNome:
@@ -97,6 +100,23 @@ NfeDetailParceiroCampos nfeDetailParceirosSaida({
     destinatarioNome: (destMap is Map ? destMap['nome'] : null)?.toString(),
   );
 }
+
+/// cProd do item = codigo cadastrado do produto escolhido; sem codigo, o id do produto (a NF-e exige cProd).
+@visibleForTesting
+String nfeItemCodigoDoProduto(Object? codigo, String? produtoId) {
+  final c = (codigo ?? '').toString().trim();
+  return c.isNotEmpty ? c : (produtoId ?? '');
+}
+
+/// Destinatario no PUT de atualizacao: o backend so grava o que vier em destinatarioId (sem isto ele se perdia ao salvar).
+/// Em NF-e de entrada o destinatario e' o proprio parceiro logado (campo travado): nao vai no PUT.
+@visibleForTesting
+Map<String, dynamic> nfeDetailDestinatarioPayload(String? destinatarioId,
+        {required bool entrada}) =>
+    <String, dynamic>{
+      if (destinatarioId != null && destinatarioId.isNotEmpty && !entrada)
+        'destinatarioId': int.tryParse(destinatarioId) ?? destinatarioId,
+    };
 
 @visibleForTesting
 bool isNfeRascunhoImportacao(Object? status) =>
@@ -450,6 +470,8 @@ class _State extends State<NfeSankhyaDetailScreen> {
   bool _finGrid = true;
   bool _emitindo = false;
   int _selItem = 0;
+  final Set<String> _cProdBuscados = {};
+  int _cProdRev = 0;
   int _selFin = 0;
 
   List<Map<String, dynamic>> _itens = [];
@@ -491,6 +513,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
   // Controllers cabeçalho
   final _chaveCtrl = TextEditingController();
   final _numeroCtrl = TextEditingController();
+  final _observacaoCtrl = TextEditingController();
   final _serieCtrl = TextEditingController();
   String? _serieId;
   String? _statusVal;
@@ -554,6 +577,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
     _dupVDup.dispose();
     _chaveCtrl.dispose();
     _numeroCtrl.dispose();
+    _observacaoCtrl.dispose();
     _serieCtrl.dispose();
     super.dispose();
   }
@@ -564,6 +588,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
 
     _chaveCtrl.text = i['chave']?.toString() ?? '';
     _numeroCtrl.text = i['numero']?.toString() ?? '';
+    _observacaoCtrl.text = i['infComplementares']?.toString() ?? '';
     _serieCtrl.text = i['serie']?.toString() ?? '';
 
     // Status: PENDENTE para novo, mantém o existente para edição
@@ -637,7 +662,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
           '${ApiLinks.baseUrl}/api/produto-contabil?tamanho=500${empId != null ? '&empId=$empId' : ''}${parcId != null ? '&parceiroId=$parcId' : ''}&isServico=false',
           (d) => setState(() => _produtos = d)),
       _loadList(
-          '${ApiLinks.baseUrl}/api/nfe-serie?tamanho=100${empId != null ? '&empId=$empId' : ''}',
+          '${ApiLinks.baseUrl}/api/nfe-serie?tamanho=100${empId != null ? '&empId=$empId' : ''}${parcId != null ? '&parceiroId=$parcId' : ''}',
           (d) => setState(() {
                 _series = d;
                 if (_serieCtrl.text.isNotEmpty && _serieId == null) {
@@ -728,6 +753,9 @@ class _State extends State<NfeSankhyaDetailScreen> {
             nfeDetailIdRef(detalhe['nfeFinalidade']) ?? _finalidadeId;
         _centroCustoId =
             nfeDetailIdRef(detalhe['centroCusto']) ?? _centroCustoId;
+        if (detalhe['infComplementares'] != null) {
+          _observacaoCtrl.text = detalhe['infComplementares'].toString();
+        }
       });
       if (_isRascunhoImportacao) {
         setState(_aplicarDefaultsFinanceirosDaImportacao);
@@ -1076,7 +1104,10 @@ class _State extends State<NfeSankhyaDetailScreen> {
                 const SizedBox(height: 16),
                 _secao(
                   titulo: 'Empresa e Fornecedor',
-                  child: _camposEmpresaFornecedor(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [_camposEmpresaFornecedor(), _campoObservacao()],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _secao(
@@ -1727,6 +1758,33 @@ class _State extends State<NfeSankhyaDetailScreen> {
     ]);
   }
 
+  /// Observação da nota (infCpl): impressa no DANFE em "Informações complementares". Bloqueada depois de autorizada.
+  Widget _campoObservacao() {
+    final status = (_statusVal ?? '').toUpperCase();
+    final bloqueada = status == 'AUTORIZADA' || status == 'CANCELADA';
+    return Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 8),
+        child: TextFormField(
+            controller: _observacaoCtrl,
+            readOnly: bloqueada,
+            minLines: 2,
+            maxLines: 5,
+            maxLength: 2000,
+            style: const TextStyle(fontSize: 12, color: _dark),
+            decoration: InputDecoration(
+                labelText: 'Observação',
+                labelStyle: const TextStyle(fontSize: 11, color: _grey),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: _bord)),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: _green, width: 1.5)),
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8))));
+  }
+
   /// Card "Empresa e Fornecedor": partes envolvidas na nota.
   Widget _camposEmpresaFornecedor() {
     final hasSession = AuthUtility.userInfo?.login != null;
@@ -1925,6 +1983,11 @@ class _State extends State<NfeSankhyaDetailScreen> {
       'nfeId': item['nfe_id'] ?? int.tryParse(_nfeId),
       'nfe_id': item['nfe_id'] ?? int.tryParse(_nfeId),
       if (item['produto'] != null) 'produto': item['produto'],
+      // so envia quando ha valor: item importado sem alterar o produto mantem o cProd gravado
+      if ((item['c_prod'] ?? item['cProd'] ?? '').toString().isNotEmpty) ...{
+        'cProd': (item['c_prod'] ?? item['cProd']).toString(),
+        'c_prod': (item['c_prod'] ?? item['cProd']).toString(),
+      },
       'xProd': item['x_prod'] ?? item['xProd'] ?? '',
       'x_prod': item['x_prod'] ?? item['xProd'] ?? '',
       'ncm': item['ncm'] ?? '',
@@ -2030,6 +2093,7 @@ class _State extends State<NfeSankhyaDetailScreen> {
             if (_statusVal != null) 'status': _statusVal,
             if (_ambienteVal != null) 'ambiente': _ambienteVal,
             'tipoOperacao': widget.item['tipoOperacao'] ?? 'SAIDA',
+            'infComplementares': _observacaoCtrl.text.trim(),
             if (_empresaId != null)
               'empresa': {'id': int.tryParse(_empresaId!) ?? _empresaId},
             if (_parceiroId != null)
@@ -2057,6 +2121,9 @@ class _State extends State<NfeSankhyaDetailScreen> {
               nfeFinalidadeId: _finalidadeId,
               centroCustoId: _centroCustoId,
             ),
+            'infComplementares': _observacaoCtrl.text.trim(),
+            ...nfeDetailDestinatarioPayload(_destinatarioId, entrada: _isEntrada),
+            if (_ambienteVal != null) 'ambiente': _ambienteVal,
             if (widget.item['natOp'] != null) 'natOp': widget.item['natOp'],
             if (widget.item['indFinal'] != null)
               'indFinal': widget.item['indFinal'],
@@ -2242,15 +2309,41 @@ class _State extends State<NfeSankhyaDetailScreen> {
     );
   }
 
+  /// Item ja gravado com produto mas sem cProd (""): busca o codigo do produto e preenche (uma vez por item).
+  void _preencherCodigoSeVazio(Map<String, dynamic> item, String? prodId) {
+    final atual = (item['c_prod'] ?? item['cProd'] ?? '').toString().trim();
+    if (atual.isNotEmpty || prodId == null || prodId.isEmpty) return;
+    final chave = '${item['id'] ?? _selItem}';
+    if (!_cProdBuscados.add(chave)) return;
+    () async {
+      try {
+        final r = await TenantContext.get('${ApiLinks.baseUrl}/api/produto-contabil/$prodId');
+        if (!mounted || r.statusCode != 200) return;
+        final raw = jsonDecode(r.body);
+        final data = raw is Map ? (raw['data'] is Map ? raw['data'] : raw) : null;
+        item['c_prod'] = nfeItemCodigoDoProduto(data is Map ? data['codigo'] : null, prodId);
+        item['cProd'] = item['c_prod'];
+        setState(() => _cProdRev++);
+      } catch (e) {
+        debugPrint('NF-e: nao foi possivel buscar o codigo do produto $prodId: $e');
+      }
+    }();
+  }
+
   Widget _iForm() {
     if (_selItem >= _itens.length) return const SizedBox();
     final item = _itens[_selItem];
     final prodId =
         (item['produto'] is Map ? item['produto']['id'] : item['produto_id'])
             ?.toString();
+    _preencherCodigoSeVazio(item, prodId);
     return SingleChildScrollView(
         padding: const EdgeInsets.all(10),
         child: Column(children: [
+          // codigo do item (cProd): vem do produto escolhido; editavel
+          KeyedSubtree(
+              key: ValueKey('cprod_${_selItem}_$_cProdRev'),
+              child: _iInp('Código do produto', item, 'c_prod', 'cProd')),
           // Produto SearchableDropdownField — busca paginada no backend filtrada por tenant (empresa e parceiro)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -2285,6 +2378,10 @@ class _State extends State<NfeSankhyaDetailScreen> {
                   final v = selected['id']?.toString();
                   setState(() {
                     item['produto'] = {'id': int.tryParse(v ?? '') ?? v};
+                    // codigo do item da NF-e = codigo do produto escolhido (sem codigo cadastrado, o id do produto)
+                    item['c_prod'] = nfeItemCodigoDoProduto(selected['codigo'], v);
+                    item['cProd'] = item['c_prod'];
+                    _cProdRev++;
                     item['x_prod'] = selected['nome']?.toString() ?? '';
                     item['xProd'] = item['x_prod'];
                     item['ncm'] = selected['ncm']?.toString() ?? '';

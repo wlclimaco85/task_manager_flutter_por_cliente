@@ -52,6 +52,7 @@ import 'transporte_motorista_screen.dart';
 import 'cte_emissao_screen.dart';
 import 'dashboards_personalizados_screens.dart';
 import 'relatorios_personalizados_screens.dart';
+import 'planilha_screen.dart';
 import 'dp_fechamento_empresa_screen.dart';
 import 'dp_relatorios_ponto_screen.dart';
 import 'dp_ponto_extras_screens.dart';
@@ -233,6 +234,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'NF-e Série': (menuId: 'nfe_serie', appScreen: AppScreen.nfeSerie),
     'NF-e Finalidade': (menuId: 'nfe_finalidade', appScreen: null),
     'NF-e Tipo Operação': (menuId: 'nfe_tipo_operacao', appScreen: null),
+    'CFOP': (menuId: 'cfop', appScreen: null),
     'Importar XML NF-e': (menuId: 'nfe_import_xml', appScreen: null),
     'Importar NF-e CSV': (menuId: 'nfe_import_csv', appScreen: null),
     'Consulta DF-e': (menuId: 'consulta_dfe', appScreen: null),
@@ -341,6 +343,9 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'Permissões Multi-Empresa': (menuId: 'permissoes_multi_empresa', appScreen: null),
     'Dashboards Personalizados': (menuId: 'dashboards_personalizados', appScreen: null),
     'Relatórios Personalizados': (menuId: 'relatorios_personalizados', appScreen: null),
+    'Planilhas': (menuId: 'planilhas', appScreen: null),
+    'Construtor de Planilhas': (menuId: 'construtor_planilhas', appScreen: null),
+    'Itens publicados': (menuId: 'itens_publicados', appScreen: null),
     'Query Builder': (menuId: 'query_builder', appScreen: null),
     'Sessões': (menuId: 'sessoes', appScreen: null),
     'Meu Perfil': (menuId: 'perfil', appScreen: AppScreen.perfil),
@@ -417,6 +422,7 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'nfe_serie': 'Notas Fiscais',
     'nfe_finalidade': 'Notas Fiscais',
     'nfe_tipo_operacao': 'Notas Fiscais',
+    'cfop': 'Notas Fiscais',
     'nfe_import_xml': 'Notas Fiscais',
     'nfe_import_csv': 'Notas Fiscais',
     'consulta_dfe': 'Notas Fiscais',
@@ -597,8 +603,12 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
       return email == 'wlclimaco@gmail.com';
     }
 
+    // a propria tela de itens publicados mostra so o que o usuario pode ver
+    if (menuItemId == 'itens_publicados') return true;
+
     // Itens exclusivos de MASTER
     const masterOnly = {
+      'construtor_planilhas',
       'sessoes',
       'config_admin',
       'config_sistema',
@@ -2167,6 +2177,9 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
       case "NF-e Tipo Operação":
         nav = _pushDynamicGrid(telaNome: 'nfe_tipo_operacao', sec: sec);
         break;
+      case "CFOP":
+        nav = _pushDynamicGrid(telaNome: 'cfop', sec: sec);
+        break;
       case "Importar XML NF-e":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileNfeImportXmlScreen()));
         break;
@@ -2462,6 +2475,15 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
         break;
       case "Relatórios de Ponto":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpRelatoriosPontoScreen()));
+        break;
+      case "Construtor de Planilhas":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileConstrutorPlanilhasScreen()));
+        break;
+      case "Itens publicados":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileItensPublicadosScreen()));
+        break;
+      case "Planilhas":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobilePlanilhaScreen()));
         break;
       case "Relatórios Personalizados":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileRelatoriosPersonalizadosScreen()));
@@ -2907,6 +2929,9 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
           _MoreMenuAction(Icons.approval, 'Solicitações de Acesso'),
           _MoreMenuAction(Icons.switch_account, 'Permissões Multi-Empresa'),
           _MoreMenuAction(Icons.pie_chart, 'Dashboards Personalizados'),
+          _MoreMenuAction(Icons.grid_on, 'Planilhas'),
+          _MoreMenuAction(Icons.grid_view, 'Construtor de Planilhas'),
+          _MoreMenuAction(Icons.star_outline, 'Itens publicados'),
           _MoreMenuAction(Icons.picture_as_pdf, 'Relatórios Personalizados'),
           _MoreMenuAction(Icons.terminal, 'Query Builder'),
           _MoreMenuAction(Icons.devices, 'Sessões'),
