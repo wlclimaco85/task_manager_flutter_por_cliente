@@ -77,8 +77,8 @@ class _ConsultaDfeScreenState extends State<ConsultaDfeScreen>
     });
   }
 
-  Future<void> _baixar(String nsu, int index) async {
-    final result = await ConsultaDfeCaller.baixar(nsu);
+  Future<void> _baixar(String nsu, String chave, int index) async {
+    final result = await ConsultaDfeCaller.baixar(nsu, chave);
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -344,7 +344,7 @@ class _ConsultaDfeScreenState extends State<ConsultaDfeScreen>
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 textStyle: const TextStyle(fontSize: 12),
                               ),
-                              onPressed: () => _baixar(nsu, i),
+                              onPressed: () => _baixar(nsu, chave.toString(), i),
                               icon: const Icon(Icons.download, size: 16),
                               label: const Text('Baixar'),
                             ),
