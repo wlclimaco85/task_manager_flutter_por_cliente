@@ -28,7 +28,10 @@ class ConsultaPlanilha {
   final List<String> colunas;
   final List<List<Object?>> linhas;
   final bool truncado;
-  const ConsultaPlanilha(this.colunas, this.linhas, this.truncado);
+  /// Consulta e rotulos usados -- o Construtor guarda como fonte do modelo.
+  final String? sql;
+  final Map<String, String> rotulos;
+  const ConsultaPlanilha(this.colunas, this.linhas, this.truncado, {this.sql, this.rotulos = const {}});
 }
 
 class PlanilhaException implements Exception {

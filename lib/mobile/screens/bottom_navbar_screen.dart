@@ -344,6 +344,8 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
     'Dashboards Personalizados': (menuId: 'dashboards_personalizados', appScreen: null),
     'Relatórios Personalizados': (menuId: 'relatorios_personalizados', appScreen: null),
     'Planilhas': (menuId: 'planilhas', appScreen: null),
+    'Construtor de Planilhas': (menuId: 'construtor_planilhas', appScreen: null),
+    'Itens publicados': (menuId: 'itens_publicados', appScreen: null),
     'Query Builder': (menuId: 'query_builder', appScreen: null),
     'Sessões': (menuId: 'sessoes', appScreen: null),
     'Meu Perfil': (menuId: 'perfil', appScreen: AppScreen.perfil),
@@ -601,8 +603,12 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
       return email == 'wlclimaco@gmail.com';
     }
 
+    // a propria tela de itens publicados mostra so o que o usuario pode ver
+    if (menuItemId == 'itens_publicados') return true;
+
     // Itens exclusivos de MASTER
     const masterOnly = {
+      'construtor_planilhas',
       'sessoes',
       'config_admin',
       'config_sistema',
@@ -2470,6 +2476,12 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
       case "Relatórios de Ponto":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileDpRelatoriosPontoScreen()));
         break;
+      case "Construtor de Planilhas":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileConstrutorPlanilhasScreen()));
+        break;
+      case "Itens publicados":
+        nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobileItensPublicadosScreen()));
+        break;
       case "Planilhas":
         nav = Navigator.push(context, MaterialPageRoute(builder: (_) => const MobilePlanilhaScreen()));
         break;
@@ -2918,6 +2930,8 @@ class _BottomNavBarScreenState extends State<BottomNavBarScreen> {
           _MoreMenuAction(Icons.switch_account, 'Permissões Multi-Empresa'),
           _MoreMenuAction(Icons.pie_chart, 'Dashboards Personalizados'),
           _MoreMenuAction(Icons.grid_on, 'Planilhas'),
+          _MoreMenuAction(Icons.grid_view, 'Construtor de Planilhas'),
+          _MoreMenuAction(Icons.star_outline, 'Itens publicados'),
           _MoreMenuAction(Icons.picture_as_pdf, 'Relatórios Personalizados'),
           _MoreMenuAction(Icons.terminal, 'Query Builder'),
           _MoreMenuAction(Icons.devices, 'Sessões'),

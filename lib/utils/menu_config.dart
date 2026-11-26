@@ -1,4 +1,5 @@
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'string_utils.dart';
 
 /// Definição de um item de menu
@@ -100,7 +101,43 @@ class MenuConfig {
   // Academia, Bolsa de Valores). Cada documento fiscal tem seu proprio
   // menu dedicado desde 2026-09-18 (pedido do usuario: o menu antigo
   // "Fiscal / NFC-e" misturava NF-e/NFS-e/NFC-e, dificultando achar telas).
-  static const List<MenuGroup> groups = [
+  /// Indices de itens publicados pela empresa comecam aqui (nao entram na lista posicional de telas).
+  static const int kIndicePublicado = 100000;
+
+  static List<(String, MenuItem)> _publicados = const [];
+
+  /// Muda quando o menu publicado e' recarregado: o menu lateral escuta para se redesenhar.
+  static final ValueNotifier<int> versao = ValueNotifier<int>(0);
+
+  static void definirPublicados(List<(String, MenuItem)> itens) {
+    _publicados = List.unmodifiable(itens);
+    versao.value++;
+  }
+
+  /// Grupos fixos do app, sem os itens publicados.
+  static List<MenuGroup> get fixos => _gruposFixos;
+
+  /// Grupos fixos + itens publicados (no grupo escolhido; grupo novo vai para o fim). Menu lateral, busca e
+  /// Controle de Acesso usam esta lista, entao o item publicado aparece nos tres.
+  static List<MenuGroup> get groups {
+    if (_publicados.isEmpty) return _gruposFixos;
+    final porGrupo = <String, List<MenuItem>>{};
+    for (final (grupo, item) in _publicados) {
+      porGrupo.putIfAbsent(grupo, () => []).add(item);
+    }
+    final resultado = <MenuGroup>[
+      for (final g in _gruposFixos)
+        porGrupo.containsKey(g.label)
+            ? MenuGroup(id: g.id, label: g.label, icon: g.icon, items: [...g.items, ...porGrupo.remove(g.label)!])
+            : g,
+    ];
+    for (final e in porGrupo.entries) {
+      resultado.add(MenuGroup(id: 'pub_grupo_${e.key}', label: e.key, icon: FontAwesomeIcons.star, items: e.value));
+    }
+    return resultado;
+  }
+
+  static const List<MenuGroup> _gruposFixos = [
     MenuGroup(
       id: 'comercial',
       label: 'Comercial',
@@ -781,6 +818,11 @@ class MenuConfig {
             label: 'Planilhas',
             icon: FontAwesomeIcons.table,
             screenIndex: 220),
+        MenuItem(
+            id: 'construtor_planilhas',
+            label: 'Construtor de Planilhas',
+            icon: FontAwesomeIcons.tableCells,
+            screenIndex: 221),
       ],
     ),
     MenuGroup(

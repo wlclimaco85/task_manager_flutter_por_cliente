@@ -2,12 +2,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/menu_publicado_service.dart';
 import '../services/planilha_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/file_saver_compat.dart';
 import '../utils/grid_colors.dart';
 import '../utils/planilha_formula.dart';
 import '../utils/tenant_context.dart';
+import 'publicar_menu_dialog.dart';
 
 /// Planilha tipo Excel: celulas com formulas, colar do Excel, importar/exportar .xlsx, salvar por empresa/parceiro e
 /// (MASTER) trazer dados do sistema com SELECT. Cores somente pelos tokens GridColors do proprio app.
@@ -15,7 +17,16 @@ class PlanilhaView extends StatefulWidget {
   final PlanilhaService? servico;
   final bool? podeConsultar;
 
-  const PlanilhaView({super.key, this.servico, this.podeConsultar});
+  /// Modelo publicado no menu: abre com os dados atuais; o usuario so salva uma copia.
+  final int? modeloId;
+
+  /// Construtor de Planilhas: edita o modelo (layout + fontes de dados).
+  final ModeloPlanilha? edicaoModelo;
+  final MenuPublicadoService? menu;
+  final VoidCallback? onVoltar;
+
+  const PlanilhaView(
+      {super.key, this.servico, this.podeConsultar, this.modeloId, this.edicaoModelo, this.menu, this.onVoltar});
 
   @override
   State<PlanilhaView> createState() => _PlanilhaViewState();
@@ -28,6 +39,11 @@ class _PlanilhaViewState extends State<PlanilhaView> {
 
   late final PlanilhaService _svc = widget.servico ?? PlanilhaService();
   late final bool _podeConsultar = widget.podeConsultar ?? TenantContext.isMaster;
+
+  late final MenuPublicadoService _menu = widget.menu ?? MenuPublicadoService();
+  late final bool _construindo = widget.edicaoModelo != null;
+  List<FonteModelo> _fontes = [];
+  String? _descricao;
 
   final _nome = TextEditingController(text: 'Nova planilha');
   final _barra = TextEditingController();
@@ -47,7 +63,100 @@ class _PlanilhaViewState extends State<PlanilhaView> {
   @override
   void initState() {
     super.initState();
-    _executar('carregar as planilhas', () async => _salvas = await _svc.listar());
+    final modelo = widget.edicaoModelo;
+    if (modelo != null) {
+      _celulas = Map.of(modelo.celulas);
+      _id = modelo.id;
+      _nome.text = modelo.titulo;
+      _descricao = modelo.descricao;
+      _fontes = List.of(modelo.fontes);
+      _sincronizar();
+      return;
+    }
+    _executar('abrir a planilha', () async {
+      if (widget.modeloId != null) await _carregarModelo();
+      _salvas = await _svc.listar();
+    });
+  }
+
+  // ------------------------------------------------------------------ modelo publicado e construtor
+
+  Future<void> _carregarModelo() async {
+    final m = await _menu.abrirModelo(widget.modeloId!);
+    _substituir(m.celulas, nome: m.titulo);
+    if (m.truncado) _avisar('Alguma consulta foi limitada às primeiras linhas.');
+  }
+
+  Future<void> _atualizarDados() async {
+    if (await _podeDescartar()) await _executar('atualizar os dados', _carregarModelo);
+  }
+
+  Future<void> _salvarModelo() => _executar('salvar o modelo', () async {
+        final m = await _menu.salvarModelo(ModeloPlanilha(
+            id: _id, titulo: _nome.text.trim(), descricao: _descricao, celulas: _celulas, fontes: _fontes));
+        _id = m.id;
+        _alterada = false;
+        _avisar('Modelo salvo.');
+      });
+
+  Future<void> _novaFonte() async {
+    final r = await showDialog<ConsultaPlanilha>(context: context, builder: (_) => DadosSistemaDialog(servico: _svc));
+    final sql = r?.sql;
+    if (r == null || sql == null) return;
+    setState(() {
+      _fontes.removeWhere((f) => f.celula == _selecionada);
+      _fontes.add(FonteModelo(celula: _selecionada, sql: sql, rotulos: r.rotulos));
+      _alterada = true;
+    });
+    _avisar('Fonte adicionada na célula $_selecionada. Os dados são buscados quando a planilha for aberta.');
+  }
+
+  Future<void> _verFontes() => showDialog<void>(
+        context: context,
+        builder: (c) => StatefulBuilder(
+          builder: (c, atualizar) => AlertDialog(
+            title: const Text('Fontes de dados do modelo'),
+            content: SizedBox(
+              width: 620,
+              child: _fontes.isEmpty
+                  ? const Text('Nenhuma fonte. Selecione a célula inicial e use "Fonte de dados".')
+                  : SingleChildScrollView(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        for (final f in List.of(_fontes))
+                          ListTile(
+                            leading: Text(f.celula, style: const TextStyle(fontWeight: FontWeight.w700)),
+                            title: Text(f.sql, maxLines: 4, overflow: TextOverflow.ellipsis),
+                            trailing: IconButton(
+                              tooltip: 'Remover fonte',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () {
+                                setState(() {
+                                  _fontes.remove(f);
+                                  _alterada = true;
+                                });
+                                atualizar(() {});
+                              },
+                            ),
+                          )
+                      ]),
+                    ),
+            ),
+            actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Fechar'))],
+          ),
+        ),
+      );
+
+  Future<void> _publicar() async {
+    final id = _id;
+    if (_alterada || id == null) {
+      _avisar('Salve o modelo antes de publicar.', erro: true);
+      return;
+    }
+    await publicarNoMenu(context, tipo: 'PLANILHA', refId: id, titulo: _nome.text.trim(), servico: _menu);
+  }
+
+  Future<void> _voltar() async {
+    if (await _podeDescartar()) widget.onVoltar?.call();
   }
 
   @override
@@ -186,8 +295,14 @@ class _PlanilhaViewState extends State<PlanilhaView> {
 
   Future<void> _excluir() async {
     final id = _id;
-    if (id == null || !await _confirmar('Excluir a planilha "${_nome.text}"? Não é possível desfazer.')) return;
-    await _executar('excluir a planilha', () async {
+    final aviso = _construindo ? ' O item também sai do menu.' : '';
+    if (id == null || !await _confirmar('Excluir "${_nome.text}"?$aviso Não é possível desfazer.')) return;
+    await _executar('excluir', () async {
+      if (_construindo) {
+        await _menu.excluirModelo(id);
+        widget.onVoltar?.call();
+        return;
+      }
       await _svc.excluir(id);
       _substituir({}, nome: 'Nova planilha');
       _salvas = await _svc.listar();
@@ -312,6 +427,8 @@ class _PlanilhaViewState extends State<PlanilhaView> {
         decoration: _cartao(),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Wrap(spacing: 12, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            if (widget.onVoltar != null)
+              IconButton(tooltip: 'Voltar', onPressed: _voltar, icon: const Icon(Icons.arrow_back)),
             Container(
               width: 44,
               height: 44,
@@ -327,10 +444,25 @@ class _PlanilhaViewState extends State<PlanilhaView> {
                   if (!_alterada) setState(() => _alterada = true);
                 },
                 style: TextStyle(fontWeight: FontWeight.w600, color: _tinta),
-                decoration: const InputDecoration(labelText: 'Nome da planilha', counterText: ''),
+                decoration: InputDecoration(
+                    labelText: _construindo ? 'Título do modelo' : 'Nome da planilha', counterText: ''),
               ),
             ),
-            SizedBox(
+            if (_construindo)
+              SizedBox(
+                width: 300,
+                child: TextFormField(
+                  initialValue: _descricao,
+                  maxLength: 500,
+                  style: TextStyle(color: _tinta),
+                  onChanged: (v) {
+                    _descricao = v;
+                    if (!_alterada) setState(() => _alterada = true);
+                  },
+                  decoration: const InputDecoration(labelText: 'Descrição', counterText: ''),
+                ),
+              ),
+            if (!_construindo) SizedBox(
               width: 240,
               child: DropdownButtonFormField<int>(
                 key: ValueKey('salvas-$_id-${_salvas.length}'),
@@ -353,20 +485,30 @@ class _PlanilhaViewState extends State<PlanilhaView> {
             scrollDirection: Axis.horizontal,
             child: Row(children: [
               FilledButton.icon(
-                onPressed: _ocupado ? null : _salvar,
+                onPressed: _ocupado ? null : (_construindo ? _salvarModelo : _salvar),
                 icon: const Icon(Icons.save_outlined, size: 18),
-                label: const Text('Salvar'),
+                label: Text(_construindo
+                    ? 'Salvar modelo'
+                    : widget.modeloId != null
+                        ? 'Salvar cópia'
+                        : 'Salvar'),
                 style: FilledButton.styleFrom(
                     backgroundColor: GridColors.primary,
                     foregroundColor: Colors.white,
                     minimumSize: const Size(44, 44)),
               ),
-              _botao(Icons.note_add_outlined, 'Nova', _nova),
+              if (!_construindo && widget.modeloId == null) _botao(Icons.note_add_outlined, 'Nova', _nova),
+              if (widget.modeloId != null) _botao(Icons.refresh, 'Atualizar dados', _atualizarDados),
+              if (_construindo) ...[
+                _botao(Icons.add_link, 'Fonte de dados', _novaFonte),
+                _botao(Icons.list_alt, 'Fontes (${_fontes.length})', _verFontes),
+                _botao(Icons.menu_open, 'Publicar no menu', _publicar),
+              ],
               _separador(),
               _botao(Icons.upload_file, 'Importar Excel', _importar),
               _botao(Icons.download, 'Exportar Excel', _exportar),
               _botao(Icons.content_paste, 'Colar', _colar),
-              if (_podeConsultar) ...[
+              if (_podeConsultar && !_construindo && widget.modeloId == null) ...[
                 _separador(),
                 FilledButton.icon(
                   onPressed: _ocupado ? null : _dadosDoSistema,
@@ -605,7 +747,8 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
 
   /// Cabecalhos com o rotulo do dicionario quando a coluna veio da tabela escolhida.
   ConsultaPlanilha _comRotulos(ConsultaPlanilha r) =>
-      ConsultaPlanilha([for (final c in r.colunas) _campos[c] ?? c], r.linhas, r.truncado);
+      ConsultaPlanilha([for (final c in r.colunas) _campos[c] ?? c], r.linhas, r.truncado,
+          sql: _sql.text, rotulos: Map.of(_campos));
 
   Future<void> _consultar() => _executar(() async {
         _resultado = null;

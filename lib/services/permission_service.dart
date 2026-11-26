@@ -149,6 +149,7 @@ class PermissionService {
     'dashboards_personalizados': 'dashboards_personalizados',
     'relatorios_personalizados': 'relatorios_personalizados',
     'planilhas': 'planilhas',
+    'construtor_planilhas': 'construtor_planilhas',
     // Departamento Pessoal: fechamento da empresa e relatorios de ponto (telaNome = id do menu, mesmo nome do backend)
     'dp_fechamento_empresa': 'dp_fechamento_empresa',
     'dp_relatorios': 'dp_relatorios',
@@ -326,6 +327,8 @@ class PermissionService {
 
   /// Obter telaNome para um menuItem.id
   static String? _getTelaNomeForMenuItem(String menuItemId) {
+    // itens publicados pela empresa usam o proprio id como telaNome ("pub_{id}")
+    if (menuItemId.startsWith('pub_')) return menuItemId;
     return _menuIdToTelaNome[menuItemId];
   }
 
