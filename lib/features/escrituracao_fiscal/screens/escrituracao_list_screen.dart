@@ -1,3 +1,4 @@
+import '../../../utils/app_logger.dart';
 import 'package:flutter/material.dart';
 import '../../../services/escrituracao_fiscal_service.dart';
 import '../../../models/escrituracao_fiscal_model.dart';
@@ -45,6 +46,7 @@ class _EscrituracaoListScreenState extends State<EscrituracaoListScreen> {
         _loading = false;
       });
     } catch (e) {
+      AppLogger.i.warn('escrituracao_list_screen: $e');
       if (!mounted) return;
       setState(() {
         _error = e.toString();
@@ -124,6 +126,7 @@ class _EscrituracaoListScreenState extends State<EscrituracaoListScreen> {
       );
       _load();
     } catch (e) {
+      AppLogger.i.warn('escrituracao_list_screen: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao gerar: $e')),
