@@ -27,6 +27,7 @@ import '../../../widgets/generic_grid_windows_screen.dart'
         BulkAction;
 
 import '../models/telas_model.dart';
+import '../utils/campo_tela_tenant.dart';
 import '../config/screen_field_overrides.dart';
 
 typedef SecurityCheck = bool Function(String permission);
@@ -367,7 +368,7 @@ Future<TelaConfig> _loadTela() async {
             : (f.fieldType == TelaFieldType.boolean)
                 ? true
                 : f.enabled,
-        defaultValue: f.defaultValue,
+        defaultValue: valorPadraoDoCampo(f),
         fileConfig: f.fieldType == TelaFieldType.file
             ? FileConfig(
                 allowedExtensions: f.allowedExtensions,

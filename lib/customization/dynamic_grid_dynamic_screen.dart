@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../models/auth_utility.dart';
 import '../models/telas_model.dart';
+import '../utils/campo_tela_tenant.dart';
 import '../services/acao_java_service.dart';
 import '../services/dicionario_campo_service.dart';
 import '../utils/tela_personalizacao.dart';
@@ -643,7 +644,7 @@ Future<TelaConfig> _loadTelaConfig() async {
       enabled: isAutoDropdown || isMulti || f.fieldType == TelaFieldType.boolean
           ? true
           : f.enabled,
-      defaultValue: f.defaultValue,
+      defaultValue: valorPadraoDoCampo(f),
       fileConfig: f.fieldType == TelaFieldType.file
           ? FileConfig(
               allowedExtensions: f.allowedExtensions,
