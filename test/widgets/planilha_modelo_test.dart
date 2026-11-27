@@ -70,6 +70,17 @@ void main() {
     expect(fonte.rotulos, {'nome': 'Nome do produto'});
     expect(menu.salvo!.celulas, isEmpty);
     expect(find.text('Fontes (1)'), findsOneWidget);
+    // a previa aparece na grade (cabecalho na B2, dado na B3) mas nao foi para o modelo salvo
+    expect(find.text('Nome do produto'), findsWidgets);
+    expect(find.text('Cafe'), findsWidgets);
+
+    final antes = t.getSize(find.byKey(const ValueKey('C5'))).width;
+    await t.tap(find.byTooltip('Diminuir largura das colunas'));
+    await t.pump();
+    expect(t.getSize(find.byKey(const ValueKey('C5'))).width, antes - 20);
+    await t.tap(find.byTooltip('Aumentar largura das colunas'));
+    await t.pump();
+    expect(t.getSize(find.byKey(const ValueKey('C5'))).width, antes);
   });
 
   testWidgets('item publicado: abre com dados atuais, atualiza e so salva copia', (t) async {

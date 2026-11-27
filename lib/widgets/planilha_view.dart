@@ -45,7 +45,7 @@ class PlanilhaView extends StatefulWidget {
 
 class _PlanilhaViewState extends State<PlanilhaView> {
   static const double _alturaLinha = 44;
-  static const double _larguraColuna = 120;
+  double _larguraColuna = 120;
   static const double _larguraIndice = 52;
 
   late final PlanilhaService _svc = widget.servico ?? PlanilhaService();
@@ -55,6 +55,9 @@ class _PlanilhaViewState extends State<PlanilhaView> {
   late final MenuPublicadoService _menu = widget.menu ?? MenuPublicadoService();
   late final bool _construindo = widget.edicaoModelo != null;
   List<FonteModelo> _fontes = [];
+  Map<String, String> _previa = {};
+
+  PlanilhaCalculo _calcular() => PlanilhaCalculo(_previa.isEmpty ? _celulas : {..._celulas, ..._previa});
   String? _descricao;
 
   final _nome = TextEditingController(text: 'Nova planilha');
@@ -104,6 +107,7 @@ class _PlanilhaViewState extends State<PlanilhaView> {
       _descricao = modelo.descricao;
       _fontes = List.of(modelo.fontes);
       _sincronizar();
+      if (_fontes.isNotEmpty && _podeConsultar) _executar('carregar a prévia dos dados', _carregarPrevias);
       return;
     }
     if (_planilhaDoUsuario) {
@@ -139,6 +143,41 @@ class _PlanilhaViewState extends State<PlanilhaView> {
         _avisar('Modelo salvo.');
       });
 
+  /// Previa (so na tela, nunca salva no modelo) do que cada fonte traz quando a planilha publicada e' aberta.
+  Future<void> _carregarPrevias() async {
+    final previa = <String, String>{};
+    final falhas = <String>[];
+    for (final f in List.of(_fontes)) {
+      final inicio = posicao(f.celula);
+      if (inicio == null) continue;
+      try {
+        final r = await _svc.consultar(f.sql);
+        final linhas = <List<dynamic>>[
+          if (f.cabecalho) [for (final c in r.colunas) f.rotulos[c] ?? c],
+          ...r.linhas,
+        ];
+        for (var l = 0; l < linhas.length && inicio.$1 + l < kPlanilhaMaxLinhas; l++) {
+          for (var c = 0; c < linhas[l].length && inicio.$2 + c < kPlanilhaMaxColunas; c++) {
+            final v = celulaDeValor(linhas[l][c]);
+            if (v.isNotEmpty) previa[endereco(inicio.$1 + l, inicio.$2 + c)] = v;
+          }
+        }
+      } catch (e, s) {
+        AppLogger.i.warn('PlanilhaView: previa da fonte em ${f.celula} falhou: $e | $s');
+        falhas.add('${f.celula}: $e');
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _previa = previa;
+      _calculo = _calcular();
+    });
+    if (falhas.isNotEmpty) _avisar('Não foi possível carregar a prévia. ${falhas.join(' ')}', erro: true);
+  }
+
+  void _mudarLargura(double passo) =>
+      setState(() => _larguraColuna = (_larguraColuna + passo).clamp(60.0, 320.0));
+
   Future<void> _novaFonte() async {
     final r = await showDialog<ConsultaPlanilha>(context: context, builder: (_) => DadosSistemaDialog(servico: _svc));
     final sql = r?.sql;
@@ -148,7 +187,8 @@ class _PlanilhaViewState extends State<PlanilhaView> {
       _fontes.add(FonteModelo(celula: _selecionada, sql: sql, rotulos: r.rotulos));
       _alterada = true;
     });
-    _avisar('Fonte adicionada na célula $_selecionada. Os dados são buscados quando a planilha for aberta.');
+    _avisar('Fonte adicionada na célula $_selecionada. Os dados abaixo são uma prévia: não ficam salvos no modelo.');
+    await _executar('carregar a prévia dos dados', _carregarPrevias);
   }
 
   Future<void> _verFontes() => showDialog<void>(
@@ -175,6 +215,7 @@ class _PlanilhaViewState extends State<PlanilhaView> {
                                   _alterada = true;
                                 });
                                 atualizar(() {});
+                                _carregarPrevias();
                               },
                             ),
                           )
@@ -243,7 +284,7 @@ class _PlanilhaViewState extends State<PlanilhaView> {
   void _aposMudanca({bool fixar = true}) {
     _alterada = true;
     if (fixar) _celulas = _comTenant(_celulas);
-    _calculo = PlanilhaCalculo(_celulas);
+    _calculo = _calcular();
   }
 
   void _editar(String valor) {
@@ -608,7 +649,7 @@ class _PlanilhaViewState extends State<PlanilhaView> {
   @override
   Widget build(BuildContext context) {
     var ultimaLinha = 0, ultimaColuna = 0;
-    for (final ref in _celulas.keys) {
+    for (final ref in [..._celulas.keys, ..._previa.keys]) {
       final p = posicao(ref);
       if (p == null) continue;
       if (p.$1 > ultimaLinha) ultimaLinha = p.$1;
@@ -844,6 +885,19 @@ class _PlanilhaViewState extends State<PlanilhaView> {
                   hintText: 'Valor ou fórmula, ex.: =SOMA(A1:A10)'),
             ),
           ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: 'Diminuir largura das colunas',
+            onPressed: _larguraColuna > 60 ? () => _mudarLargura(-20) : null,
+            color: GridColors.primary,
+            icon: const Icon(Icons.remove_circle_outline),
+          ),
+          IconButton(
+            tooltip: 'Aumentar largura das colunas',
+            onPressed: _larguraColuna < 320 ? () => _mudarLargura(20) : null,
+            color: GridColors.primary,
+            icon: const Icon(Icons.add_circle_outline),
+          ),
         ]),
       );
 
@@ -960,7 +1014,9 @@ class _PlanilhaViewState extends State<PlanilhaView> {
                             _editar(v);
                           },
                           onSubmitted: (_) => _selecionar(l + 1, c),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
+                            hintText: _previa[endereco(l, c)],
+                            hintStyle: TextStyle(fontSize: 13, color: _tinta),
                             filled: false,
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
@@ -1154,7 +1210,7 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 labelText: 'Consulta SELECT (avançado)',
-                helperText: 'Somente leitura. Filtre a empresa com :empresaId (e :parceiroId se precisar).',
+                helperText: 'Somente leitura. O filtro de empresa (e parceiro) do seu login é aplicado automaticamente.',
                 helperMaxLines: 2,
               ),
             ),
