@@ -100,8 +100,12 @@ class ConsultaPlanilha {
 
   /// Posicao da coluna no resultado -> tipo, para a coluna continuar lista, pesquisa ou caixa de marcar.
   final Map<int, ColunaPlanilha> tipos;
+
+  /// Fonte de modelo: celula inicial escolhida e colunas com total.
+  final String? celula;
+  final List<String> somas;
   const ConsultaPlanilha(this.colunas, this.linhas, this.truncado,
-      {this.sql, this.rotulos = const {}, this.tipos = const {}});
+      {this.sql, this.rotulos = const {}, this.tipos = const {}, this.celula, this.somas = const []});
 }
 
 class PlanilhaException implements Exception {
@@ -220,6 +224,17 @@ class PlanilhaService {
   /// SELECT somente leitura (so MASTER; o servidor exige o filtro :empresaId).
   Future<ConsultaPlanilha> consultar(String sql) async {
     final j = _json(await TenantContext.post('$_raiz/consultar', {'sql': sql}), 'executar a consulta');
+    return ConsultaPlanilha(
+      [for (final c in j['colunas'] as List) '$c'],
+      [for (final l in j['linhas'] as List) List<Object?>.from(l as List)],
+      j['truncado'] == true,
+    );
+  }
+
+  /// Consulta de um campo, com os parametros lidos das colunas (o servidor converte o tipo).
+  Future<ConsultaPlanilha> consultarCampo(String sql, Map<String, String> parametros) async {
+    final j = _json(
+        await TenantContext.post('$_raiz/consultar', {'sql': sql, 'parametros': parametros}), 'executar a consulta');
     return ConsultaPlanilha(
       [for (final c in j['colunas'] as List) '$c'],
       [for (final l in j['linhas'] as List) List<Object?>.from(l as List)],

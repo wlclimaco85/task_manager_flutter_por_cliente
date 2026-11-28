@@ -14,6 +14,7 @@ import '../utils/planilha_formula.dart';
 import '../utils/planilha_tenant.dart';
 import '../utils/planilha_tipos.dart';
 import '../utils/tenant_context.dart';
+import 'campo_select_dialog.dart';
 import 'coluna_planilha_dialogs.dart';
 import 'compartilhar_planilha_dialog.dart';
 import 'importar_planilha_dialog.dart';
@@ -151,6 +152,10 @@ class _PlanilhaViewState extends State<PlanilhaView> {
       final inicio = posicao(f.celula);
       if (inicio == null) continue;
       try {
+        if (f.porLinha) {
+          await _previaPorLinha(f, inicio, previa);
+          continue;
+        }
         final r = await _svc.consultar(f.sql);
         final linhas = <List<dynamic>>[
           if (f.cabecalho) [for (final c in r.colunas) f.rotulos[c] ?? c],
@@ -160,6 +165,17 @@ class _PlanilhaViewState extends State<PlanilhaView> {
           for (var c = 0; c < linhas[l].length && inicio.$2 + c < kPlanilhaMaxColunas; c++) {
             final v = celulaDeValor(linhas[l][c]);
             if (v.isNotEmpty) previa[endereco(inicio.$1 + l, inicio.$2 + c)] = v;
+          }
+        }
+        // linha de total, igual a que o servidor monta ao abrir a planilha publicada
+        final total = inicio.$1 + linhas.length;
+        if (r.linhas.isNotEmpty && r.colunas.any(f.somas.contains) && total < kPlanilhaMaxLinhas) {
+          final primeira = inicio.$1 + (f.cabecalho ? 1 : 0);
+          for (var c = 0; c < r.colunas.length && inicio.$2 + c < kPlanilhaMaxColunas; c++) {
+            final letra = nomeColuna(inicio.$2 + c);
+            if (f.somas.contains(r.colunas[c])) {
+              previa['$letra${total + 1}'] = '=SOMA($letra${primeira + 1}:$letra$total)';
+            }
           }
         }
       } catch (e, s) {
@@ -175,19 +191,91 @@ class _PlanilhaViewState extends State<PlanilhaView> {
     if (falhas.isNotEmpty) _avisar('Não foi possível carregar a prévia. ${falhas.join(' ')}', erro: true);
   }
 
+  static const int _maxConsultasDaPrevia = 50;
+
+  /// Previa do campo por SELECT: uma consulta por combinacao diferente de valores das colunas ligadas.
+  Future<void> _previaPorLinha(FonteModelo f, (int, int) alvo, Map<String, String> previa) async {
+    final tudo = {..._celulas, ...previa};
+    var ultima = -1;
+    for (final ref in tudo.keys) {
+      final p = posicao(ref);
+      if (p != null && f.parametros.containsValue(nomeColuna(p.$2)) && p.$1 > ultima) ultima = p.$1;
+    }
+    final achados = <String, String>{};
+    for (var l = alvo.$1; l <= ultima; l++) {
+      final informados = <String, String>{};
+      for (final p in f.parametros.entries) {
+        final v = tudo['${p.value}${l + 1}'] ?? '';
+        if (v.isNotEmpty && !v.startsWith('=')) informados[p.key] = v;
+      }
+      if (informados.length < f.parametros.length) continue;
+      final chave = informados.toString();
+      var achado = achados[chave];
+      if (achado == null) {
+        if (achados.length >= _maxConsultasDaPrevia) return;
+        final r = await _svc.consultarCampo(f.sql, informados);
+        achado = r.linhas.isEmpty ? '' : celulaDeValor(r.linhas.first.first);
+        achados[chave] = achado;
+      }
+      if (achado.isNotEmpty) previa[endereco(l, alvo.$2)] = achado;
+    }
+  }
+
   void _mudarLargura(double passo) =>
       setState(() => _larguraColuna = (_larguraColuna + passo).clamp(60.0, 320.0));
 
   Future<void> _novaFonte() async {
-    final r = await showDialog<ConsultaPlanilha>(context: context, builder: (_) => DadosSistemaDialog(servico: _svc));
+    final r = await showDialog<ConsultaPlanilha>(
+        context: context, builder: (_) => DadosSistemaDialog(servico: _svc, celulaInicial: _selecionada));
     final sql = r?.sql;
     if (r == null || sql == null) return;
+    await _gravarFonte(
+        FonteModelo(celula: r.celula ?? _selecionada, sql: sql, rotulos: r.rotulos, somas: r.somas));
+  }
+
+  Map<String, String> get _titulosDasColunas => {
+        for (var c = 0; c < kPlanilhaMaxColunas; c++) nomeColuna(c): _calculo.exibir(endereco(0, c))
+      };
+
+  Future<void> _novoCampo() async {
+    final f = await showDialog<FonteModelo>(
+        context: context, builder: (_) => CampoSelectDialog(celula: _selecionada, titulos: _titulosDasColunas));
+    if (f != null) await _gravarFonte(f);
+  }
+
+  Future<void> _editarFonte(FonteModelo antiga) async {
+    if (antiga.porLinha) {
+      final f = await showDialog<FonteModelo>(
+          context: context,
+          builder: (_) => CampoSelectDialog(celula: antiga.celula, editando: antiga, titulos: _titulosDasColunas));
+      if (f != null) await _gravarFonte(f, antiga: antiga);
+      return;
+    }
+    final r = await showDialog<ConsultaPlanilha>(
+        context: context,
+        builder: (_) => DadosSistemaDialog(servico: _svc, celulaInicial: antiga.celula, editando: antiga));
+    final sql = r?.sql;
+    if (r == null || sql == null) return;
+    await _gravarFonte(
+        FonteModelo(
+            celula: r.celula ?? antiga.celula,
+            sql: sql,
+            cabecalho: antiga.cabecalho,
+            rotulos: {...antiga.rotulos, ...r.rotulos},
+            somas: r.somas),
+        antiga: antiga);
+  }
+
+  /// Uma fonte por celula. Ao editar, mantem a posicao na lista: um campo pode depender da fonte anterior.
+  Future<void> _gravarFonte(FonteModelo nova, {FonteModelo? antiga}) async {
     setState(() {
-      _fontes.removeWhere((f) => f.celula == _selecionada);
-      _fontes.add(FonteModelo(celula: _selecionada, sql: sql, rotulos: r.rotulos));
+      final posicaoAntiga = antiga == null ? -1 : _fontes.indexOf(antiga);
+      _fontes.removeWhere((f) => f == antiga || f.celula == nova.celula);
+      _fontes.insert(posicaoAntiga < 0 || posicaoAntiga > _fontes.length ? _fontes.length : posicaoAntiga, nova);
       _alterada = true;
     });
-    _avisar('Fonte adicionada na célula $_selecionada. Os dados abaixo são uma prévia: não ficam salvos no modelo.');
+    final feito = antiga == null ? 'adicionada' : 'alterada';
+    _avisar('Fonte $feito na célula ${nova.celula}. Os dados abaixo são uma prévia: não ficam salvos no modelo.');
     await _executar('carregar a prévia dos dados', _carregarPrevias);
   }
 
@@ -206,18 +294,34 @@ class _PlanilhaViewState extends State<PlanilhaView> {
                           ListTile(
                             leading: Text(f.celula, style: const TextStyle(fontWeight: FontWeight.w700)),
                             title: Text(f.sql, maxLines: 4, overflow: TextOverflow.ellipsis),
-                            trailing: IconButton(
-                              tooltip: 'Remover fonte',
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () {
-                                setState(() {
-                                  _fontes.remove(f);
-                                  _alterada = true;
-                                });
-                                atualizar(() {});
-                                _carregarPrevias();
-                              },
-                            ),
+                            subtitle: f.porLinha
+                                ? Text('Campo por SELECT: '
+                                    '${f.parametros.entries.map((p) => ':${p.key} = coluna ${p.value}').join(', ')}')
+                                : f.somas.isEmpty
+                                    ? null
+                                    : Text('Soma: ${f.somas.map((s) => f.rotulos[s] ?? s).join(', ')}'),
+                            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                              IconButton(
+                                tooltip: 'Editar fonte',
+                                icon: const Icon(Icons.edit_outlined),
+                                onPressed: () {
+                                  Navigator.pop(c);
+                                  _editarFonte(f);
+                                },
+                              ),
+                              IconButton(
+                                tooltip: 'Remover fonte',
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () {
+                                  setState(() {
+                                    _fontes.remove(f);
+                                    _alterada = true;
+                                  });
+                                  atualizar(() {});
+                                  _carregarPrevias();
+                                },
+                              ),
+                            ]),
                           )
                       ]),
                     ),
@@ -784,6 +888,7 @@ class _PlanilhaViewState extends State<PlanilhaView> {
               if (widget.modeloId != null) _botao(Icons.refresh, 'Atualizar dados', _atualizarDados),
               if (_construindo) ...[
                 _botao(Icons.add_link, 'Fonte de dados', _novaFonte),
+                _botao(Icons.manage_search, 'Campo por SELECT', _novoCampo),
                 _botao(Icons.list_alt, 'Fontes (${_fontes.length})', _verFontes),
                 _botao(Icons.menu_open, 'Publicar no menu', _publicar),
               ],
@@ -1065,7 +1170,11 @@ class _PlanilhaViewState extends State<PlanilhaView> {
 /// ve a previa e insere na planilha.
 class DadosSistemaDialog extends StatefulWidget {
   final PlanilhaService servico;
-  const DadosSistemaDialog({super.key, required this.servico});
+
+  /// Informada pelo Construtor: a consulta vira fonte do modelo (permite mudar a celula e escolher somas).
+  final String? celulaInicial;
+  final FonteModelo? editando;
+  const DadosSistemaDialog({super.key, required this.servico, this.celulaInicial, this.editando});
 
   @override
   State<DadosSistemaDialog> createState() => _DadosSistemaDialogState();
@@ -1084,13 +1193,50 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
   @override
   void initState() {
     super.initState();
-    _executar(() async => _fontes = await widget.servico.fontes());
+    final antiga = widget.editando;
+    if (antiga != null) {
+      _sql.text = antiga.sql;
+      _somas.addAll(antiga.somas);
+    }
+    _executar(() async {
+      _fontes = await widget.servico.fontes();
+      if (antiga != null) _resultado = await widget.servico.consultar(antiga.sql);
+    });
   }
+
+  late final _celula = TextEditingController(text: widget.celulaInicial ?? '');
+  final Set<String> _somas = {};
 
   @override
   void dispose() {
     _sql.dispose();
+    _celula.dispose();
     super.dispose();
+  }
+
+  String _rotulo(String coluna) => _campos[coluna] ?? widget.editando?.rotulos[coluna] ?? coluna;
+
+  /// Colunas que fazem sentido somar: as com numero no resultado, mais as ja marcadas.
+  List<String> _somaveis(ConsultaPlanilha r) => [
+        for (var i = 0; i < r.colunas.length; i++)
+          if (_somas.contains(r.colunas[i]) || r.linhas.any((l) => l[i] is num)) r.colunas[i]
+      ];
+
+  void _inserir(ConsultaPlanilha r) {
+    final celula = _celula.text.trim().toUpperCase();
+    if (widget.celulaInicial != null && posicao(celula) == null) {
+      setState(() => _erro = 'Informe a célula inicial, por exemplo A1.');
+      return;
+    }
+    final c = _comRotulos(r);
+    Navigator.pop(
+        context,
+        ConsultaPlanilha(c.colunas, c.linhas, c.truncado,
+            sql: c.sql,
+            rotulos: c.rotulos,
+            tipos: c.tipos,
+            celula: widget.celulaInicial == null ? null : celula,
+            somas: [for (final s in r.colunas) if (_somas.contains(s)) s]));
   }
 
   Future<void> _executar(Future<void> Function() tarefa) async {
@@ -1161,6 +1307,14 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
         width: 720,
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (widget.celulaInicial != null) ...[
+              TextField(
+                key: const Key('fonte-celula'),
+                controller: _celula,
+                decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Célula inicial'),
+              ),
+              const SizedBox(height: 12),
+            ],
             DropdownMenu<String>(
               expandedInsets: EdgeInsets.zero,
               enableFilter: true,
@@ -1226,13 +1380,27 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
-                  columns: [for (final c in r.colunas) DataColumn(label: Text(_campos[c] ?? c))],
+                  columns: [for (final c in r.colunas) DataColumn(label: Text(_rotulo(c)))],
                   rows: [
                     for (final l in r.linhas.take(5))
                       DataRow(cells: [for (final v in l) DataCell(Text('${v ?? ''}'))])
                   ],
                 ),
               ),
+              if (widget.celulaInicial != null && _somaveis(r).isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text('Somar no final', style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  for (final c in _somaveis(r))
+                    FilterChip(
+                      key: ValueKey('somar-$c'),
+                      label: Text(_rotulo(c)),
+                      selected: _somas.contains(c),
+                      onSelected: (v) => setState(() => v ? _somas.add(c) : _somas.remove(c)),
+                    )
+                ]),
+              ],
             ],
           ]),
         ),
@@ -1241,8 +1409,8 @@ class _DadosSistemaDialogState extends State<DadosSistemaDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
         OutlinedButton(onPressed: _ocupado ? null : _consultar, child: const Text('Consultar')),
         FilledButton(
-          onPressed: r == null || _ocupado ? null : () => Navigator.pop(context, _comRotulos(r)),
-          child: const Text('Inserir na célula'),
+          onPressed: r == null || _ocupado ? null : () => _inserir(r),
+          child: Text(widget.editando == null ? 'Inserir na célula' : 'Salvar fonte'),
         ),
       ],
     );

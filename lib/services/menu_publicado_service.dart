@@ -49,16 +49,39 @@ class FonteModelo {
   final bool cabecalho;
   final Map<String, String> rotulos;
 
-  const FonteModelo({required this.celula, required this.sql, this.cabecalho = true, this.rotulos = const {}});
+  /// Colunas do resultado que ganham total numa linha abaixo dos dados.
+  final List<String> somas;
+
+  /// Parametro do SELECT -> letra da coluna. Quando preenchido, a fonte completa um campo por linha.
+  final Map<String, String> parametros;
+
+  const FonteModelo(
+      {required this.celula,
+      required this.sql,
+      this.cabecalho = true,
+      this.rotulos = const {},
+      this.somas = const [],
+      this.parametros = const {}});
+
+  bool get porLinha => parametros.isNotEmpty;
 
   factory FonteModelo.fromJson(Map<String, dynamic> j) => FonteModelo(
         celula: '${j['celula']}',
         sql: '${j['sql']}',
         cabecalho: j['cabecalho'] == true,
         rotulos: {for (final e in ((j['rotulos'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
+        somas: [for (final s in (j['somas'] as List?) ?? const []) '$s'],
+        parametros: {for (final e in ((j['parametros'] as Map?) ?? const {}).entries) '${e.key}': '${e.value}'},
       );
 
-  Map<String, dynamic> toJson() => {'celula': celula, 'sql': sql, 'cabecalho': cabecalho, 'rotulos': rotulos};
+  Map<String, dynamic> toJson() => {
+        'celula': celula,
+        'sql': sql,
+        'cabecalho': cabecalho,
+        'rotulos': rotulos,
+        'somas': somas,
+        'parametros': parametros
+      };
 }
 
 class ModeloPlanilha {
